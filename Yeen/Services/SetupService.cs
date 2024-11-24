@@ -1,4 +1,5 @@
-﻿
+using Microsoft.EntityFrameworkCore;
+
 using Yeen.Services.Interfaces;
 
 using YeenDatabase;
@@ -16,7 +17,9 @@ namespace Yeen.Services {
 
         public async Task SetupServer() {
             _logger.Info("Checking server state;");
-            if (!(_yeenDatabaseContext.ServerSettings.FirstOrDefault()?.FirstLaunch ?? true)) {
+
+            var serverSettings = await _yeenDatabaseContext.ServerSettings.FirstOrDefaultAsync();
+            if (!(serverSettings?.FirstLaunch ?? true)) {
                 _logger.Info("This was not the first launch, skipping server setup. If you want to re-setup your server, use the cli tool to reset yeen.");
                 return;
             }
