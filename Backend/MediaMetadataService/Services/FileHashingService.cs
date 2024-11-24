@@ -17,7 +17,7 @@ namespace MediaMetadataService.Services {
             const int BUFFER_SIZE = 4096;
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BUFFER_SIZE);
 
-            const int ONE_MEBIBYTE = 1024 * 1024;
+            const int ONE_MEBIBYTE = 128 * 1024;
             var length = new FileInfo(filePath).Length;
             await using var stream = new ChunkedStream(fs, BUFFER_SIZE, length > ONE_MEBIBYTE ? length / ONE_MEBIBYTE * BUFFER_SIZE : 0);
 

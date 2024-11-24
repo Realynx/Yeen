@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.Metrics;
+﻿using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Threading.Tasks;
 
 using MediaMetadataService.Services.Interfaces;
 
@@ -29,15 +31,19 @@ namespace MediaMetadataService.Services {
                 _logger.Error($"Media path does not exist \"{directoryPath}\"");
                 return;
             }
+            var stopWatch = new Stopwatch();
 
             _logger.Info($"Starting media scan [{directoryPath}]");
+            stopWatch.Start();
 
             var directoryInfo = new DirectoryInfo(directoryPath);
             var allSubFiles = directoryInfo.EnumerateFiles("*.*", SearchOption.AllDirectories).ToArray();
 
             var allvideoFiles = allSubFiles.Where(i => _videoFormats.Contains(i.Extension, StringComparer.OrdinalIgnoreCase)).ToArray();
             var allmusicFiles = allSubFiles.Where(i => _musicFormats.Contains(i.Extension, StringComparer.OrdinalIgnoreCase)).ToArray();
-            _logger.Info($"Found {allvideoFiles.Length} video files. Found {allmusicFiles.Length} music files.");
+
+            stopWatch.Stop();
+            _logger.Info($"Found {allvideoFiles.Length} video files. Found {allmusicFiles.Length} music files. In {stopWatch.ElapsedMilliseconds / 1000} seconds.");
 
             _logger.Debug($"Updating database with media entries");
             await UpdateOrAddVideoMedia(allvideoFiles);
@@ -46,29 +52,46 @@ namespace MediaMetadataService.Services {
         private async Task UpdateOrAddVideoMedia(FileInfo[] videoFiles) {
             int added = 0, updated = 0;
 
-            foreach (var videoFile in videoFiles) {
-                var fileHash = await _fileHashingService.CalculateSHA256(videoFile.FullName);
+            var maxParallelism = 25;
+            var semaphore = new SemaphoreSlim(maxParallelism);
 
-                if (_dbContext.MediaEntries.FirstOrDefault(i => i.FilePath == videoFile.FullName) is MediaEntry existingEntry) {
-                    existingEntry.Checksum = fileHash;
+            var runningTasks = videoFiles.Select(async videoFile => {
+                await semaphore.WaitAsync();
 
-                    _dbContext.MediaEntries.Update(existingEntry);
-                    await _dbContext.SaveChangesAsync();
+                try {
+                    var fileHash = await _fileHashingService.CalculateSHA256(videoFile.FullName);
+                    Interlocked.Increment(ref added);
+                }
+                catch {
 
-                    updated++;
-                    continue;
+                }
+                finally {
+                    semaphore.Release();
                 }
 
-                var mediaEntry = new MediaEntry() {
-                    FilePath = videoFile.FullName,
-                    Checksum = fileHash
-                };
 
-                _dbContext.MediaEntries.Add(mediaEntry);
-                await _dbContext.SaveChangesAsync();
+                //if (_dbContext.MediaEntries.FirstOrDefault(i => i.FilePath == videoFile.FullName) is MediaEntry existingEntry) {
+                //    existingEntry.Checksum = fileHash;
 
-                added++;
-            }
+                //    //  _dbContext.MediaEntries.Update(existingEntry);
+                //    // await _dbContext.SaveChangesAsync();
+
+                //    updated++;
+                //    return;
+                //}
+
+                //var mediaEntry = new MediaEntry() {
+                //    FilePath = videoFile.FullName,
+                //    Checksum = fileHash
+                //};
+
+                // _dbContext.MediaEntries.Add(mediaEntry);
+                // await _dbContext.SaveChangesAsync();
+
+                //added++;
+            });
+
+            await Task.WhenAll(runningTasks);
             _logger.Info($"Updated {updated} files, Added {added} new files.");
         }
     }
