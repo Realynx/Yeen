@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using YeenDatabase.Models.NewFolder;
+using YeenDatabase.Models.MediaTables;
 using YeenDatabase.Models.SettingsTables;
 
 namespace YeenDatabase {

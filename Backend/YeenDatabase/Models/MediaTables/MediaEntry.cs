@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace YeenDatabase.Models.NewFolder {
+namespace YeenDatabase.Models.MediaTables {
     public class MediaEntry {
         [Key]
         public Guid Id { get; set; }
