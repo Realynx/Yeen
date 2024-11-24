@@ -2,9 +2,13 @@
 
 public sealed class NthByteStream : Stream {
     private readonly Stream _baseStream;
-    private readonly int _nthByte;
+    private readonly long _nthByte;
 
-    public NthByteStream(Stream baseStream, int nthByte) {
+    public NthByteStream(Stream baseStream, long nthByte) {
+        if (nthByte < 1) {
+            throw new ArgumentOutOfRangeException(nameof(nthByte), "Value must be greater than 0.");
+        }
+
         _baseStream = baseStream;
         _nthByte = nthByte;
     }
@@ -47,6 +51,10 @@ public sealed class NthByteStream : Stream {
     }
 
     public override int Read(byte[] buffer, int offset, int count) {
+        if (_nthByte == 1) {
+            return _baseStream.Read(buffer, offset, count);
+        }
+
         var read = 0;
         for (var i = offset; i < offset + count; i++) {
             var readByte = _baseStream.ReadByte();
