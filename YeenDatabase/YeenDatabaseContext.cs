@@ -1,11 +1,16 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using YeenDatabase.Models;
+using YeenDatabase.Models.NewFolder;
+using YeenDatabase.Models.SettingsTables;
 
 namespace YeenDatabase {
     public class YeenDatabaseContext : DbContext {
-        public YeenDatabaseContext(DbContextOptions<YeenDatabaseContext> dbContextOptions) {
+        public YeenDatabaseContext(DbContextOptions<YeenDatabaseContext> dbContextOptions) : base(dbContextOptions) {
+            Database.EnsureCreated();
+        }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder) {
+            base.OnModelCreating(modelBuilder);
         }
 
         public DbSet<SearchTag> SearchTags { get; set; }
@@ -21,5 +26,7 @@ namespace YeenDatabase {
         public DbSet<MediaMetadata> MetadataEntries { get; set; }
         public DbSet<CoverPhoto> CoverPhotos { get; set; }
         public DbSet<CastActor> CastActors { get; set; }
+
+        public DbSet<ServerSettings> ServerSettings { get; set; }
     }
 }

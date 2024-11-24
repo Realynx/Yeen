@@ -1,4 +1,6 @@
-﻿namespace YeenLogging {
+﻿using Microsoft.Extensions.Configuration;
+
+namespace YeenLogging {
     public class LoggerConfig {
         public LoggerConfig(IConfiguration configuration) {
             configuration.GetSection(nameof(LoggerConfig)).Bind(this);

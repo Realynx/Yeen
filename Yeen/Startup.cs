@@ -1,4 +1,10 @@
-﻿using YeenDatabase;
+﻿using Microsoft.EntityFrameworkCore;
+
+using Yeen.Services;
+
+using YeenDatabase;
+
+using YeenLogging;
 
 namespace Yeen {
     public static class Startup {
@@ -13,7 +19,12 @@ namespace Yeen {
         public static void ConfigureServices(IServiceCollection serviceDescriptors) {
 
             serviceDescriptors
-                .AddSqlite<YeenDatabaseContext>("Data Source=yeenState.sqlite;Version=3;Foreign Keys=True;");
+                .AddDbContext<YeenDatabaseContext>(options => options.UseSqlite("Data Source=./yeenState.db;Foreign Keys=True;"), ServiceLifetime.Singleton)
+                .AddSingleton<LoggerConfig>();
+
+            serviceDescriptors
+                .AddSingleton<YeenLogging.ILogger, Logger>()
+                .AddSingleton<SetupService>();
         }
     }
 }

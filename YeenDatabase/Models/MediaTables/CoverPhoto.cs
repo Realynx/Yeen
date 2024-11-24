@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace YeenDatabase.Models {
+namespace YeenDatabase.Models.NewFolder {
     public class CoverPhoto {
         [Key]
         public Guid Id { get; set; }

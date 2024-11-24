@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace YeenDatabase.Models {
-    public class Episode {
+namespace YeenDatabase.Models.NewFolder {
+    public class Audio {
         [Key]
         public Guid Id { get; set; }
 
