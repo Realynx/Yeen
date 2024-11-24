@@ -17,9 +17,9 @@ namespace MediaMetadataService.Services {
             const int BUFFER_SIZE = 4096;
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BUFFER_SIZE);
 
-            const int ONE_MEBIBYTE = 128 * 1024;
+            const int CHUNK_SIZE = 128 * 1024;
             var length = new FileInfo(filePath).Length;
-            await using var stream = new ChunkedStream(fs, BUFFER_SIZE, length > ONE_MEBIBYTE ? length / ONE_MEBIBYTE * BUFFER_SIZE : 0);
+            await using var stream = new ChunkedStream(fs, BUFFER_SIZE, length > CHUNK_SIZE ? length / CHUNK_SIZE * BUFFER_SIZE : 0);
 
             using var sha256 = SHA256.Create();
 
@@ -27,7 +27,7 @@ namespace MediaMetadataService.Services {
             var hashBytes = await sha256.ComputeHashAsync(stream);
             sw.Stop();
 
-            _logger.Debug($"File Hash: {Convert.ToHexString(hashBytes)} computed in {sw.ElapsedMilliseconds} ms.");
+            _logger.Debug($"File Hash: {Convert.ToHexString(hashBytes)} computed in {(double)sw.ElapsedTicks / TimeSpan.TicksPerMillisecond:F3} ms.");
             return hashBytes;
         }
     }
