@@ -7,10 +7,10 @@ using YeenDatabase.Models.SettingsTables;
 
 namespace Yeen.Services {
     public class SetupService : IHostedService, ISetupService {
-        private readonly YeenLogging.ILogger _logger;
+        private readonly ILogger _logger;
         private readonly YeenDatabaseContext _yeenDatabaseContext;
 
-        public SetupService(YeenLogging.ILogger logger, YeenDatabaseContext yeenDatabaseContext) {
+        public SetupService(ILogger logger, YeenDatabaseContext yeenDatabaseContext) {
             _logger = logger;
             _yeenDatabaseContext = yeenDatabaseContext;
         }
