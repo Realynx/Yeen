@@ -1,4 +1,6 @@
 ﻿
+using MediaMetadataService.Services;
+
 using Yeen.Services.Interfaces;
 
 using YeenDatabase;
@@ -8,10 +10,21 @@ namespace Yeen.Services {
     public class SetupService : IHostedService, ISetupService {
         private readonly YeenLogging.ILogger _logger;
         private readonly YeenDatabaseContext _yeenDatabaseContext;
+        private readonly MediaDiscoveryService _mediaDiscoveryService;
 
-        public SetupService(YeenLogging.ILogger logger, YeenDatabaseContext yeenDatabaseContext) {
+        public SetupService(YeenLogging.ILogger logger, YeenDatabaseContext yeenDatabaseContext, MediaDiscoveryService mediaDiscoveryService) {
             _logger = logger;
             _yeenDatabaseContext = yeenDatabaseContext;
+            _mediaDiscoveryService = mediaDiscoveryService;
+        }
+
+        public async Task StartAsync(CancellationToken cancellationToken) {
+            await SetupServer();
+            InitServices();
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) {
+            return Task.CompletedTask;
         }
 
         public async Task SetupServer() {
@@ -33,12 +46,10 @@ namespace Yeen.Services {
             _logger.Info("Setup has been complete.");
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken) {
-            await SetupServer();
-        }
+        public void InitServices() {
+            _logger.Info("Starting server init...");
 
-        public Task StopAsync(CancellationToken cancellationToken) {
-            return Task.CompletedTask;
+            _mediaDiscoveryService.ScanMediaDirectory();
         }
     }
 }
