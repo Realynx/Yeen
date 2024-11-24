@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="YeenLogging.ILogger" Alias="ILogger" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MediaMetadataService\MediaMetadataService.csproj" />
     <ProjectReference Include="..\YeenDatabase\YeenDatabase.csproj" />
     <ProjectReference Include="..\YeenLogging\YeenLogging.csproj" />

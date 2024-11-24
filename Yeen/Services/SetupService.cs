@@ -1,26 +1,30 @@
-﻿
+using Microsoft.EntityFrameworkCore;
+
 using MediaMetadataService.Services;
 
 using Yeen.Services.Interfaces;
 
 using YeenDatabase;
 using YeenDatabase.Models.SettingsTables;
+using MediaMetadataService.Config;
 
 namespace Yeen.Services {
     public class SetupService : IHostedService, ISetupService {
-        private readonly YeenLogging.ILogger _logger;
+        private readonly ILogger _logger;
         private readonly YeenDatabaseContext _yeenDatabaseContext;
         private readonly MediaDiscoveryService _mediaDiscoveryService;
+        private readonly MediaScannerConfig _mediaScannerConfig;
 
-        public SetupService(YeenLogging.ILogger logger, YeenDatabaseContext yeenDatabaseContext, MediaDiscoveryService mediaDiscoveryService) {
+        public SetupService(ILogger logger, YeenDatabaseContext yeenDatabaseContext, MediaDiscoveryService mediaDiscoveryService, MediaScannerConfig mediaScannerConfig) {
             _logger = logger;
             _yeenDatabaseContext = yeenDatabaseContext;
             _mediaDiscoveryService = mediaDiscoveryService;
+            _mediaScannerConfig = mediaScannerConfig;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken) {
             await SetupServer();
-            InitServices();
+            await InitServices();
         }
 
         public Task StopAsync(CancellationToken cancellationToken) {
@@ -29,7 +33,9 @@ namespace Yeen.Services {
 
         public async Task SetupServer() {
             _logger.Info("Checking server state;");
-            if (!(_yeenDatabaseContext.ServerSettings.FirstOrDefault()?.FirstLaunch ?? true)) {
+
+            var serverSettings = await _yeenDatabaseContext.ServerSettings.FirstOrDefaultAsync();
+            if (!(serverSettings?.FirstLaunch ?? true)) {
                 _logger.Info("This was not the first launch, skipping server setup. If you want to re-setup your server, use the cli tool to reset yeen.");
                 return;
             }
@@ -46,10 +52,13 @@ namespace Yeen.Services {
             _logger.Info("Setup has been complete.");
         }
 
-        public void InitServices() {
+        public async Task InitServices() {
             _logger.Info("Starting server init...");
 
-            _mediaDiscoveryService.ScanMediaDirectory();
+            foreach (var mediaLibrary in _mediaScannerConfig.MediaDirectories) {
+                await _mediaDiscoveryService.ScanMediaDirectory(mediaLibrary.DirectoryPath);
+            }
+
         }
     }
 }

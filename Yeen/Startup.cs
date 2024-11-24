@@ -1,7 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MediaMetadataService.Config;
+using MediaMetadataService.Services;
+using MediaMetadataService.Services.Interfaces;
+
+using Microsoft.EntityFrameworkCore;
 
 using Yeen.Services;
-using Yeen.Services.Interfaces;
 
 using YeenDatabase;
 
@@ -13,7 +16,8 @@ namespace Yeen {
 
         public static void Configure(IConfigurationBuilder configurationBuilder) {
             configurationBuilder
-                .AddJsonFile("Appsettings.json", false)
+                .AddJsonFile("Appsettings.json")
+                .AddJsonFile("Appsettings.dev.json", true)
                 .AddEnvironmentVariables();
         }
 
@@ -21,10 +25,13 @@ namespace Yeen {
 
             serviceDescriptors
                 .AddDbContext<YeenDatabaseContext>(options => options.UseSqlite("Data Source=./yeenState.db;Foreign Keys=True;"), ServiceLifetime.Singleton)
-                .AddSingleton<LoggerConfig>();
+                .AddSingleton<LoggerConfig>()
+                .AddSingleton<MediaScannerConfig>();
 
             serviceDescriptors
-                .AddSingleton<YeenLogging.ILogger, Logger>()
+                .AddSingleton<ILogger, Logger>()
+                .AddSingleton<IFileHashingService, FileHashingService>()
+                .AddSingleton<MediaDiscoveryService>()
                 .AddHostedService<SetupService>();
         }
     }

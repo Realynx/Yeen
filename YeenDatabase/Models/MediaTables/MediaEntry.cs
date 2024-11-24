@@ -6,7 +6,7 @@ namespace YeenDatabase.Models.NewFolder {
         public Guid Id { get; set; }
 
         public string FilePath { get; set; }
-        public string Checksum { get; set; }
+        public byte[] Checksum { get; set; }
 
         public uint PlaybackCount { get; set; }
         public MediaMetadata Metadata { get; set; }
