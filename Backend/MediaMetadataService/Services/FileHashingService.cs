@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 
 using MediaMetadataService.Services.Interfaces;
 
@@ -13,17 +14,20 @@ namespace MediaMetadataService.Services {
         }
 
         public async Task<byte[]> CalculateSHA256(string filePath) {
-            await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 0);
+            const int BUFFER_SIZE = 4096;
+            await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BUFFER_SIZE);
 
-            const int TEN_MEGABYTES = 10 * 1024 * 1024;
+            const int ONE_MEBIBYTE = 1024 * 1024;
             var length = new FileInfo(filePath).Length;
-            await using var stream = new NthByteStream(fs, length > TEN_MEGABYTES ? length / TEN_MEGABYTES : 1);
+            await using var stream = new ChunkedStream(fs, BUFFER_SIZE, length > ONE_MEBIBYTE ? length / ONE_MEBIBYTE * BUFFER_SIZE : 0);
 
             using var sha256 = SHA256.Create();
 
+            var sw = Stopwatch.StartNew();
             var hashBytes = await sha256.ComputeHashAsync(stream);
+            sw.Stop();
 
-            _logger.Debug($"File Hash: {Convert.ToHexString(hashBytes)}");
+            _logger.Debug($"File Hash: {Convert.ToHexString(hashBytes)} computed in {sw.ElapsedMilliseconds} ms.");
             return hashBytes;
         }
     }

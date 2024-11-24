@@ -1,19 +1,29 @@
-﻿namespace MediaMetadataService;
+﻿using System.Diagnostics;
+
+namespace MediaMetadataService.Services;
 
 /// <summary>
-/// Reads every Nth byte from a base stream
+/// Reads a stream in chunks, skipping bytes between chunks
 /// </summary>
-public sealed class NthByteStream : Stream {
+public sealed class ChunkedStream : Stream {
     private readonly Stream _baseStream;
-    private readonly long _nthByte;
+    private readonly long _chunkSize;
+    private readonly long _skipSize;
 
-    public NthByteStream(Stream baseStream, long nthByte) {
-        if (nthByte < 1) {
-            throw new ArgumentOutOfRangeException(nameof(nthByte), "Value must be greater than 0.");
+    private long _currentChunk;
+
+    public ChunkedStream(Stream baseStream, long chunkSize, long skipSize) {
+        if (chunkSize < 1) {
+            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Value must be greater than 0.");
+        }
+
+        if (skipSize < 1) {
+            throw new ArgumentOutOfRangeException(nameof(skipSize), "Value must be greater than 0.");
         }
 
         _baseStream = baseStream;
-        _nthByte = nthByte;
+        _chunkSize = chunkSize;
+        _skipSize = skipSize;
     }
 
     public override bool CanRead {
@@ -54,23 +64,20 @@ public sealed class NthByteStream : Stream {
     }
 
     public override int Read(byte[] buffer, int offset, int count) {
-        if (_nthByte == 1) {
+        if (_skipSize == 0) {
             return _baseStream.Read(buffer, offset, count);
         }
 
-        var read = 0;
-        for (var i = offset; i < offset + count; i++) {
-            var readByte = _baseStream.ReadByte();
-            if (readByte == -1) {
-                break;
-            }
+        Debug.Assert(_currentChunk <= _chunkSize);
 
-            buffer[i] = (byte)readByte;
-            read++;
-
-            Seek(_nthByte - 1, SeekOrigin.Current);
+        if (_currentChunk == _chunkSize) {
+            Seek(_skipSize, SeekOrigin.Current);
+            _currentChunk = 0;
         }
 
+        var toRead = (int)Math.Min(count, _chunkSize - _currentChunk);
+        var read = _baseStream.Read(buffer, offset, toRead);
+        _currentChunk += read;
         return read;
     }
 
