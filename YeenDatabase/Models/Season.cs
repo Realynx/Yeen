@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace YeenDatabase.Models {
-    public class MediaCollection {
+    public class Season {
         [Key]
         public Guid Id { get; set; }
 
-        public string CollectionTitle { get; set; }
-        public ICollection<Season> Seasons { get; set; }
+        public string SeasonName { get; set; }
+        public ICollection<Episode> Episodes { get; set; }
         public ICollection<Movie> Movies { get; set; }
+        public ICollection<SearchTag> TagCloud { get; set; }
     }
 }

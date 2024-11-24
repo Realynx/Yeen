@@ -428,3 +428,5 @@ CTestTestfile.cmake
 _deps
 
 **/GithubSymbols
+
+*.sqlite

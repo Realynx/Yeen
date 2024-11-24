@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace YeenDatabase.Models {
     public class CastActor {
-        [PrimaryKey]
+        [Key]
         public Guid Id { get; set; }
 
         public string Name { get; set; }

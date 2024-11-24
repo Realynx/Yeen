@@ -12,9 +12,8 @@ namespace Yeen {
 
         public static void ConfigureServices(IServiceCollection serviceDescriptors) {
 
-
             serviceDescriptors
-                .AddSqlite<YeenDatabaseContext>("Data Source=yeenState.sqlite;Version=3;");
+                .AddSqlite<YeenDatabaseContext>("Data Source=yeenState.sqlite;Version=3;Foreign Keys=True;");
         }
     }
 }
