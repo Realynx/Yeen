@@ -7,7 +7,7 @@ using MediaMetadataService.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 using YeenDatabase;
-using YeenDatabase.Models.NewFolder;
+using YeenDatabase.Models.MediaTables;
 
 using YeenLogging;
 
