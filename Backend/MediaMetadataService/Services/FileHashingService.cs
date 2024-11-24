@@ -13,12 +13,11 @@ namespace MediaMetadataService.Services {
         }
 
         public async Task<byte[]> CalculateSHA256(string filePath) {
-            using var stream = File.OpenRead(filePath);
+            await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 0);
+            await using var stream = new NthByteStream(fs, 10);
             using var md5 = MD5.Create();
 
             var hashBytes = await md5.ComputeHashAsync(stream);
-
-
 
             _logger.Debug($"File Hash: {Convert.ToHexString(hashBytes)}");
             return hashBytes;
