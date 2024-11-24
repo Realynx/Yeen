@@ -431,4 +431,4 @@ _deps
 *.db
 *.db-shm
 *.db-wal
-*.Appsettings.dev.json
+Appsettings.dev.json
