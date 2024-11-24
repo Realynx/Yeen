@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using Yeen.Services;
+using Yeen.Services.Interfaces;
 
 using YeenDatabase;
 
@@ -24,7 +25,7 @@ namespace Yeen {
 
             serviceDescriptors
                 .AddSingleton<YeenLogging.ILogger, Logger>()
-                .AddSingleton<SetupService>();
+                .AddHostedService<SetupService>();
         }
     }
 }

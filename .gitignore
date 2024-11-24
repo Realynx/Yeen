@@ -427,7 +427,7 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
-**/GithubSymbols
-
 *.sqlite
 *.db
+*.db-shm
+*.db-wal

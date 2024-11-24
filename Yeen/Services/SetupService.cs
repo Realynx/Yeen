@@ -1,8 +1,11 @@
-﻿using YeenDatabase;
+﻿
+using Yeen.Services.Interfaces;
+
+using YeenDatabase;
 using YeenDatabase.Models.SettingsTables;
 
 namespace Yeen.Services {
-    public class SetupService {
+    public class SetupService : IHostedService, ISetupService {
         private readonly YeenLogging.ILogger _logger;
         private readonly YeenDatabaseContext _yeenDatabaseContext;
 
@@ -11,7 +14,7 @@ namespace Yeen.Services {
             _yeenDatabaseContext = yeenDatabaseContext;
         }
 
-        public void SetupServer() {
+        public async Task SetupServer() {
             _logger.Info("Checking server state;");
             if (!(_yeenDatabaseContext.ServerSettings.FirstOrDefault()?.FirstLaunch ?? true)) {
                 _logger.Info("This was not the first launch, skipping server setup. If you want to re-setup your server, use the cli tool to reset yeen.");
@@ -25,9 +28,17 @@ namespace Yeen.Services {
             };
 
             _yeenDatabaseContext.ServerSettings.Add(settings);
-            _yeenDatabaseContext.SaveChanges();
+            await _yeenDatabaseContext.SaveChangesAsync();
 
             _logger.Info("Setup has been complete.");
+        }
+
+        public async Task StartAsync(CancellationToken cancellationToken) {
+            await SetupServer();
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) {
+            return Task.CompletedTask;
         }
     }
 }
