@@ -1,0 +1,17 @@
+{
+  "name": "yeen",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "kill-port 4000 && npm --prefix apps/server run start:dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "build": "npm --prefix apps/server run build && npm --prefix apps/web run build",
+    "lint": "npm --prefix apps/server run lint && npm --prefix apps/web run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "kill-port": "^2.0.1"
+  },
+  "description": "Focused media server with NestJS + React"
+}
