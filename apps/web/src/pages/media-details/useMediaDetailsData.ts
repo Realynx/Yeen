@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { listMedia, listProgress, toApiErrorMessage } from '../../lib/api';
+import {
+  getRemoteMedia,
+  isRemoteMediaId,
+  listMedia,
+  listProgress,
+  toApiErrorMessage,
+} from '../../lib/api';
 import type { MediaItem, ProgressEntry } from '../../lib/types';
 
 interface MediaDetailsDataState {
@@ -26,6 +32,15 @@ export function useMediaDetailsData(mediaId: string, token: string): MediaDetail
       setError(null);
 
       try {
+        if (isRemoteMediaId(mediaId)) {
+          const remoteItem = await getRemoteMedia(token, mediaId);
+          if (!cancelled) {
+            setItems([remoteItem]);
+            setProgress([]);
+          }
+          return;
+        }
+
         const [mediaItems, progressItems] = await Promise.all([
           listMedia(token),
           listProgress(token).catch(() => [] as ProgressEntry[]),

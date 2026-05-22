@@ -53,7 +53,8 @@ export function useMediaLocations(
     if (progress.status === 'completed') {
       setScanError(null);
       setScanMessage(
-        `Scan complete: ${progress.indexedItems} media items indexed across ${progress.libraryPaths.length} locations.`,
+        progress.message?.trim() ||
+          `Scan complete: ${progress.indexedItems} media items indexed across ${progress.libraryPaths.length} locations.`,
       );
       return;
     }

@@ -13,4 +13,9 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password!: string;
+
+  @IsString()
+  @MinLength(16)
+  @MaxLength(256)
+  inviteToken!: string;
 }

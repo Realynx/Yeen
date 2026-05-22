@@ -7,9 +7,12 @@
     "dev:web": "npm --prefix apps/web run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
     "build": "npm --prefix apps/server run build && npm --prefix apps/web run build",
+    "build:deploy": "npm run build && node ./scripts/prepare-deploy.mjs",
+    "build:zip": "npm run build:deploy && node ./scripts/create-zip.mjs",
     "lint": "npm --prefix apps/server run lint && npm --prefix apps/web run lint"
   },
   "devDependencies": {
+    "archiver": "^8.0.0",
     "concurrently": "^9.2.1",
     "kill-port": "^2.0.1"
   },

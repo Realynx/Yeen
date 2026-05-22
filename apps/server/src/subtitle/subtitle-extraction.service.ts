@@ -5,6 +5,7 @@ import { MediaService } from '../media/media.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { SubtitleCommandService } from './subtitle-command.service';
 import { SubtitleStorageService } from './subtitle-storage.service';
+import { sanitizeVttFile } from './subtitle-vtt-sanitizer';
 
 @Injectable()
 export class SubtitleExtractionService {
@@ -21,6 +22,10 @@ export class SubtitleExtractionService {
     }
 
     const media = await this.mediaService.getById(mediaId);
+    const resolvedMediaFilePath = await this.mediaService.resolveMediaFilePath(
+      media.filePath,
+      media.relativePath,
+    );
     const systemSettings = await this.systemSettingsService.getSettings();
     const folder =
       await this.subtitleStorageService.ensureSubtitleFolder(mediaId);
@@ -36,7 +41,7 @@ export class SubtitleExtractionService {
           'error',
           '-y',
           '-i',
-          media.filePath,
+          resolvedMediaFilePath,
           '-map',
           `0:${streamIndex}`,
           '-c:s',
@@ -49,6 +54,12 @@ export class SubtitleExtractionService {
           );
         });
     }
+
+    await sanitizeVttFile(outputPath).catch((error: Error) => {
+      throw new BadRequestException(
+        `Unable to normalize subtitle stream ${streamIndex}. ${error.message}`,
+      );
+    });
 
     return {
       mediaId,

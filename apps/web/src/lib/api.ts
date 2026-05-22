@@ -1,16 +1,34 @@
 import type {
+  AdminManagedAccount,
   ApiCacheClearResult,
   AuthResponse,
+  CreatedInvite,
+  HlsSessionStats,
   HlsStartResponse,
+  InviteStatus,
+  IptorrentsSearchResponse,
   MediaMetadataClearResult,
+  MediaMetadataExportPayload,
+  MediaMetadataImportResult,
   MediaItem,
   MediaLocationsResponse,
   MediaScanProgress,
   MediaStats,
+  MetadataImportMode,
+  MediaTorrentDownloadProgressEntry,
+  NyaaSearchResponse,
+  NyaaSortDirection,
+  NyaaSortField,
+  PlaybackAudioTrack,
   PlaybackPlan,
   ProgressEntry,
+  PurgeRecycleDeletionsResult,
+  RecycleDeletionsListResponse,
   SubtitleTrack,
   SystemSettings,
+  TorrentIntent,
+  TorrentItem,
+  TorrentOrderMode,
   User,
 } from './types';
 
@@ -39,7 +57,9 @@ async function request<T>(
   token?: string,
 ): Promise<T> {
   const headers = new Headers(options.headers ?? {});
-  if (!headers.has('Content-Type') && options.body) {
+  const isMultipartBody =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (!headers.has('Content-Type') && options.body && !isMultipartBody) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -77,6 +97,7 @@ export async function register(input: {
   email: string;
   name: string;
   password: string;
+  inviteToken: string;
 }) {
   return request<AuthResponse>('/auth/register', {
     method: 'POST',
@@ -91,8 +112,139 @@ export async function login(input: { email: string; password: string }) {
   });
 }
 
+export async function getInviteStatus(inviteToken: string) {
+  const encodedToken = encodeURIComponent(inviteToken.trim());
+  return request<InviteStatus>(`/auth/invites/${encodedToken}`);
+}
+
+export async function createInviteLink(token: string) {
+  return request<CreatedInvite>(
+    '/auth/invites',
+    {
+      method: 'POST',
+    },
+    token,
+  );
+}
+
+export async function listAdminAccounts(token: string) {
+  return request<{ accounts: AdminManagedAccount[] }>(
+    '/auth/admin/accounts',
+    {},
+    token,
+  );
+}
+
+export async function updateAdminAccountInvites(
+  token: string,
+  accountId: string,
+  invitesRemaining: number,
+) {
+  return request<AdminManagedAccount>(
+    `/auth/admin/accounts/${encodeURIComponent(accountId)}/invites`,
+    {
+      method: 'PATCH',
+      body: jsonBody({ invitesRemaining }),
+    },
+    token,
+  );
+}
+
+export async function updateAdminAccountRole(
+  token: string,
+  accountId: string,
+  role: 'admin' | 'sailer' | 'user',
+) {
+  return request<AdminManagedAccount>(
+    `/auth/admin/accounts/${encodeURIComponent(accountId)}/role`,
+    {
+      method: 'PATCH',
+      body: jsonBody({ role }),
+    },
+    token,
+  );
+}
+
+export async function createAdminAccount(
+  token: string,
+  input: {
+    email: string;
+    name: string;
+    password: string;
+    role?: 'admin' | 'sailer' | 'user';
+    invitesRemaining?: number;
+  },
+) {
+  return request<AdminManagedAccount>(
+    '/auth/admin/accounts',
+    {
+      method: 'POST',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
 export async function me(token: string) {
   return request<User>('/auth/me', {}, token);
+}
+
+export async function updateMyProfile(
+  token: string,
+  input: {
+    email: string;
+    name: string;
+  },
+) {
+  return request<User>(
+    '/auth/me',
+    {
+      method: 'PATCH',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
+export async function changeMyPassword(
+  token: string,
+  input: {
+    currentPassword: string;
+    newPassword: string;
+  },
+) {
+  return request<{ message: string }>(
+    '/auth/me/password',
+    {
+      method: 'POST',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
+export async function uploadMyAvatar(token: string, avatarFile: File) {
+  const formData = new FormData();
+  formData.append('avatar', avatarFile, avatarFile.name);
+
+  return request<User>(
+    '/auth/me/avatar',
+    {
+      method: 'POST',
+      body: formData,
+    },
+    token,
+  );
+}
+
+export async function removeMyAvatar(token: string) {
+  return request<User>(
+    '/auth/me/avatar',
+    {
+      method: 'DELETE',
+    },
+    token,
+  );
 }
 
 export async function listMedia(token: string, query?: string, tags?: string[]) {
@@ -113,6 +265,221 @@ export async function listMedia(token: string, query?: string, tags?: string[]) 
   const queryString = params.toString();
   const suffix = queryString ? `?${queryString}` : '';
   return request<MediaItem[]>(`/media${suffix}`, {}, token);
+}
+
+export interface RemoteMediaSearchResponse {
+  query: string;
+  providers: Array<'tmdb' | 'jikan'>;
+  total: number;
+  page: number;
+  hasMore: boolean;
+  items: MediaItem[];
+}
+
+export async function searchRemoteMedia(
+  token: string,
+  query: string,
+  limit?: number,
+  providers?: Array<'tmdb' | 'jikan'>,
+  tags?: string[],
+  noCache?: boolean,
+  page?: number,
+) {
+  const params = new URLSearchParams();
+  const cleanedQuery = query.trim();
+
+  if (cleanedQuery) {
+    params.set('q', cleanedQuery);
+  }
+
+  if (typeof limit === 'number' && Number.isFinite(limit)) {
+    params.set('limit', String(Math.floor(limit)));
+  }
+
+  if (Array.isArray(providers) && providers.length > 0) {
+    params.set('providers', providers.join(','));
+  }
+
+  const normalizedTags = (tags ?? [])
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+  if (normalizedTags.length > 0) {
+    params.set('tags', normalizedTags.join(','));
+  }
+
+  if (noCache) {
+    params.set('noCache', '1');
+  }
+
+  if (typeof page === 'number' && Number.isFinite(page)) {
+    params.set('page', String(Math.max(1, Math.floor(page))));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return request<RemoteMediaSearchResponse>(`/media/search/remote${suffix}`, {}, token);
+}
+
+export async function searchIptorrents(
+  token: string,
+  query: string,
+  options?: {
+    limit?: number;
+    mediaType?: 'movie' | 'show';
+  },
+) {
+  const params = new URLSearchParams();
+  const cleanedQuery = query.trim();
+
+  if (cleanedQuery) {
+    params.set('q', cleanedQuery);
+  }
+
+  if (typeof options?.limit === 'number' && Number.isFinite(options.limit)) {
+    params.set('limit', String(Math.floor(options.limit)));
+  }
+
+  if (options?.mediaType) {
+    params.set('mediaType', options.mediaType);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return request<IptorrentsSearchResponse>(
+    `/media/search/iptorrents${suffix}`,
+    {},
+    token,
+  );
+}
+
+export async function searchNyaa(
+  token: string,
+  query: string,
+  options?: {
+    limit?: number;
+    category?: string;
+    page?: number;
+    sortBy?: NyaaSortField;
+    sortDirection?: NyaaSortDirection;
+  },
+) {
+  const params = new URLSearchParams();
+  const cleanedQuery = query.trim();
+
+  if (cleanedQuery) {
+    params.set('q', cleanedQuery);
+  }
+
+  if (typeof options?.limit === 'number' && Number.isFinite(options.limit)) {
+    params.set('limit', String(Math.floor(options.limit)));
+  }
+
+  if (options?.category) {
+    params.set('category', options.category.trim());
+  }
+
+  if (typeof options?.page === 'number' && Number.isFinite(options.page)) {
+    params.set('page', String(Math.max(1, Math.floor(options.page))));
+  }
+
+  if (options?.sortBy) {
+    params.set('sortBy', options.sortBy);
+  }
+
+  if (options?.sortDirection) {
+    params.set('sortDirection', options.sortDirection);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return request<NyaaSearchResponse>(
+    `/media/search/nyaa${suffix}`,
+    {},
+    token,
+  );
+}
+
+export interface StartIptorrentsDownloadPayload {
+  downloadUrl: string;
+  title?: string;
+  savePath?: string;
+  intent?: TorrentIntent;
+  metadataHint?: {
+    title?: string;
+    normalizedTitle?: string;
+    releaseYear?: number | null;
+    mediaType?: 'movie' | 'show' | 'other';
+    description?: string | null;
+    tags?: string[];
+    posterUrl?: string | null;
+    backdropUrl?: string | null;
+    remoteSource?: 'tmdb' | 'jikan' | null;
+    remoteSourceId?: string | null;
+  };
+}
+
+export async function startIptorrentsDownload(
+  token: string,
+  payload: StartIptorrentsDownloadPayload,
+) {
+  return request<{
+    message: string;
+    orderMode: TorrentOrderMode;
+    intent: TorrentIntent | null;
+    hash: string | null;
+    indexResult: IndexTorrentMediaResponse | null;
+  }>(
+    '/media/search/iptorrents/download',
+    {
+      method: 'POST',
+      body: jsonBody(payload),
+    },
+    token,
+  );
+}
+
+export async function startNyaaDownload(
+  token: string,
+  payload: StartIptorrentsDownloadPayload,
+) {
+  return request<{
+    message: string;
+    orderMode: TorrentOrderMode;
+    intent: TorrentIntent | null;
+    hash: string | null;
+    indexResult: IndexTorrentMediaResponse | null;
+  }>(
+    '/media/search/nyaa/download',
+    {
+      method: 'POST',
+      body: jsonBody(payload),
+    },
+    token,
+  );
+}
+
+export type IndexTorrentMediaResponse =
+  | { status: 'indexed'; media: MediaItem }
+  | { status: 'pending'; reason: string };
+
+export async function indexTorrentMedia(token: string, hash: string) {
+  return request<IndexTorrentMediaResponse>(
+    `/media/torrent/${encodeURIComponent(hash)}/index`,
+    {
+      method: 'POST',
+    },
+    token,
+  );
+}
+
+export interface TorrentStatusResponse {
+  indexResult: IndexTorrentMediaResponse;
+  torrent: TorrentItem | null;
+}
+
+export async function getTorrentStatus(token: string, hash: string) {
+  return request<TorrentStatusResponse>(
+    `/media/torrent/${encodeURIComponent(hash)}/status`,
+    {},
+    token,
+  );
 }
 
 export async function getMediaLocations(token: string) {
@@ -148,6 +515,122 @@ export async function updateSystemSettings(
   );
 }
 
+export interface ListTorrentsResponse {
+  items: TorrentItem[];
+}
+
+export interface AddTorrentPayload {
+  magnetLink?: string;
+  savePath?: string;
+  paused?: boolean;
+  intent?: TorrentIntent;
+  orderMode?: TorrentOrderMode;
+  torrentFile?: File | null;
+}
+
+export async function listTorrents(token: string) {
+  return request<ListTorrentsResponse>('/torrents', {}, token);
+}
+
+export async function addTorrent(token: string, payload: AddTorrentPayload) {
+  const formData = new FormData();
+
+  const magnetLink = payload.magnetLink?.trim();
+  if (magnetLink) {
+    formData.set('magnetLink', magnetLink);
+  }
+
+  if (payload.torrentFile) {
+    formData.append('torrentFile', payload.torrentFile, payload.torrentFile.name);
+  }
+
+  const savePath = payload.savePath?.trim();
+  if (savePath) {
+    formData.set('savePath', savePath);
+  }
+
+  if (typeof payload.paused === 'boolean') {
+    formData.set('paused', payload.paused ? 'true' : 'false');
+  }
+
+  if (payload.intent) {
+    formData.set('intent', payload.intent);
+  }
+
+  if (payload.orderMode) {
+    formData.set('orderMode', payload.orderMode);
+  }
+
+  return request<{ message: string; orderMode: TorrentOrderMode; intent: TorrentIntent | null }>(
+    '/torrents/add',
+    {
+      method: 'POST',
+      body: formData,
+    },
+    token,
+  );
+}
+
+export async function startTorrent(token: string, hash: string) {
+  return request<{ hash: string; message: string }>(
+    `/torrents/${encodeURIComponent(hash)}/start`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export async function stopTorrent(token: string, hash: string) {
+  return request<{ hash: string; message: string }>(
+    `/torrents/${encodeURIComponent(hash)}/stop`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export async function restartTorrent(token: string, hash: string) {
+  return request<{ hash: string; message: string }>(
+    `/torrents/${encodeURIComponent(hash)}/restart`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export async function deleteTorrent(
+  token: string,
+  hash: string,
+  deleteFiles: boolean,
+) {
+  return request<{ hash: string; deleteFiles: boolean; message: string }>(
+    `/torrents/${encodeURIComponent(hash)}`,
+    {
+      method: 'DELETE',
+      body: jsonBody({ deleteFiles }),
+    },
+    token,
+  );
+}
+
+export async function setTorrentOrderMode(
+  token: string,
+  hash: string,
+  orderMode: TorrentOrderMode,
+) {
+  return request<{
+    hash: string;
+    orderMode: TorrentOrderMode;
+    sequentialChanged: boolean;
+    firstLastPiecePriorityChanged: boolean;
+    message: string;
+  }>(
+    `/torrents/${encodeURIComponent(hash)}/order-mode`,
+    {
+      method: 'PATCH',
+      body: jsonBody({ orderMode }),
+    },
+    token,
+  );
+}
+
 export async function clearMediaApiCaches(token: string) {
   return request<ApiCacheClearResult>(
     '/media/cache/clear',
@@ -163,6 +646,69 @@ export async function clearMediaMetadataIndex(token: string) {
     '/media/metadata/clear',
     {
       method: 'POST',
+    },
+    token,
+  );
+}
+
+export async function listRecycleDeletions(token: string, limit?: number) {
+  const query =
+    typeof limit === 'number' && Number.isFinite(limit)
+      ? `?limit=${encodeURIComponent(String(Math.floor(limit)))}`
+      : '';
+
+  return request<RecycleDeletionsListResponse>(
+    `/media/recycle/deletions${query}`,
+    {},
+    token,
+  );
+}
+
+export async function purgeRecycleDeletions(
+  token: string,
+  payload: {
+    operationPaths?: string[];
+    purgeAll?: boolean;
+    olderThanDays?: number;
+  },
+) {
+  return request<PurgeRecycleDeletionsResult>(
+    '/media/recycle/deletions',
+    {
+      method: 'DELETE',
+      body: jsonBody(payload),
+    },
+    token,
+  );
+}
+
+export async function exportMediaMetadata(token: string) {
+  return request<MediaMetadataExportPayload>(
+    '/media/metadata/export',
+    {},
+    token,
+  );
+}
+
+export async function importMediaMetadata(
+  token: string,
+  payload: {
+    mode?: MetadataImportMode;
+    file: File;
+  },
+) {
+  const formData = new FormData();
+  formData.append('file', payload.file, payload.file.name);
+
+  if (payload.mode) {
+    formData.set('mode', payload.mode);
+  }
+
+  return request<MediaMetadataImportResult>(
+    '/media/metadata/import',
+    {
+      method: 'POST',
+      body: formData,
     },
     token,
   );
@@ -195,6 +741,20 @@ export async function getMedia(token: string, mediaId: string) {
   return request<MediaItem>(`/media/${mediaId}`, {}, token);
 }
 
+export async function getRemoteMedia(token: string, remoteId: string) {
+  return request<MediaItem>(
+    `/media/remote/${encodeURIComponent(remoteId)}`,
+    {},
+    token,
+  );
+}
+
+export function isRemoteMediaId(mediaId: string): boolean {
+  return /^remote_(tmdb|jikan)_(movie|show)_[A-Za-z0-9-]{1,64}$/i.test(
+    mediaId.trim(),
+  );
+}
+
 export async function getPlaybackPlan(token: string, mediaId: string) {
   return request<PlaybackPlan>(`/media/${mediaId}/playback`, {}, token);
 }
@@ -225,6 +785,8 @@ export interface MediaMetadataPatch {
   tags?: string[];
   posterUrl?: string | null;
   backdropUrl?: string | null;
+  remoteSource?: 'tmdb' | 'jikan' | null;
+  remoteSourceId?: string | null;
 }
 
 export interface BulkAssignEpisodesPayload {
@@ -450,6 +1012,8 @@ export interface MetadataSearchCandidate {
   releaseYear: number | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+  remoteSource: 'tmdb' | 'jikan';
+  remoteSourceId: string;
 }
 
 export async function searchMetadataCandidates(
@@ -482,12 +1046,45 @@ export async function searchMetadataCandidates(
 export async function startHlsSession(
   token: string,
   mediaId: string,
-  forceFresh = false,
+  options?: {
+    forceFresh?: boolean;
+    audioStreamIndex?: number | null;
+  },
 ) {
-  const suffix = forceFresh ? '?force=1' : '';
+  const params = new URLSearchParams();
+  if (options?.forceFresh) {
+    params.set('force', '1');
+  }
+
+  if (
+    typeof options?.audioStreamIndex === 'number'
+    && Number.isInteger(options.audioStreamIndex)
+    && options.audioStreamIndex >= 0
+  ) {
+    params.set('audioStreamIndex', String(options.audioStreamIndex));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
   return request<HlsStartResponse>(
     `/stream/${mediaId}/hls/start${suffix}`,
     { method: 'POST' },
+    token,
+  );
+}
+
+export async function listPlaybackAudioTracks(token: string, mediaId: string) {
+  const payload = await request<{ tracks: PlaybackAudioTrack[] }>(
+    `/stream/${mediaId}/audio-tracks`,
+    {},
+    token,
+  );
+  return payload.tracks;
+}
+
+export async function getHlsSessionStats(token: string, sessionId: string) {
+  return request<HlsSessionStats>(
+    `/stream/hls/${encodeURIComponent(sessionId)}/debug/stats`,
+    { method: 'GET' },
     token,
   );
 }
@@ -512,6 +1109,30 @@ export async function listProgress(token: string) {
   return request<ProgressEntry[]>('/progress', {}, token);
 }
 
+export async function listMediaTorrentDownloadProgress(
+  token: string,
+  mediaIds: string[],
+) {
+  const normalizedMediaIds = [...new Set(
+    mediaIds
+      .map((mediaId) => mediaId.trim())
+      .filter((mediaId) => mediaId.length > 0),
+  )];
+
+  if (normalizedMediaIds.length === 0) {
+    return { items: [] as MediaTorrentDownloadProgressEntry[] };
+  }
+
+  return request<{ items: MediaTorrentDownloadProgressEntry[] }>(
+    '/media/torrent/download-progress',
+    {
+      method: 'POST',
+      body: jsonBody({ mediaIds: normalizedMediaIds }),
+    },
+    token,
+  );
+}
+
 export async function upsertProgress(
   token: string,
   mediaId: string,
@@ -519,6 +1140,10 @@ export async function upsertProgress(
     positionSeconds: number;
     durationSeconds: number;
     completed?: boolean;
+    seriesPreferenceKey?: string | null;
+    preferredAudioLanguage?: string | null;
+    preferredSubtitleLanguage?: string | null;
+    subtitlePreferenceEnabled?: boolean | null;
   },
 ) {
   return request<ProgressEntry>(`/progress/${mediaId}`, {

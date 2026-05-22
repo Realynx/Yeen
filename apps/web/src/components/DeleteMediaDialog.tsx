@@ -59,7 +59,7 @@ export function DeleteMediaDialog({
       const result = await bulkDeleteMediaPermanently(token, ids);
       onDeleted(result);
     } catch (deleteError) {
-      setError(toApiErrorMessage(deleteError, 'Failed to permanently delete media.'));
+      setError(toApiErrorMessage(deleteError, 'Failed to delete media.'));
     } finally {
       setSubmitting(false);
     }
@@ -81,13 +81,14 @@ export function DeleteMediaDialog({
         <header className="metadata-modal-header">
           <div>
             <p className="metadata-modal-eyebrow metadata-modal-eyebrow-danger">
-              Permanent Delete
+              Delete To Recycle
             </p>
             <h2 id="delete-media-modal-title">
-              Delete {totalCount} {totalCount === 1 ? 'item' : 'items'} from disk?
+              Delete {totalCount} {totalCount === 1 ? 'item' : 'items'} from library?
             </h2>
             <p className="metadata-modal-path">
-              This action permanently removes media files and related generated files.
+              This removes selected metadata and moves files into recycle folders on their
+              original drives.
             </p>
           </div>
           <button
@@ -119,8 +120,8 @@ export function DeleteMediaDialog({
             <>
               <section className="delete-media-warning" aria-label="Warning">
                 <p>
-                  This is permanent and cannot be undone. The selected media metadata will be
-                  removed and files on disk will be deleted.
+                  This removes selected metadata and moves matching media files to recycle.
+                  Restore is possible by recovering files from that recycle folder.
                 </p>
               </section>
 
@@ -201,7 +202,7 @@ export function DeleteMediaDialog({
                 onClick={handleDelete}
                 disabled={!canDelete}
               >
-                {submitting ? 'Deleting...' : 'Delete Permanently'}
+                {submitting ? 'Deleting...' : 'Delete To Recycle'}
               </button>
             </>
           )}

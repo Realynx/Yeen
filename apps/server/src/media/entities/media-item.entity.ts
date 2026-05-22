@@ -50,4 +50,8 @@ export interface MediaItem {
   mediaDetails: MediaDetails;
   metadataRefreshedAt: string;
   updatedAt: string;
+  isRemote?: boolean;
+  remoteSource?: 'tmdb' | 'jikan';
+  remoteSourceId?: string | null;
+  remoteSourceLabel?: string | null;
 }

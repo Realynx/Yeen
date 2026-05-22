@@ -1,0 +1,14 @@
+{
+  "origins": [
+    {
+      "localStorage": [
+        {
+          "name": "yeen_access_token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NmIyYzFjNS01NmI4LTRjMDUtYmE4OS0yYmVkNmU2NWYyYjgiLCJlbWFpbCI6ImF1dG9jYXAudXNlci4xNzc5MjYwOTMwQHllZW4ubG9jYWwiLCJuYW1lIjoiQXV0byBDYXAiLCJyb2xlIjoidXNlciIsImlhdCI6MTc3OTI2MDkzMSwiZXhwIjoxNzc5MzA0MTMxfQ.GTQNKLxphaUkE6EsRvt1ZcHgq0cs41lZglMf93iviEA"
+        }
+      ],
+      "origin": "http://127.0.0.1:4173"
+    }
+  ],
+  "cookies": []
+}

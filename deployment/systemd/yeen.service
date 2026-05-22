@@ -1,0 +1,17 @@
+[Unit]
+Description=Yeen Media Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/yeen
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/yeen/.env
+
+[Install]
+WantedBy=multi-user.target

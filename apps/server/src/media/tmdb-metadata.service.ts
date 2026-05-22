@@ -6,6 +6,24 @@ interface TmdbSearchResponse {
   results?: unknown[];
 }
 
+interface TmdbDetailsResponse {
+  id?: unknown;
+  title?: unknown;
+  name?: unknown;
+  original_title?: unknown;
+  original_name?: unknown;
+  media_type?: unknown;
+  genre_ids?: unknown;
+  genres?: unknown;
+  overview?: unknown;
+  poster_path?: unknown;
+  backdrop_path?: unknown;
+  release_date?: unknown;
+  first_air_date?: unknown;
+  runtime?: unknown;
+  episode_run_time?: unknown;
+}
+
 interface TmdbCandidate {
   title: string;
   titlesForMatch: string[];
@@ -39,6 +57,31 @@ export interface TmdbSearchCandidate {
   releaseYear: number | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+  remoteSource: 'tmdb';
+  remoteSourceId: string;
+}
+
+export interface TmdbRemoteCandidate {
+  provider: 'tmdb';
+  providerId: string;
+  title: string;
+  mediaType: 'movie' | 'show';
+  tags: string[];
+  overview: string | null;
+  releaseYear: number | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  runtimeSeconds: number | null;
+}
+
+interface TmdbDiscoverInput {
+  apiKey: string;
+  endpoint: 'movie' | 'tv';
+  mediaType: 'movie' | 'show';
+  genreId: number;
+  limit: number;
+  page?: number;
+  useCache: boolean;
 }
 
 const TMDB_MOVIE_GENRES_BY_ID: Record<number, string> = {
@@ -213,10 +256,16 @@ export class TmdbMetadataService {
           continue;
         }
 
+        const rawRecord = raw as Record<string, unknown>;
+        const sourceId = this.resolveTmdbSourceId(rawRecord.id);
+        if (!sourceId) {
+          continue;
+        }
+
         candidates.push({
           title: candidate.title,
           mediaType: this.resolveCandidateMediaType(
-            raw as Record<string, unknown>,
+            rawRecord,
             input.mediaType,
           ),
           tags: candidate.tags,
@@ -224,6 +273,8 @@ export class TmdbMetadataService {
           releaseYear: candidate.releaseYear,
           posterUrl: candidate.posterUrl,
           backdropUrl: candidate.backdropUrl,
+          remoteSource: 'tmdb',
+          remoteSourceId: sourceId,
         });
 
         if (candidates.length >= limit) {
@@ -238,6 +289,253 @@ export class TmdbMetadataService {
         `TMDB search failed for "${cleanedTitle}": ${message}`,
       );
       return [];
+    }
+  }
+
+  async searchRemoteCandidates(input: {
+    title: string;
+    limit?: number;
+    useCache?: boolean;
+  }): Promise<TmdbRemoteCandidate[]> {
+    const cleanedTitle = input.title.trim();
+    if (cleanedTitle.length < 2) {
+      return [];
+    }
+
+    const settings = await this.systemSettingsService.getSettings();
+    const apiKey = settings.tmdbApiKey.trim();
+    if (!apiKey) {
+      return [];
+    }
+
+    const params = new URLSearchParams({
+      query: cleanedTitle,
+      include_adult: 'false',
+      page: '1',
+    });
+    const useCache = input.useCache !== false;
+    const requestKey = `remote:multi?${params.toString()}`;
+
+    try {
+      let payload: TmdbSearchResponse | undefined;
+
+      if (useCache) {
+        payload = await this.metadataApiCacheStore.get<TmdbSearchResponse>(
+          this.cacheProvider,
+          requestKey,
+        );
+      }
+
+      if (payload === undefined) {
+        const requestParams = new URLSearchParams(params);
+        requestParams.set('api_key', apiKey);
+        const url = `https://api.themoviedb.org/3/search/multi?${requestParams.toString()}`;
+
+        payload = (await this.fetchJson(url, 15000)) as TmdbSearchResponse;
+
+        if (useCache) {
+          await this.metadataApiCacheStore.set(
+            this.cacheProvider,
+            requestKey,
+            payload,
+          );
+        }
+      }
+
+      const results = Array.isArray(payload.results) ? payload.results : [];
+      const limit = Math.max(1, Math.min(input.limit ?? 16, 40));
+      const candidates: TmdbRemoteCandidate[] = [];
+
+      for (const raw of results) {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+
+        const value = raw as Record<string, unknown>;
+        const candidateType = this.resolveCandidateMediaType(value, 'other');
+        if (candidateType !== 'movie' && candidateType !== 'show') {
+          continue;
+        }
+
+        const providerId = this.extractNumericId(value.id);
+        if (!providerId) {
+          continue;
+        }
+
+        const candidate = this.toCandidate(value, 'other');
+        if (!candidate) {
+          continue;
+        }
+
+        candidates.push({
+          provider: 'tmdb',
+          providerId,
+          title: candidate.title,
+          mediaType: candidateType,
+          tags: candidate.tags,
+          overview: candidate.overview,
+          releaseYear: candidate.releaseYear,
+          posterUrl: candidate.posterUrl,
+          backdropUrl: candidate.backdropUrl,
+          runtimeSeconds: null,
+        });
+
+        if (candidates.length >= limit) {
+          break;
+        }
+      }
+
+      return candidates;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `TMDB remote search failed for "${cleanedTitle}": ${message}`,
+      );
+      return [];
+    }
+  }
+
+  async searchRemoteCandidatesByTag(input: {
+    tag: string;
+    limit?: number;
+    page?: number;
+    useCache?: boolean;
+  }): Promise<TmdbRemoteCandidate[]> {
+    const cleanedTag = input.tag.trim();
+    if (cleanedTag.length < 2) {
+      return [];
+    }
+
+    const settings = await this.systemSettingsService.getSettings();
+    const apiKey = settings.tmdbApiKey.trim();
+    if (!apiKey) {
+      return [];
+    }
+
+    const normalizedTag = this.normalizeGenreLabel(cleanedTag);
+    if (!normalizedTag) {
+      return [];
+    }
+
+    const movieGenreId = this.resolveGenreId(normalizedTag, TMDB_MOVIE_GENRES_BY_ID);
+    const showGenreId = this.resolveGenreId(normalizedTag, TMDB_SHOW_GENRES_BY_ID);
+
+    if (!movieGenreId && !showGenreId) {
+      return [];
+    }
+
+    const limit = Math.max(1, Math.min(input.limit ?? 36, 120));
+    const page =
+      typeof input.page === 'number' && Number.isFinite(input.page)
+        ? Math.max(1, Math.floor(input.page))
+        : undefined;
+    const useCache = input.useCache !== false;
+    const targets: TmdbDiscoverInput[] = [];
+
+    if (movieGenreId) {
+      targets.push({
+        apiKey,
+        endpoint: 'movie',
+        mediaType: 'movie',
+        genreId: movieGenreId,
+        limit,
+        page,
+        useCache,
+      });
+    }
+
+    if (showGenreId) {
+      targets.push({
+        apiKey,
+        endpoint: 'tv',
+        mediaType: 'show',
+        genreId: showGenreId,
+        limit,
+        page,
+        useCache,
+      });
+    }
+
+    const discoveredByTarget = await Promise.all(
+      targets.map((target) => this.discoverRemoteCandidates(target)),
+    );
+
+    const deduped = new Map<string, TmdbRemoteCandidate>();
+    for (const candidate of discoveredByTarget.flat()) {
+      const key = `${candidate.mediaType}:${candidate.providerId}`;
+      if (!deduped.has(key)) {
+        deduped.set(key, candidate);
+      }
+    }
+
+    return [...deduped.values()].slice(0, limit);
+  }
+
+  async getRemoteDetails(input: {
+    providerId: string;
+    mediaType: 'movie' | 'show';
+  }): Promise<TmdbRemoteCandidate | null> {
+    const providerId = this.extractNumericId(input.providerId);
+    if (!providerId) {
+      return null;
+    }
+
+    const settings = await this.systemSettingsService.getSettings();
+    const apiKey = settings.tmdbApiKey.trim();
+    if (!apiKey) {
+      return null;
+    }
+
+    const endpoint = input.mediaType === 'show' ? 'tv' : 'movie';
+    const requestKey = `remote:details:${endpoint}:${providerId}`;
+
+    try {
+      const cachedPayload =
+        await this.metadataApiCacheStore.get<TmdbDetailsResponse>(
+          this.cacheProvider,
+          requestKey,
+        );
+
+      let payload: TmdbDetailsResponse;
+      if (cachedPayload !== undefined) {
+        payload = cachedPayload;
+      } else {
+        const params = new URLSearchParams({
+          api_key: apiKey,
+        });
+        const url = `https://api.themoviedb.org/3/${endpoint}/${providerId}?${params.toString()}`;
+
+        payload = (await this.fetchJson(url, 15000)) as TmdbDetailsResponse;
+        await this.metadataApiCacheStore.set(
+          this.cacheProvider,
+          requestKey,
+          payload,
+        );
+      }
+
+      const candidate = this.toCandidate(payload, input.mediaType);
+      if (!candidate) {
+        return null;
+      }
+
+      return {
+        provider: 'tmdb',
+        providerId,
+        title: candidate.title,
+        mediaType: input.mediaType,
+        tags: candidate.tags,
+        overview: candidate.overview,
+        releaseYear: candidate.releaseYear,
+        posterUrl: candidate.posterUrl,
+        backdropUrl: candidate.backdropUrl,
+        runtimeSeconds: this.extractRuntimeSeconds(payload, input.mediaType),
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `TMDB remote details lookup failed for ${providerId}: ${message}`,
+      );
+      return null;
     }
   }
 
@@ -317,6 +615,19 @@ export class TmdbMetadataService {
     }
 
     return 'multi';
+  }
+
+  private resolveTmdbSourceId(value: unknown): string | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(Math.floor(value));
+    }
+
+    if (typeof value === 'string') {
+      const cleaned = value.trim();
+      return cleaned ? cleaned : null;
+    }
+
+    return null;
   }
 
   private toCandidate(
@@ -419,12 +730,29 @@ export class TmdbMetadataService {
     value: Record<string, unknown>,
     mediaType: 'movie' | 'show' | 'other',
   ): string[] {
+    const tags: string[] = [];
+
+    const namedGenres = Array.isArray(value.genres) ? value.genres : [];
+    for (const genre of namedGenres) {
+      if (typeof genre !== 'object' || genre === null || Array.isArray(genre)) {
+        continue;
+      }
+
+      const name = (genre as Record<string, unknown>).name;
+      if (typeof name !== 'string') {
+        continue;
+      }
+
+      const cleaned = name.trim();
+      if (cleaned) {
+        tags.push(cleaned);
+      }
+    }
+
     const genreIds =
       Array.isArray(value.genre_ids) && value.genre_ids.length > 0
         ? value.genre_ids
         : [];
-
-    const tags: string[] = [];
     for (const genreId of genreIds) {
       if (typeof genreId !== 'number' || !Number.isFinite(genreId)) {
         continue;
@@ -576,6 +904,210 @@ export class TmdbMetadataService {
 
     const parsed = Number.parseInt(match[1], 10);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private extractNumericId(value: unknown): string | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const numeric = Math.trunc(value);
+      return numeric > 0 ? String(numeric) : null;
+    }
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const cleaned = value.trim();
+    if (!cleaned) {
+      return null;
+    }
+
+    return /^\d+$/.test(cleaned) ? cleaned : null;
+  }
+
+  private extractRuntimeSeconds(
+    value: {
+      runtime?: unknown;
+      episode_run_time?: unknown;
+    },
+    mediaType: 'movie' | 'show',
+  ): number | null {
+    if (mediaType === 'movie') {
+      if (
+        typeof value.runtime === 'number' &&
+        Number.isFinite(value.runtime) &&
+        value.runtime > 0
+      ) {
+        return Math.round(value.runtime * 60);
+      }
+
+      return null;
+    }
+
+    if (!Array.isArray(value.episode_run_time)) {
+      return null;
+    }
+
+    for (const runTime of value.episode_run_time) {
+      if (
+        typeof runTime === 'number' &&
+        Number.isFinite(runTime) &&
+        runTime > 0
+      ) {
+        return Math.round(runTime * 60);
+      }
+    }
+
+    return null;
+  }
+
+  private async discoverRemoteCandidates(
+    input: TmdbDiscoverInput,
+  ): Promise<TmdbRemoteCandidate[]> {
+    const results: TmdbRemoteCandidate[] = [];
+    const perPage = 20;
+    const maxPages = Math.max(1, Math.min(25, Math.ceil(input.limit / perPage)));
+    const requestedPage =
+      typeof input.page === 'number' && Number.isFinite(input.page)
+        ? Math.max(1, Math.floor(input.page))
+        : null;
+    const startPage = requestedPage ?? 1;
+    const endPage = requestedPage ?? maxPages;
+
+    for (let page = startPage; page <= endPage; page += 1) {
+      const params = new URLSearchParams({
+        include_adult: 'false',
+        include_video: 'false',
+        sort_by: 'popularity.desc',
+        with_genres: String(input.genreId),
+        page: String(page),
+      });
+
+      const requestKey = `remote:discover:${input.endpoint}:genre:${input.genreId}:page:${page}`;
+      let payload: TmdbSearchResponse | undefined;
+
+      if (input.useCache) {
+        payload = await this.metadataApiCacheStore.get<TmdbSearchResponse>(
+          this.cacheProvider,
+          requestKey,
+        );
+      }
+
+      if (payload === undefined) {
+        const requestParams = new URLSearchParams(params);
+        requestParams.set('api_key', input.apiKey);
+        const url = `https://api.themoviedb.org/3/discover/${input.endpoint}?${requestParams.toString()}`;
+
+        payload = (await this.fetchJson(url, 15000)) as TmdbSearchResponse;
+
+        if (input.useCache) {
+          await this.metadataApiCacheStore.set(
+            this.cacheProvider,
+            requestKey,
+            payload,
+          );
+        }
+      }
+
+      const rawResults = Array.isArray(payload.results) ? payload.results : [];
+      if (rawResults.length === 0) {
+        break;
+      }
+
+      for (const raw of rawResults) {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+
+        const value = raw as Record<string, unknown>;
+        const providerId = this.extractNumericId(value.id);
+        if (!providerId) {
+          continue;
+        }
+
+        const candidate = this.toCandidate(value, input.mediaType);
+        if (!candidate) {
+          continue;
+        }
+
+        results.push({
+          provider: 'tmdb',
+          providerId,
+          title: candidate.title,
+          mediaType: input.mediaType,
+          tags: candidate.tags,
+          overview: candidate.overview,
+          releaseYear: candidate.releaseYear,
+          posterUrl: candidate.posterUrl,
+          backdropUrl: candidate.backdropUrl,
+          runtimeSeconds: null,
+        });
+
+        if (results.length >= input.limit) {
+          return results;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private resolveGenreId(
+    normalizedTag: string,
+    genresById: Record<number, string>,
+  ): number | null {
+    const normalizedCandidates = new Set<string>([normalizedTag]);
+    this.addTagAliases(normalizedTag, normalizedCandidates);
+
+    for (const candidate of normalizedCandidates) {
+      for (const [id, label] of Object.entries(genresById)) {
+        const normalizedLabel = this.normalizeGenreLabel(label);
+        if (normalizedLabel === candidate) {
+          return Number.parseInt(id, 10);
+        }
+      }
+    }
+
+    for (const candidate of normalizedCandidates) {
+      for (const [id, label] of Object.entries(genresById)) {
+        const normalizedLabel = this.normalizeGenreLabel(label);
+        if (
+          normalizedLabel.includes(candidate)
+          || candidate.includes(normalizedLabel)
+        ) {
+          return Number.parseInt(id, 10);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private addTagAliases(value: string, bucket: Set<string>): void {
+    if (value === 'sci fi' || value === 'scifi') {
+      bucket.add('science fiction');
+      bucket.add('sci fi fantasy');
+    }
+
+    if (value === 'science fiction') {
+      bucket.add('sci fi');
+      bucket.add('sci fi fantasy');
+    }
+
+    if (value === 'action') {
+      bucket.add('action adventure');
+    }
+
+    if (value === 'fantasy') {
+      bucket.add('sci fi fantasy');
+    }
+  }
+
+  private normalizeGenreLabel(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
   }
 
   private cacheKey(

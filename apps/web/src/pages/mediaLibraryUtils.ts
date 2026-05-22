@@ -36,20 +36,20 @@ function isHttpUrl(value: string | null | undefined): value is string {
 export function artworkUrlForMedia(item: MediaItem): string | null {
   const cacheVersion = item.metadataRefreshedAt || item.updatedAt;
 
-  if (isHttpUrl(item.backdropImagePath)) {
-    return item.backdropImagePath;
-  }
-
-  if (item.backdropImagePath) {
-    return mediaBackdropImageUrl(item.id, cacheVersion);
-  }
-
   if (isHttpUrl(item.previewImagePath)) {
     return item.previewImagePath;
   }
 
   if (item.previewImagePath) {
     return mediaPreviewImageUrl(item.id, cacheVersion);
+  }
+
+  if (isHttpUrl(item.backdropImagePath)) {
+    return item.backdropImagePath;
+  }
+
+  if (item.backdropImagePath) {
+    return mediaBackdropImageUrl(item.id, cacheVersion);
   }
 
   return null;
@@ -84,6 +84,44 @@ function toEpisodeSortValue(item: MediaItem): number {
   const season = item.seasonNumber ?? Number.MAX_SAFE_INTEGER;
   const episode = item.episodeNumber ?? Number.MAX_SAFE_INTEGER;
   return (season * 10_000) + episode;
+}
+
+function hasPosterArtwork(item: MediaItem): boolean {
+  return Boolean(item.previewImagePath?.trim());
+}
+
+function hasArtwork(item: MediaItem): boolean {
+  return hasPosterArtwork(item) || Boolean(item.backdropImagePath?.trim());
+}
+
+function toRepresentativeTimestamp(item: MediaItem): number {
+  return Math.max(toTimestamp(item.metadataRefreshedAt), toTimestamp(item.updatedAt));
+}
+
+function pickArtworkRepresentative(items: MediaItem[], fallback: MediaItem): MediaItem {
+  const withArtwork = items.filter(hasArtwork);
+  if (withArtwork.length === 0) {
+    return fallback;
+  }
+
+  return [...withArtwork].sort((left, right) => {
+    const posterAvailabilityDelta = Number(hasPosterArtwork(right)) - Number(hasPosterArtwork(left));
+    if (posterAvailabilityDelta !== 0) {
+      return posterAvailabilityDelta;
+    }
+
+    const freshnessDelta = toRepresentativeTimestamp(right) - toRepresentativeTimestamp(left);
+    if (freshnessDelta !== 0) {
+      return freshnessDelta;
+    }
+
+    const orderDelta = toEpisodeSortValue(left) - toEpisodeSortValue(right);
+    if (orderDelta !== 0) {
+      return orderDelta;
+    }
+
+    return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+  })[0] ?? fallback;
 }
 
 export function normalizeTags(tags: readonly string[] | null | undefined): string[] {
@@ -123,7 +161,7 @@ function toShowAggregateItem(items: MediaItem[]): MediaItem {
     return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
   });
 
-  const representative = sorted[0] ?? items[0];
+  const representative = pickArtworkRepresentative(sorted, sorted[0] ?? items[0]);
   const releaseYears = items
     .map((item) => item.releaseYear)
     .filter((year): year is number => typeof year === 'number' && Number.isFinite(year));

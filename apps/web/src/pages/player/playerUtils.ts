@@ -3,11 +3,53 @@ export interface PlayerPreferences {
   muted: boolean;
   playbackRate: number;
   theaterMode: boolean;
+  subtitleFontPreset: SubtitleFontPreset;
 }
 
 export interface HlsLevelOption {
   index: number;
   label: string;
+}
+
+export type SubtitleFontPreset = 'clear' | 'rounded' | 'mono' | 'condensed';
+
+interface SubtitleFontOption {
+  id: SubtitleFontPreset;
+  label: string;
+  family: string;
+}
+
+export const SUBTITLE_FONT_OPTIONS: SubtitleFontOption[] = [
+  {
+    id: 'clear',
+    label: 'Clear Sans',
+    family: "'Noto Sans', 'Noto Sans JP', 'Segoe UI', sans-serif",
+  },
+  {
+    id: 'rounded',
+    label: 'Rounded Sans',
+    family: "'Trebuchet MS', 'Verdana', 'Segoe UI', sans-serif",
+  },
+  {
+    id: 'mono',
+    label: 'Mono',
+    family: "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace",
+  },
+  {
+    id: 'condensed',
+    label: 'Condensed Sans',
+    family: "'Arial Narrow', 'Roboto Condensed', 'Noto Sans', 'Segoe UI', sans-serif",
+  },
+];
+
+const DEFAULT_SUBTITLE_FONT_PRESET: SubtitleFontPreset = 'condensed';
+
+function isSubtitleFontPreset(value: unknown): value is SubtitleFontPreset {
+  return SUBTITLE_FONT_OPTIONS.some((option) => option.id === value);
+}
+
+export function normalizeSubtitleFontPreset(value: unknown): SubtitleFontPreset {
+  return isSubtitleFontPreset(value) ? value : DEFAULT_SUBTITLE_FONT_PRESET;
 }
 
 export const PLAYER_PREFERENCES_KEY = 'yeen_player_preferences_v1';
@@ -94,6 +136,7 @@ export function readPlayerPreferences(): PlayerPreferences {
     muted: false,
     playbackRate: 1,
     theaterMode: false,
+    subtitleFontPreset: DEFAULT_SUBTITLE_FONT_PRESET,
   };
 
   try {
@@ -113,6 +156,7 @@ export function readPlayerPreferences(): PlayerPreferences {
       ),
       theaterMode:
         typeof parsed.theaterMode === 'boolean' ? parsed.theaterMode : defaults.theaterMode,
+      subtitleFontPreset: normalizeSubtitleFontPreset(parsed.subtitleFontPreset),
     };
   } catch {
     return defaults;

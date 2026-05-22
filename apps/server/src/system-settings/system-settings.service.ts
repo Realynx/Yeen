@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
-import { SystemSettings } from './entities/system-settings.entity';
+import {
+  QbittorrentPathMapping,
+  SystemSettings,
+} from './entities/system-settings.entity';
 import { SystemSettingsStore } from './system-settings.store';
 
 const DEFAULT_MEDIA_METADATA_SQLITE_PATH = 'data/media-metadata.sqlite';
 const DEFAULT_AI_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 const DEFAULT_AI_MODEL = 'llama3.1:8b';
+const DEFAULT_QBITTORRENT_TIMEOUT_MS = 15000;
 
 @Injectable()
 export class SystemSettingsService {
@@ -58,6 +62,34 @@ export class SystemSettingsService {
       mediaMetadataSqlitePath:
         this.configService.get<string>('MEDIA_METADATA_SQLITE_PATH')?.trim() ||
         DEFAULT_MEDIA_METADATA_SQLITE_PATH,
+      qbittorrentBaseUrl:
+        this.configService.get<string>('QBITTORRENT_BASE_URL')?.trim() || '',
+      qbittorrentUsername:
+        this.configService.get<string>('QBITTORRENT_USERNAME')?.trim() || '',
+      qbittorrentPassword:
+        this.configService.get<string>('QBITTORRENT_PASSWORD')?.trim() || '',
+      qbittorrentRequestTimeoutMs: this.parseIntWithFallback(
+        this.configService.get<string>('QBITTORRENT_REQUEST_TIMEOUT_MS'),
+        DEFAULT_QBITTORRENT_TIMEOUT_MS,
+      ),
+      qbittorrentDefaultOrderMode: this.normalizeQbittorrentOrderMode(
+        this.configService.get<string>('QBITTORRENT_DEFAULT_ORDER_MODE'),
+      ),
+      qbittorrentPathMappings: this.parsePathMappingsFromEnv(
+        this.configService.get<string>('QBITTORRENT_PATH_MAPPINGS'),
+      ),
+      iptorrentsUsername:
+        this.configService.get<string>('IPTORRENTS_USERNAME')?.trim() || '',
+      iptorrentsPassword:
+        this.configService.get<string>('IPTORRENTS_PASSWORD')?.trim() || '',
+      iptorrentsSeedingEnabled: this.parseBooleanWithFallback(
+        this.configService.get<string>('IPTORRENTS_SEEDING_ENABLED'),
+        true,
+      ),
+      nyaaSeedingEnabled: this.parseBooleanWithFallback(
+        this.configService.get<string>('NYAA_SEEDING_ENABLED'),
+        true,
+      ),
       aiMetadataEnabled: this.parseBooleanWithFallback(
         this.configService.get<string>('AI_METADATA_ENABLED'),
         false,
@@ -113,6 +145,28 @@ export class SystemSettingsService {
       mediaMetadataSqlitePath:
         input.mediaMetadataSqlitePath?.trim() ||
         DEFAULT_MEDIA_METADATA_SQLITE_PATH,
+      qbittorrentBaseUrl: input.qbittorrentBaseUrl?.trim() || '',
+      qbittorrentUsername: input.qbittorrentUsername?.trim() || '',
+      qbittorrentPassword: input.qbittorrentPassword?.trim() || '',
+      qbittorrentRequestTimeoutMs: this.clampInteger(
+        input.qbittorrentRequestTimeoutMs,
+        1000,
+        120000,
+        DEFAULT_QBITTORRENT_TIMEOUT_MS,
+      ),
+      qbittorrentDefaultOrderMode: this.normalizeQbittorrentOrderMode(
+        input.qbittorrentDefaultOrderMode,
+      ),
+      qbittorrentPathMappings: this.normalizePathMappings(
+        input.qbittorrentPathMappings,
+      ),
+      iptorrentsUsername: input.iptorrentsUsername?.trim() || '',
+      iptorrentsPassword: input.iptorrentsPassword?.trim() || '',
+      iptorrentsSeedingEnabled: this.normalizeBoolean(
+        input.iptorrentsSeedingEnabled,
+        true,
+      ),
+      nyaaSeedingEnabled: this.normalizeBoolean(input.nyaaSeedingEnabled, true),
       aiMetadataEnabled: this.normalizeBoolean(input.aiMetadataEnabled, false),
       aiProvider: this.normalizeAiProvider(input.aiProvider),
       aiModel: input.aiModel?.trim() || DEFAULT_AI_MODEL,
@@ -198,6 +252,12 @@ export class SystemSettingsService {
     return value === 'openai' ? 'openai' : 'ollama';
   }
 
+  private normalizeQbittorrentOrderMode(
+    value: string | undefined,
+  ): 'sequential' | 'random' {
+    return value === 'sequential' ? 'sequential' : 'random';
+  }
+
   private clampInteger(
     value: number | undefined,
     min: number,
@@ -210,5 +270,59 @@ export class SystemSettingsService {
 
     const rounded = Math.round(value);
     return Math.max(min, Math.min(max, rounded));
+  }
+
+  private normalizePathMappings(
+    value: unknown,
+  ): QbittorrentPathMapping[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const result: QbittorrentPathMapping[] = [];
+    for (const entry of value) {
+      if (!entry || typeof entry !== 'object') continue;
+      const from = typeof (entry as { from?: unknown }).from === 'string'
+        ? ((entry as { from: string }).from).trim()
+        : '';
+      const to = typeof (entry as { to?: unknown }).to === 'string'
+        ? ((entry as { to: string }).to).trim()
+        : '';
+      if (!from || !to) continue;
+      const dedupeKey = `${from.toLowerCase()}|${to.toLowerCase()}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      result.push({ from, to });
+      if (result.length >= 32) break;
+    }
+    return result;
+  }
+
+  private parsePathMappingsFromEnv(
+    raw: string | undefined,
+  ): QbittorrentPathMapping[] {
+    if (!raw) return [];
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    // Accept either JSON array or "from=to;from=to" form.
+    if (trimmed.startsWith('[')) {
+      try {
+        return this.normalizePathMappings(JSON.parse(trimmed));
+      } catch {
+        return [];
+      }
+    }
+
+    const parsed: QbittorrentPathMapping[] = [];
+    for (const segment of trimmed.split(/[;\n]+/)) {
+      const eq = segment.indexOf('=');
+      if (eq <= 0) continue;
+      const from = segment.slice(0, eq).trim();
+      const to = segment.slice(eq + 1).trim();
+      if (from && to) parsed.push({ from, to });
+    }
+    return this.normalizePathMappings(parsed);
   }
 }

@@ -60,6 +60,15 @@ export class UpdateMediaDto {
   @IsOptional()
   @IsUrl({ require_tld: true, require_protocol: true })
   backdropUrl?: string | null;
+
+  @IsOptional()
+  @IsIn(['tmdb', 'jikan'])
+  remoteSource?: 'tmdb' | 'jikan' | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  remoteSourceId?: string | null;
 }
 
 export class BulkAssignEpisodesDto {

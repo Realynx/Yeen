@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { login, register, toApiErrorMessage } from '../lib/api';
+import { login, toApiErrorMessage } from '../lib/api';
 import type { AuthResponse } from '../lib/types';
 
 interface AuthPanelProps {
@@ -8,16 +8,10 @@ interface AuthPanelProps {
 }
 
 export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const title = useMemo(() => {
-    return mode === 'login' ? 'Welcome Back' : 'Create Your Account';
-  }, [mode]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,10 +19,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
     setError(null);
 
     try {
-      const response =
-        mode === 'login'
-          ? await login({ email, password })
-          : await register({ email, password, name });
+      const response = await login({ email, password });
 
       onAuthenticated(response);
     } catch (submissionError) {
@@ -44,27 +35,13 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
     <main className="auth-page">
       <section className="auth-panel">
         <p className="eyebrow">Yeen Streaming</p>
-        <h1>{title}</h1>
+        <h1>Welcome Back</h1>
         <p className="subline">
-          Focused media server with local playback, smart subtitles, and smooth
-          transcoding fallback.
+          Sign in with your existing account. New accounts require an invite link
+          from an existing user.
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {mode === 'register' ? (
-            <label>
-              Display Name
-              <input
-                required
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                minLength={2}
-                maxLength={64}
-                placeholder="Captain Movie Night"
-              />
-            </label>
-          ) : null}
-
           <label>
             Email
             <input
@@ -82,7 +59,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             <input
               required
               type="password"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               minLength={8}
@@ -94,24 +71,9 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
           {error ? <p className="error-text">{error}</p> : null}
 
           <button type="submit" disabled={busy}>
-            {busy
-              ? 'Please wait...'
-              : mode === 'login'
-                ? 'Log In'
-                : 'Create Account'}
+            {busy ? 'Please wait...' : 'Log In'}
           </button>
         </form>
-
-        <div className="switch-row">
-          {mode === 'login' ? 'Need an account?' : 'Already have one?'}
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-          >
-            {mode === 'login' ? 'Register' : 'Sign In'}
-          </button>
-        </div>
       </section>
     </main>
   );

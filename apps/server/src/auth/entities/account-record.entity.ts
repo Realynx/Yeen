@@ -3,6 +3,9 @@ export interface AccountRecord {
   email: string;
   name: string;
   passwordHash: string;
-  role: 'admin' | 'user';
+  avatarDataUrl: string | null;
+  role: 'admin' | 'sailer' | 'user';
+  invitesRemaining: number | null;
+  invitedByAccountId: string | null;
   createdAt: string;
 }

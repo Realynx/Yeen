@@ -4,4 +4,6 @@ apps/*/dist/
 apps/server/data/
 apps/server/.env
 apps/web/.env
+deploy/
+artifacts/
 *.log

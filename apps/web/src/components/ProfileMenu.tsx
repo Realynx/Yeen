@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../lib/types';
+import { canAccessTorrentTools, isAdminRole } from '../lib/roles';
 
 interface ProfileMenuProps {
   user: User;
@@ -11,6 +12,8 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const isAdmin = isAdminRole(user.role);
+  const hasTorrentAccess = canAccessTorrentTools(user.role);
 
   const initials = useMemo(() => {
     const parts = user.name
@@ -56,7 +59,12 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
 
   function goToSystemSettings() {
     setOpen(false);
-    navigate('/settings?tab=system');
+    navigate('/admin/system');
+  }
+
+  function goToDownloadControl() {
+    setOpen(false);
+    navigate('/admin/downloads');
   }
 
   function handleSignOut() {
@@ -73,7 +81,15 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
         aria-label="Open profile menu"
         aria-expanded={open}
       >
-        <span className="profile-avatar">{initials}</span>
+        {user.avatarDataUrl ? (
+          <img
+            src={user.avatarDataUrl}
+            alt={`${user.name} profile`}
+            className="profile-avatar profile-avatar-image"
+          />
+        ) : (
+          <span className="profile-avatar">{initials}</span>
+        )}
       </button>
 
       {open ? (
@@ -87,9 +103,15 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
             User Settings
           </button>
 
-          {user.role === 'admin' ? (
+          {isAdmin ? (
             <button className="profile-dropdown-item" type="button" onClick={goToSystemSettings}>
               System Settings
+            </button>
+          ) : null}
+
+          {hasTorrentAccess ? (
+            <button className="profile-dropdown-item" type="button" onClick={goToDownloadControl}>
+              Download Control
             </button>
           ) : null}
 

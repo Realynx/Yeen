@@ -10,23 +10,34 @@ export interface HlsSession {
   formatVersion: number;
   // Inputs needed to transcode any segment on demand.
   sourceFilePath: string;
+  torrentHash: string | null;
   ffmpegPath: string;
   segmentSeconds: number;
   totalDurationSeconds: number;
   totalSegments: number;
+  selectedAudioStreamIndex: number | null;
+  audioMapSpecifier: string;
   videoArgs: string[];
   audioArgs: string[];
   keyFrameInterval: number;
+  // Runtime-only counters for startup-segment self-healing.
+  startSegmentRecoverableWindowStartedAtMs?: number;
+  startSegmentRecoverableFailures?: number;
 }
 
 @Injectable()
 export class HlsSessionStore {
   private readonly sessions = new Map<string, HlsSession>();
 
-  findReusableByMediaId(mediaId: string): HlsSession | undefined {
+  findReusableByMediaId(
+    mediaId: string,
+    selectedAudioStreamIndex: number | null,
+  ): HlsSession | undefined {
     return [...this.sessions.values()].find(
       (session) =>
-        session.mediaId === mediaId && existsSync(session.manifestPath),
+        session.mediaId === mediaId
+        && session.selectedAudioStreamIndex === selectedAudioStreamIndex
+        && existsSync(session.manifestPath),
     );
   }
 

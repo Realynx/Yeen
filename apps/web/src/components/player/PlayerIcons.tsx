@@ -117,6 +117,17 @@ export function PipIcon(props: IconProps) {
   );
 }
 
+export function CastIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="3.5" y="6" width="17" height="12" rx="2" />
+      <path d="M6.5 16.5a3 3 0 0 1 3 3" />
+      <path d="M6.5 13.5a6 6 0 0 1 6 6" />
+      <circle cx="6.5" cy="19.5" r="0.9" fill="currentColor" stroke="none" />
+    </BaseIcon>
+  );
+}
+
 export function TheaterIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

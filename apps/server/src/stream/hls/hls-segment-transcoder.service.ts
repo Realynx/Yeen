@@ -12,6 +12,7 @@ export interface SegmentTranscodeRequest {
   sourceFilePath: string;
   startSeconds: number;
   durationSeconds: number;
+  audioMapSpecifier: string;
   videoArgs: string[];
   audioArgs: string[];
 }
@@ -65,6 +66,25 @@ export class HlsSegmentTranscoder {
     }
   }
 
+  getInflightSegmentIndices(sessionId: string): number[] {
+    const prefix = `${sessionId}:`;
+    const indices: number[] = [];
+
+    for (const key of this.inflight.keys()) {
+      if (!key.startsWith(prefix)) {
+        continue;
+      }
+
+      const rawIndex = key.slice(prefix.length);
+      const parsedIndex = Number(rawIndex);
+      if (Number.isInteger(parsedIndex) && parsedIndex >= 0) {
+        indices.push(parsedIndex);
+      }
+    }
+
+    return indices.sort((left, right) => left - right);
+  }
+
   private jobKey(sessionId: string, segmentIndex: number): string {
     return `${sessionId}:${segmentIndex}`;
   }
@@ -75,6 +95,7 @@ export class HlsSegmentTranscoder {
       sourceFilePath: request.sourceFilePath,
       startSeconds: request.startSeconds,
       durationSeconds: request.durationSeconds,
+      audioMapSpecifier: request.audioMapSpecifier,
       videoArgs: request.videoArgs,
       audioArgs: request.audioArgs,
       outputPath: tempPath,

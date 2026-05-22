@@ -146,6 +146,22 @@ export class MediaStore implements OnModuleDestroy {
     return row ? this.toMediaItem(row) : undefined;
   }
 
+  async findByFilePath(filePath: string): Promise<MediaItem | undefined> {
+    const db = await this.getDb();
+    const row = db
+      .prepare(
+        `
+        SELECT
+          ${MEDIA_METADATA_COLUMNS_SQL}
+        FROM media_metadata
+        WHERE file_path = ?
+        `,
+      )
+      .get(filePath) as MediaRow | undefined;
+
+    return row ? this.toMediaItem(row) : undefined;
+  }
+
   async upsert(item: MediaItem): Promise<void> {
     const db = await this.getDb();
     const upsertStatement = db.prepare(
