@@ -5,6 +5,9 @@ interface MediaTileProps {
   media: MediaItem;
   imageUrl?: string | null;
   progressPercent?: number;
+  progressKind?: 'watch' | 'download';
+  topRightLabel?: string | null;
+  layout?: 'default' | 'library';
   onOpen: (mediaId: string) => void;
   selectable?: boolean;
   selected?: boolean;
@@ -53,15 +56,28 @@ export function MediaTile({
   media,
   imageUrl,
   progressPercent,
+  progressKind,
+  topRightLabel,
+  layout = 'default',
   onOpen,
   selectable = false,
   selected = false,
   onSelectionToggle,
 }: MediaTileProps) {
+  const isLibraryLayout = layout === 'library';
   const currentImageUrl = imageUrl ?? null;
   const quality = media.width && media.height ? `${media.width}x${media.height}` : 'Unknown quality';
   const qualityBadge = toQualityLabel(media);
   const typeLabel = media.type === 'show' ? 'Series' : 'Movie';
+
+  const metadataBadges = (
+    <>
+      <span>{formatDuration(media.durationSeconds)}</span>
+      <span>{qualityBadge}</span>
+      {media.releaseYear ? <span>{media.releaseYear}</span> : null}
+      <span>{media.extension.replace('.', '').toUpperCase()}</span>
+    </>
+  );
 
   const description = media.description?.trim()
     || `${typeLabel} from ${media.relativePath}`;
@@ -69,6 +85,9 @@ export function MediaTile({
   const safeProgressPercent = typeof progressPercent === 'number'
     ? Math.max(0, Math.min(100, progressPercent))
     : null;
+  const progressBarClassName = progressKind === 'download'
+    ? 'progress-bar is-download'
+    : 'progress-bar';
 
   const [loadedArtworkState, setLoadedArtworkState] = useState<{
     imageUrl: string | null;
@@ -80,6 +99,15 @@ export function MediaTile({
 
   const portraitArtwork = loadedArtworkState.imageUrl === currentImageUrl
     && loadedArtworkState.isPortrait;
+
+  const tileClassName = [
+    'media-tile',
+    selectable ? 'is-selectable' : null,
+    selected ? 'is-selected' : null,
+    isLibraryLayout ? 'is-library-layout' : null,
+  ]
+    .filter((className): className is string => Boolean(className))
+    .join(' ');
 
   function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
     const { naturalWidth, naturalHeight } = event.currentTarget;
@@ -97,13 +125,7 @@ export function MediaTile({
   return (
     <button
       type="button"
-      className={
-        selectable
-          ? selected
-            ? 'media-tile is-selectable is-selected'
-            : 'media-tile is-selectable'
-          : 'media-tile'
-      }
+      className={tileClassName}
       onMouseDown={(event) => {
         // Prevent native text selection when shift-clicking tiles.
         if (selectable && event.shiftKey) {
@@ -123,6 +145,7 @@ export function MediaTile({
           {selected ? '✓' : ''}
         </span>
       ) : null}
+
       <div className="media-thumb" aria-hidden="true">
         {imageUrl ? (
           <>
@@ -150,26 +173,46 @@ export function MediaTile({
         <div className="media-thumb-shade" />
 
         {safeProgressPercent !== null ? (
-          <div className="progress-bar" aria-hidden="true">
+          <div className={progressBarClassName} aria-hidden="true">
             <div style={{ width: `${safeProgressPercent}%` }} />
           </div>
+        ) : null}
+
+        {topRightLabel ? (
+          <span className="media-top-right-label" aria-hidden="true">{topRightLabel}</span>
         ) : null}
       </div>
 
       <div className="media-hover-panel">
         <h3 className="media-hover-title" title={media.title}>{media.title}</h3>
 
-        <div className="media-hover-body">
-          <div className="media-badges" aria-hidden="true">
-            <span>{formatDuration(media.durationSeconds)}</span>
-            <span>{qualityBadge}</span>
-            {media.releaseYear ? <span>{media.releaseYear}</span> : null}
-            <span>{media.extension.replace('.', '').toUpperCase()}</span>
+        {isLibraryLayout ? (
+          <div className="media-badges media-badges-below-title" aria-hidden="true">
+            {metadataBadges}
           </div>
+        ) : null}
 
-          <p className="media-hover-description">{description}</p>
-          <p className="media-hover-tech">{quality} | {typeLabel}</p>
-        </div>
+        {!isLibraryLayout ? (
+          <div className="media-hover-body">
+            <div className="media-badges" aria-hidden="true">
+              {metadataBadges}
+            </div>
+
+            {safeProgressPercent !== null ? (
+              <div className="media-progress-inline" aria-hidden="true">
+                <span className="media-progress-inline-label">
+                  Watched {Math.round(safeProgressPercent)}%
+                </span>
+                <div className="media-progress-inline-track">
+                  <div style={{ width: `${safeProgressPercent}%` }} />
+                </div>
+              </div>
+            ) : null}
+
+            <p className="media-hover-description">{description}</p>
+            <p className="media-hover-tech">{quality} | {typeLabel}</p>
+          </div>
+        ) : null}
       </div>
     </button>
   );

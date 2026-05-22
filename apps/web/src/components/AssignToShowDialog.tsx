@@ -135,8 +135,53 @@ function rowsShareSeason(rows: AssignmentRow[]): boolean {
   return rows.every((row) => row.seasonNumber === first);
 }
 
-function formatSeasonEpisode(season: number, episode: number): string {
-  return `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
+function normalizeTagsForInput(tags: readonly string[] | null | undefined): string[] {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return [];
+  }
+
+  const deduped = new Map<string, string>();
+  for (const tag of tags) {
+    if (typeof tag !== 'string') {
+      continue;
+    }
+
+    const cleaned = tag.trim();
+    if (!cleaned) {
+      continue;
+    }
+
+    const key = cleaned.toLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, cleaned);
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: 'base' }),
+  );
+}
+
+function toMediaTimestamp(item: MediaItem): number {
+  const refreshedAt = Date.parse(item.metadataRefreshedAt);
+  const updatedAt = Date.parse(item.updatedAt);
+  const refreshed = Number.isFinite(refreshedAt) ? refreshedAt : 0;
+  const updated = Number.isFinite(updatedAt) ? updatedAt : 0;
+  return Math.max(refreshed, updated);
+}
+
+function initialTagsInputFromSelection(items: MediaItem[]): string {
+  const candidate = [...items].sort((left, right) => {
+    const rightCount = Array.isArray(right.tags) ? right.tags.length : 0;
+    const leftCount = Array.isArray(left.tags) ? left.tags.length : 0;
+    if (rightCount !== leftCount) {
+      return rightCount - leftCount;
+    }
+
+    return toMediaTimestamp(right) - toMediaTimestamp(left);
+  })[0];
+
+  return normalizeTagsForInput(candidate?.tags ?? []).join(', ');
 }
 
 export function AssignToShowDialog({
@@ -149,13 +194,22 @@ export function AssignToShowDialog({
     const showTitle = selectedItems.find((item) => item.type === 'show')?.title;
     return showTitle ?? selectedItems[0]?.title ?? '';
   }, [selectedItems]);
+  const initialTagsInput = useMemo(
+    () => initialTagsInputFromSelection(selectedItems),
+    [selectedItems],
+  );
 
   const [title, setTitle] = useState(suggestedTitle);
   const [seasonNumber, setSeasonNumber] = useState('1');
   const [startEpisodeNumber, setStartEpisodeNumber] = useState('1');
   const [order, setOrder] = useState<EpisodeOrder>('detect-from-filename');
   const [releaseYear, setReleaseYear] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagsInput, setTagsInput] = useState(initialTagsInput);
+  const [tagsDirty, setTagsDirty] = useState(false);
+  const [candidatePosterUrl, setCandidatePosterUrl] = useState<string | null>(null);
+  const [candidateBackdropUrl, setCandidateBackdropUrl] = useState<string | null>(null);
+  const [candidateRemoteSource, setCandidateRemoteSource] = useState<'tmdb' | 'jikan' | null>(null);
+  const [candidateRemoteSourceId, setCandidateRemoteSourceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,6 +222,13 @@ export function AssignToShowDialog({
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose, saving]);
+
+  useEffect(() => {
+    setTagsInput(initialTagsInput);
+    setTagsDirty(false);
+    setCandidatePosterUrl(null);
+    setCandidateBackdropUrl(null);
+  }, [initialTagsInput]);
 
   const parsedSeason = Number.parseInt(seasonNumber, 10);
   const safeSeason = Number.isFinite(parsedSeason) && parsedSeason >= 0 ? parsedSeason : 1;
@@ -238,7 +299,12 @@ export function AssignToShowDialog({
     }
     if (candidate.tags.length > 0 && tagsInput.trim().length === 0) {
       setTagsInput(candidate.tags.join(', '));
+      setTagsDirty(true);
     }
+    setCandidatePosterUrl(candidate.posterUrl ?? null);
+    setCandidateBackdropUrl(candidate.backdropUrl ?? null);
+    setCandidateRemoteSource(candidate.remoteSource);
+    setCandidateRemoteSourceId(candidate.remoteSourceId);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -258,9 +324,11 @@ export function AssignToShowDialog({
         .split(',')
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0);
+      const shouldApplyTags = tagsDirty;
 
       const hasOverrides = Object.keys(overrides).length > 0;
-      if (singleSeason && !hasOverrides) {
+      const hasArtworkOverride = Boolean(candidatePosterUrl || candidateBackdropUrl);
+      if (singleSeason && !hasOverrides && !hasArtworkOverride) {
         // Fast path: identical season across all rows lets us use the
         // dedicated bulk endpoint instead of N PATCH calls.
         await bulkAssignEpisodes(token, {
@@ -270,7 +338,7 @@ export function AssignToShowDialog({
           seasonNumber: effectiveRows[0]?.seasonNumber ?? safeSeason,
           startEpisodeNumber: effectiveRows[0]?.episodeNumber ?? safeStart,
           episodeOrder: 'as-provided',
-          tags: tags.length > 0 ? tags : undefined,
+          tags: shouldApplyTags ? tags : undefined,
           releaseYear: safeYear ?? undefined,
         });
         onAssigned(effectiveRows.length);
@@ -293,9 +361,29 @@ export function AssignToShowDialog({
               type: 'show',
               seasonNumber: row.seasonNumber,
               episodeNumber: row.episodeNumber,
-              tags: tags.length > 0 ? tags : undefined,
-              releaseYear: safeYear,
             };
+
+            if (safeYear !== null) {
+              patch.releaseYear = safeYear;
+            }
+
+            if (shouldApplyTags) {
+              patch.tags = tags;
+            }
+
+            if (candidatePosterUrl) {
+              patch.posterUrl = candidatePosterUrl;
+            }
+
+            if (candidateBackdropUrl) {
+              patch.backdropUrl = candidateBackdropUrl;
+            }
+
+            if (candidateRemoteSource && candidateRemoteSourceId) {
+              patch.remoteSource = candidateRemoteSource;
+              patch.remoteSourceId = candidateRemoteSourceId;
+            }
+
             await updateMediaMetadata(token, row.item.id, patch);
             updated += 1;
           }
@@ -421,7 +509,10 @@ export function AssignToShowDialog({
               <input
                 type="text"
                 value={tagsInput}
-                onChange={(event) => setTagsInput(event.target.value)}
+                onChange={(event) => {
+                  setTagsInput(event.target.value);
+                  setTagsDirty(true);
+                }}
                 placeholder="anime, drama"
               />
             </label>

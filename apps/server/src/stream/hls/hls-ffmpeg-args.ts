@@ -23,7 +23,9 @@ export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
     'high',
     '-level',
     '4.1',
-    '-fps_mode',
+    // `-fps_mode` is unavailable on older ffmpeg releases often found on
+    // long-term Ubuntu/Debian images. Use the broadly supported equivalent.
+    '-vsync',
     'cfr',
     '-g',
     String(config.keyFrameInterval),
@@ -61,6 +63,7 @@ export interface SegmentFfmpegArgsInput {
   sourceFilePath: string;
   startSeconds: number;
   durationSeconds: number;
+  audioMapSpecifier: string;
   videoArgs: string[];
   audioArgs: string[];
   outputPath: string;
@@ -93,7 +96,7 @@ export function buildSegmentFfmpegArgs(input: SegmentFfmpegArgsInput): string[] 
     '-map',
     '0:v:0',
     '-map',
-    '0:a:0?',
+    input.audioMapSpecifier,
     '-sn',
     '-dn',
     ...input.videoArgs,

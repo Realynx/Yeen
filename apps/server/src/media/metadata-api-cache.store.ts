@@ -6,6 +6,11 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 
 interface MetadataApiCacheRow {
   response_json: string;
+  updated_at: string;
+}
+
+interface MetadataApiCacheGetOptions {
+  maxAgeMs?: number;
 }
 
 @Injectable()
@@ -16,12 +21,16 @@ export class MetadataApiCacheStore implements OnModuleDestroy {
 
   constructor(private readonly systemSettingsService: SystemSettingsService) {}
 
-  async get<T>(provider: string, requestKey: string): Promise<T | undefined> {
+  async get<T>(
+    provider: string,
+    requestKey: string,
+    options?: MetadataApiCacheGetOptions,
+  ): Promise<T | undefined> {
     const db = await this.getDb();
     const row = db
       .prepare(
         `
-        SELECT response_json
+        SELECT response_json, updated_at
         FROM metadata_api_cache
         WHERE provider = ?
           AND request_key = ?
@@ -31,6 +40,30 @@ export class MetadataApiCacheStore implements OnModuleDestroy {
 
     if (!row) {
       return undefined;
+    }
+
+    const maxAgeMs = options?.maxAgeMs;
+    if (
+      typeof maxAgeMs === 'number' &&
+      Number.isFinite(maxAgeMs) &&
+      maxAgeMs > 0
+    ) {
+      const updatedAtMs = Date.parse(row.updated_at);
+      const isFresh = Number.isFinite(updatedAtMs)
+        ? Date.now() - updatedAtMs <= maxAgeMs
+        : false;
+
+      if (!isFresh) {
+        db.prepare(
+          `
+          DELETE FROM metadata_api_cache
+          WHERE provider = ?
+            AND request_key = ?
+          `,
+        ).run(provider, requestKey);
+
+        return undefined;
+      }
     }
 
     try {

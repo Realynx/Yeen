@@ -90,3 +90,134 @@ npm run dev
 - Add role-based library access controls
 - GPU transcode profiles per hardware vendor
 - Rich metadata ingestion (TMDB/TVDB)
+
+## Single-port architecture
+
+In production, one NestJS process serves both:
+
+- frontend static assets from apps/web/dist
+- backend API routes under /api/*
+
+That means Cloudflared only needs one local origin, for example http://localhost:4000.
+
+## Build and package for deployment
+
+- npm run build builds server + web.
+- npm run build:deploy creates a slim deploy/ folder for production.
+- npm run build:zip creates artifacts/yeen-deploy.zip.
+
+build:zip excludes node_modules and does not copy local apps/server/data state.
+Install production dependencies on the server after extraction.
+
+## Ubuntu deployment with SFTP + SSH + systemd
+
+These steps assume Ubuntu 22.04+ and a non-root SSH user with sudo access.
+
+1. Install base packages, Node.js 22, and FFmpeg:
+
+```bash
+sudo apt update
+sudo apt install -y curl unzip ca-certificates gnupg ffmpeg
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v
+npm -v
+ffmpeg -version
+```
+
+2. Build deployment zip on your local machine:
+
+```bash
+npm install
+npm --prefix apps/server install
+npm --prefix apps/web install
+npm run build:zip
+```
+
+3. Upload zip via SFTP:
+
+```bash
+sftp youruser@your-server
+sftp> put ./artifacts/yeen-deploy.zip /tmp/
+sftp> exit
+```
+
+4. SSH into Ubuntu and extract:
+
+```bash
+ssh youruser@your-server
+sudo mkdir -p /var/www/yeen
+sudo chown -R $USER:$USER /var/www/yeen
+cd /var/www/yeen
+unzip -o /tmp/yeen-deploy.zip -d .
+```
+
+5. Configure environment:
+
+```bash
+cd /var/www/yeen
+cp .env.example .env
+nano .env
+```
+
+Recommended minimum values:
+
+```env
+PORT=4000
+NODE_ENV=production
+CORS_ORIGIN=https://your-domain.example.com
+JWT_SECRET=replace-with-a-long-random-secret
+DEFAULT_ADMIN_EMAIL=admin@example.com
+DEFAULT_ADMIN_NAME=Yeen Admin
+DEFAULT_ADMIN_PASSWORD=change-this-password
+MEDIA_LIBRARY_PATH=/srv/media
+MEDIA_LIBRARY_PATHS=/srv/media/movies;/srv/media/tv
+FFMPEG_PATH=ffmpeg
+FFPROBE_PATH=ffprobe
+```
+
+6. Install production dependencies and smoke test:
+
+```bash
+cd /var/www/yeen
+npm install --omit=dev
+npm start
+```
+
+Stop with Ctrl+C after verifying startup.
+
+7. Install systemd service:
+
+```bash
+sudo cp /var/www/yeen/deployment/systemd/yeen.service /etc/systemd/system/yeen.service
+sudo chown -R www-data:www-data /var/www/yeen
+sudo systemctl daemon-reload
+sudo systemctl enable --now yeen
+sudo systemctl status yeen
+```
+
+If you deploy to a different path, update WorkingDirectory and EnvironmentFile inside /etc/systemd/system/yeen.service.
+
+View logs:
+
+```bash
+sudo journalctl -u yeen -f
+```
+
+8. Point Cloudflared tunnel to the single app port:
+
+Quick temporary tunnel:
+
+```bash
+cloudflared tunnel --url http://localhost:4000
+```
+
+Named tunnel template is included at deployment/cloudflared/config.yml.
+Copy it to /etc/cloudflared/config.yml, set your tunnel ID and hostname, then run Cloudflared as a service.
+
+9. Validate from the server:
+
+```bash
+curl -I http://localhost:4000
+curl http://localhost:4000/api
+```

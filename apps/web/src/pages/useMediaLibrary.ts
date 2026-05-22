@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listMedia, listProgress, toApiErrorMessage } from '../lib/api';
-import type { MediaItem, ProgressEntry } from '../lib/types';
+import {
+  listMedia,
+  listMediaTorrentDownloadProgress,
+  listProgress,
+  toApiErrorMessage,
+} from '../lib/api';
+import type {
+  MediaItem,
+  MediaTorrentDownloadProgressEntry,
+  ProgressEntry,
+} from '../lib/types';
 
 interface UseMediaLibraryResult {
   mediaItems: MediaItem[];
   progressItems: ProgressEntry[];
+  downloadProgressItems: MediaTorrentDownloadProgressEntry[];
   loading: boolean;
   error: string | null;
   activeSearch: string | undefined;
@@ -13,9 +23,16 @@ interface UseMediaLibraryResult {
   setError: (message: string | null) => void;
 }
 
-export function useMediaLibrary(token: string): UseMediaLibraryResult {
+export function useMediaLibrary(
+  token: string,
+  initialSearch?: string,
+): UseMediaLibraryResult {
+  const normalizedInitialSearch = initialSearch?.trim() || undefined;
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressEntry[]>([]);
+  const [downloadProgressItems, setDownloadProgressItems] = useState<
+    MediaTorrentDownloadProgressEntry[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSearch, setActiveSearch] = useState<string | undefined>(undefined);
@@ -28,11 +45,21 @@ export function useMediaLibrary(token: string): UseMediaLibraryResult {
       }
 
       try {
-        const [media, progress] = await Promise.all([
-          listMedia(token, search),
+        const media = await listMedia(token, search);
+
+        const [progress, downloadProgress] = await Promise.all([
           listProgress(token),
+          listMediaTorrentDownloadProgress(
+            token,
+            media.map((item) => item.id),
+          ).catch(() => ({ items: [] })),
         ]);
-        return { media, progress };
+
+        return {
+          media,
+          progress,
+          downloadProgress: downloadProgress.items,
+        };
       } catch (fetchError) {
         if (isInitial) {
           setError(toApiErrorMessage(fetchError, 'Failed to load media library.'));
@@ -56,6 +83,7 @@ export function useMediaLibrary(token: string): UseMediaLibraryResult {
       if (result) {
         setMediaItems(result.media);
         setProgressItems(result.progress);
+        setDownloadProgressItems(result.downloadProgress);
         setActiveSearch(searchValue);
       }
     },
@@ -67,15 +95,16 @@ export function useMediaLibrary(token: string): UseMediaLibraryResult {
     if (result) {
       setMediaItems(result.media);
       setProgressItems(result.progress);
+      setDownloadProgressItems(result.downloadProgress);
       setError(null);
     }
   }, [activeSearch, fetchAll]);
 
-  // Initial load
+  // Initial load and URL-driven search updates
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+    void load(normalizedInitialSearch);
+  }, [load, normalizedInitialSearch]);
 
   // Background polling every 8 seconds
   useEffect(() => {
@@ -86,6 +115,7 @@ export function useMediaLibrary(token: string): UseMediaLibraryResult {
       if (!cancelled && result) {
         setMediaItems(result.media);
         setProgressItems(result.progress);
+        setDownloadProgressItems(result.downloadProgress);
       }
     }
 
@@ -99,5 +129,15 @@ export function useMediaLibrary(token: string): UseMediaLibraryResult {
     };
   }, [activeSearch, fetchAll]);
 
-  return { mediaItems, progressItems, loading, error, activeSearch, load, refresh, setError };
+  return {
+    mediaItems,
+    progressItems,
+    downloadProgressItems,
+    loading,
+    error,
+    activeSearch,
+    load,
+    refresh,
+    setError,
+  };
 }

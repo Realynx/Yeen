@@ -17,9 +17,15 @@ import { JikanMetadataService } from './jikan-metadata.service';
 import { TmdbMetadataService } from './tmdb-metadata.service';
 import { MediaCommitStore } from './media-commit.store';
 import { MediaFsCommitService } from './media-fs-commit.service';
+import { MediaFsCommitPlannerService } from './media-fs-commit-planner.service';
+import { MediaFsFileOpsService } from './media-fs-file-ops.service';
+import { MediaFsNfoService } from './media-fs-nfo.service';
+import { IptorrentsSearchService } from './iptorrents-search.service';
+import { NyaaSearchService } from './nyaa-search.service';
+import { TorrentModule } from '../torrent/torrent.module';
 
 @Module({
-  imports: [SystemSettingsModule],
+  imports: [SystemSettingsModule, TorrentModule],
   controllers: [MediaController, MediaImagesController],
   providers: [
     MediaStore,
@@ -35,7 +41,12 @@ import { MediaFsCommitService } from './media-fs-commit.service';
     MediaScannerService,
     MediaScanStore,
     MediaCommitStore,
+    MediaFsCommitPlannerService,
+    MediaFsFileOpsService,
+    MediaFsNfoService,
     MediaFsCommitService,
+    IptorrentsSearchService,
+    NyaaSearchService,
     MediaService,
   ],
   exports: [MediaService],

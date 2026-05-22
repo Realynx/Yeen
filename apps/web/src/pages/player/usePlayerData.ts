@@ -3,22 +3,124 @@ import {
   extractSubtitle,
   getMedia,
   getPlaybackPlan,
+  listPlaybackAudioTracks,
   listProgress,
   listSubtitleTracks,
   startHlsSession,
   toApiErrorMessage,
   withAccessToken,
 } from '../../lib/api';
-import type { MediaItem, SubtitleTrack } from '../../lib/types';
+import type {
+  MediaItem,
+  PlaybackAudioTrack,
+  ProgressEntry,
+  SubtitleTrack,
+} from '../../lib/types';
+import { normalizeShowKey } from '../media-details/mediaDetailsUtils';
+
+interface SeriesPlaybackPreference {
+  key: string;
+  preferredAudioLanguage: string | null;
+  preferredSubtitleLanguage: string | null;
+  subtitlePreferenceEnabled: boolean | null;
+}
+
+function normalizeLanguageCode(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function findTrackByPreferredLanguage<T extends { language: string | null }>(
+  tracks: readonly T[],
+  preferredLanguage: string | null | undefined,
+): T | null {
+  const normalizedPreferredLanguage = normalizeLanguageCode(preferredLanguage);
+  if (!normalizedPreferredLanguage) {
+    return null;
+  }
+
+  const exactMatch = tracks.find((track) => {
+    return normalizeLanguageCode(track.language) === normalizedPreferredLanguage;
+  });
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const preferredBaseLanguage = normalizedPreferredLanguage.split(/[-_]/)[0];
+  if (!preferredBaseLanguage) {
+    return null;
+  }
+
+  return (
+    tracks.find((track) => {
+      const candidateBaseLanguage = normalizeLanguageCode(track.language).split(/[-_]/)[0];
+      return candidateBaseLanguage === preferredBaseLanguage;
+    }) ?? null
+  );
+}
+
+function pickPreferredAudioStreamIndex(
+  tracks: readonly PlaybackAudioTrack[],
+  preferredLanguage: string | null | undefined,
+): number | null {
+  const preferredTrack = findTrackByPreferredLanguage(tracks, preferredLanguage);
+  return preferredTrack?.streamIndex ?? null;
+}
+
+function pickPreferredSubtitleTrackId(
+  tracks: readonly SubtitleTrack[],
+  preferredLanguage: string | null | undefined,
+): string {
+  const availableTracks = tracks.filter((track) => Boolean(track.url));
+  const preferredTrack = findTrackByPreferredLanguage(availableTracks, preferredLanguage);
+  return preferredTrack?.id ?? '';
+}
+
+function toSeriesPlaybackPreference(
+  entries: readonly ProgressEntry[],
+  seriesPreferenceKey: string | null,
+): SeriesPlaybackPreference | null {
+  const normalizedSeriesPreferenceKey = seriesPreferenceKey?.trim() ?? '';
+  if (!normalizedSeriesPreferenceKey) {
+    return null;
+  }
+
+  for (const entry of entries) {
+    if (entry.seriesPreferenceKey !== normalizedSeriesPreferenceKey) {
+      continue;
+    }
+
+    const hasExplicitPreference =
+      entry.preferredAudioLanguage !== undefined
+      || entry.preferredSubtitleLanguage !== undefined
+      || entry.subtitlePreferenceEnabled !== undefined;
+    if (!hasExplicitPreference) {
+      continue;
+    }
+
+    return {
+      key: normalizedSeriesPreferenceKey,
+      preferredAudioLanguage: entry.preferredAudioLanguage ?? null,
+      preferredSubtitleLanguage: entry.preferredSubtitleLanguage ?? null,
+      subtitlePreferenceEnabled: entry.subtitlePreferenceEnabled ?? null,
+    };
+  }
+
+  return null;
+}
 
 export interface PlaybackSource {
   url: string;
   hls: boolean;
+  hlsSessionId: string | null;
+  audioStreamIndex: number | null;
 }
 
 export interface PlayerDataState {
   media: MediaItem | null;
   source: PlaybackSource | null;
+  streamTorrentHash: string | null;
+  audioTracks: PlaybackAudioTrack[];
+  selectedAudioStreamIndex: number | null;
   subtitleTracks: SubtitleTrack[];
   selectedSubtitleId: string;
   selectedSubtitle: SubtitleTrack | null;
@@ -26,9 +128,13 @@ export interface PlayerDataState {
   loading: boolean;
   error: string | null;
   switchingToHls: boolean;
+  setSelectedAudioStreamIndex: (audioStreamIndex: number | null) => void;
   setSelectedSubtitleId: (subtitleId: string) => void;
   extractTrack: (track: SubtitleTrack) => Promise<void>;
-  switchToHls: (forceFresh?: boolean) => Promise<boolean>;
+  switchToHls: (options?: {
+    forceFresh?: boolean;
+    audioStreamIndex?: number | null;
+  }) => Promise<boolean>;
 }
 
 export function usePlayerData(token: string, mediaId: string): PlayerDataState {
@@ -37,6 +143,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
 
   const [media, setMedia] = useState<MediaItem | null>(null);
   const [source, setSource] = useState<PlaybackSource | null>(null);
+  const [streamTorrentHash, setStreamTorrentHash] = useState<string | null>(null);
+  const [audioTracks, setAudioTracks] = useState<PlaybackAudioTrack[]>([]);
+  const [selectedAudioStreamIndex, setSelectedAudioStreamIndex] = useState<number | null>(null);
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
   const [selectedSubtitleId, setSelectedSubtitleId] = useState<string>('');
   const [resumeAtSeconds, setResumeAtSeconds] = useState(0);
@@ -59,12 +168,33 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     return subtitleTracks.find((track) => track.id === selectedSubtitleId) ?? null;
   }, [selectedSubtitleId, subtitleTracks]);
 
-  const switchToHls = useCallback(async (forceFresh = false) => {
+  const pickDefaultAudioStreamIndex = useCallback((tracks: PlaybackAudioTrack[]): number | null => {
+    if (tracks.length === 0) {
+      return null;
+    }
+
+    return tracks.find((track) => track.isDefault)?.streamIndex ?? tracks[0].streamIndex;
+  }, []);
+
+  const switchToHls = useCallback(async (options?: {
+    forceFresh?: boolean;
+    audioStreamIndex?: number | null;
+  }) => {
     if (!mediaId || switchingToHls) {
       return false;
     }
 
-    if (source?.hls && !forceFresh) {
+    const forceFresh = Boolean(options?.forceFresh);
+    const requestedAudioStreamIndex =
+      options?.audioStreamIndex !== undefined
+        ? options.audioStreamIndex
+        : selectedAudioStreamIndex;
+
+    if (
+      source?.hls
+      && !forceFresh
+      && source.audioStreamIndex === requestedAudioStreamIndex
+    ) {
       return false;
     }
 
@@ -88,11 +218,20 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     setSwitchingToHls(true);
 
     try {
-      const hlsSession = await startHlsSession(token, mediaId, forceFresh);
+      const hlsSession = await startHlsSession(token, mediaId, {
+        forceFresh,
+        audioStreamIndex: requestedAudioStreamIndex,
+      });
+      const resolvedAudioStreamIndex =
+        hlsSession.selectedAudioStreamIndex ?? requestedAudioStreamIndex ?? null;
+
       setSource({
         url: withAccessToken(hlsSession.manifestUrl, token),
         hls: true,
+        hlsSessionId: hlsSession.sessionId,
+        audioStreamIndex: resolvedAudioStreamIndex,
       });
+      setSelectedAudioStreamIndex(resolvedAudioStreamIndex);
       return true;
     } catch (switchError) {
       setError(toApiErrorMessage(switchError, 'Unable to switch to transcoded playback.'));
@@ -100,12 +239,37 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     } finally {
       setSwitchingToHls(false);
     }
-  }, [mediaId, source?.hls, switchingToHls, token]);
+  }, [
+    mediaId,
+    selectedAudioStreamIndex,
+    source?.audioStreamIndex,
+    source?.hls,
+    switchingToHls,
+    token,
+  ]);
 
-  const fetchTracks = useCallback(async () => {
+  const fetchTracks = useCallback(async (options?: {
+    preferredSubtitleLanguage?: string | null;
+    subtitlePreferenceEnabled?: boolean | null;
+  }) => {
     const tracks = await listSubtitleTracks(token, mediaId);
     setSubtitleTracks(tracks);
+
+    const preferredSubtitleId = pickPreferredSubtitleTrackId(
+      tracks,
+      options?.preferredSubtitleLanguage ?? null,
+    );
+    const subtitlePreferenceEnabled = options?.subtitlePreferenceEnabled ?? null;
+
     setSelectedSubtitleId((previous) => {
+      if (subtitlePreferenceEnabled === false) {
+        return '';
+      }
+
+      if (preferredSubtitleId) {
+        return preferredSubtitleId;
+      }
+
       const existing = tracks.find((track) => track.id === previous && !!track.url);
       if (existing) {
         return previous;
@@ -122,12 +286,17 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     async function loadPlayer() {
       setLoading(true);
       setError(null);
+      setStreamTorrentHash(null);
+      setAudioTracks([]);
 
       try {
-        const [mediaInfo, playback, progressEntries] = await Promise.all([
+        const [mediaInfo, playback, progressEntries, playbackAudioTracks] = await Promise.all([
           getMedia(token, mediaId),
           getPlaybackPlan(token, mediaId),
           listProgress(token).catch(() => [] as Awaited<ReturnType<typeof listProgress>>),
+          listPlaybackAudioTracks(token, mediaId).catch(
+            () => [] as PlaybackAudioTrack[],
+          ),
         ]);
 
         if (cancelled) {
@@ -135,6 +304,45 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
         }
 
         setMedia(mediaInfo);
+        setStreamTorrentHash(playback.torrent?.hash?.trim() || null);
+
+        const seriesPreferenceKey =
+          mediaInfo.type === 'show' ? normalizeShowKey(mediaInfo) : null;
+        const seriesPlaybackPreference = toSeriesPlaybackPreference(
+          progressEntries,
+          seriesPreferenceKey,
+        );
+
+        const defaultAudioStreamIndex =
+          pickDefaultAudioStreamIndex(playbackAudioTracks);
+        const seriesPreferredAudioStreamIndex = pickPreferredAudioStreamIndex(
+          playbackAudioTracks,
+          seriesPlaybackPreference?.preferredAudioLanguage ?? null,
+        );
+        const initialAudioStreamIndex =
+          seriesPreferredAudioStreamIndex ?? defaultAudioStreamIndex;
+        const requiresTranscodedAudio =
+          seriesPreferredAudioStreamIndex !== null
+          && defaultAudioStreamIndex !== null
+          && seriesPreferredAudioStreamIndex !== defaultAudioStreamIndex;
+
+        setAudioTracks(playbackAudioTracks);
+        setSelectedAudioStreamIndex((previous) => {
+          if (seriesPreferredAudioStreamIndex !== null) {
+            return seriesPreferredAudioStreamIndex;
+          }
+
+          if (
+            previous !== null
+            && playbackAudioTracks.some(
+              (track) => track.streamIndex === previous,
+            )
+          ) {
+            return previous;
+          }
+
+          return initialAudioStreamIndex;
+        });
 
         // Apply the saved resume position BEFORE setting the source so that
         // the video element's `loadedmetadata` handler sees a non-zero value
@@ -145,25 +353,43 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
           setResumeAtSeconds(entry.positionSeconds);
         }
 
-        if (playback.directPlay.supported) {
+        if (playback.directPlay.supported && !requiresTranscodedAudio) {
           setSource({
             url: withAccessToken(playback.directPlay.url, token),
             hls: false,
+            hlsSessionId: null,
+            audioStreamIndex: initialAudioStreamIndex,
           });
         } else {
-          const hlsSession = await startHlsSession(token, mediaId);
+          const hlsSession = await startHlsSession(token, mediaId, {
+            audioStreamIndex: initialAudioStreamIndex,
+          });
           if (cancelled) {
             return;
           }
 
+          const resolvedAudioStreamIndex =
+            hlsSession.selectedAudioStreamIndex
+            ?? initialAudioStreamIndex
+            ?? null;
+
           setSource({
             url: withAccessToken(hlsSession.manifestUrl, token),
             hls: true,
+            hlsSessionId: hlsSession.sessionId,
+            audioStreamIndex: resolvedAudioStreamIndex,
           });
+          setSelectedAudioStreamIndex(resolvedAudioStreamIndex);
         }
 
-        await fetchTracks();
+        await fetchTracks({
+          preferredSubtitleLanguage:
+            seriesPlaybackPreference?.preferredSubtitleLanguage ?? null,
+          subtitlePreferenceEnabled:
+            seriesPlaybackPreference?.subtitlePreferenceEnabled ?? null,
+        });
       } catch (loadError) {
+        setStreamTorrentHash(null);
         setError(toApiErrorMessage(loadError, 'Unable to prepare playback.'));
       } finally {
         if (!cancelled) {
@@ -179,7 +405,7 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     return () => {
       cancelled = true;
     };
-  }, [fetchTracks, mediaId, token]);
+  }, [fetchTracks, mediaId, pickDefaultAudioStreamIndex, token]);
 
   async function extractTrack(track: SubtitleTrack) {
     if (!track.extractable || typeof track.streamIndex !== 'number') {
@@ -198,6 +424,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
   return {
     media,
     source,
+    streamTorrentHash,
+    audioTracks,
+    selectedAudioStreamIndex,
     subtitleTracks,
     selectedSubtitleId,
     selectedSubtitle,
@@ -205,6 +434,7 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     loading,
     error,
     switchingToHls,
+    setSelectedAudioStreamIndex,
     setSelectedSubtitleId,
     extractTrack,
     switchToHls,

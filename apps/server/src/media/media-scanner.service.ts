@@ -7,12 +7,23 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { MediaItem } from './entities/media-item.entity';
 import { MediaNfoReader } from './media-nfo.reader';
 import { MediaPreviewResolver } from './media-preview.resolver';
-import { MediaProbeAdapter } from './media-probe.adapter';
+import { MediaProbeAdapter, type FfprobePayload } from './media-probe.adapter';
 import { MediaSubtitleResolver } from './media-subtitle.resolver';
 import { JikanMetadataService } from './jikan-metadata.service';
 import { TmdbMetadataService } from './tmdb-metadata.service';
 import { parseReleaseYear, parseSeasonEpisode } from './filename-metadata';
 import { cleanTitle, normalizeForKey } from './title-normalizer';
+
+export interface MediaProbeHint {
+  title?: string;
+  normalizedTitle?: string;
+  releaseYear?: number | null;
+  mediaType?: 'movie' | 'show' | 'other' | null;
+  description?: string | null;
+  tags?: string[];
+  posterUrl?: string | null;
+  backdropUrl?: string | null;
+}
 
 @Injectable()
 export class MediaScannerService {
@@ -85,7 +96,7 @@ export class MediaScannerService {
   async probeFile(
     filePath: string,
     libraryRoot: string,
-    normalizedTitleHint?: string,
+    metadataHint?: MediaProbeHint,
   ): Promise<MediaItem> {
     const settings = await this.systemSettingsService.getSettings();
     const parsed = await this.mediaProbeAdapter.probeFile(
@@ -99,12 +110,28 @@ export class MediaScannerService {
       this.mediaSubtitleResolver.toEmbeddedSubtitleDetails(subtitleStreams);
 
     const fileStats: Stats = await stat(filePath);
+    // Sidecar lookups (external subs, .nfo, preview image, description) are
+    // all optional enrichment. When indexing an in-progress torrent file,
+    // the surrounding directory may be momentarily unreadable over SMB or
+    // missing companion files entirely; failures there must not abort the
+    // probe. Swallow individual rejections and substitute empty defaults.
+    const settle = async <T>(promise: Promise<T>, fallback: T, label: string): Promise<T> => {
+      try {
+        return await promise;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.debug(
+          `Sidecar lookup ${label} failed for ${filePath}: ${message}`,
+        );
+        return fallback;
+      }
+    };
     const [externalSubtitles, sidecarDescription, sidecarPreviewImagePath, nfoMetadata] =
       await Promise.all([
-        this.mediaSubtitleResolver.findExternalSubtitleDetails(filePath),
-        this.mediaPreviewResolver.readSidecarDescription(filePath),
-        this.mediaPreviewResolver.findPreviewImagePath(filePath),
-        this.nfoReader.readNfo(filePath),
+        settle(this.mediaSubtitleResolver.findExternalSubtitleDetails(filePath), [], 'external-subtitles'),
+        settle(this.mediaPreviewResolver.readSidecarDescription(filePath), null, 'sidecar-description'),
+        settle(this.mediaPreviewResolver.findPreviewImagePath(filePath), null, 'preview-image'),
+        settle(this.nfoReader.readNfo(filePath), null, 'nfo'),
       ]);
 
     const fileName = basename(filePath, extname(filePath));
@@ -118,21 +145,47 @@ export class MediaScannerService {
           }
         : null;
     const seasonEpisode = nfoSeasonEpisode ?? filenameSE;
-    const mediaType = this.guessType(relativePath, seasonEpisode);
+    const guessedMediaType = this.guessType(relativePath, seasonEpisode);
+    const mediaType =
+      metadataHint?.mediaType === 'movie' ||
+      metadataHint?.mediaType === 'show' ||
+      metadataHint?.mediaType === 'other'
+        ? metadataHint.mediaType
+        : guessedMediaType;
     const subtitleDetails = [...embeddedSubtitles, ...externalSubtitles];
-    const durationSeconds = this.parseNumber(parsed.format?.duration) ?? 0;
+    const durationSeconds = this.resolveDurationSeconds(parsed, fileStats.size);
     const fallbackTitle = cleanTitle(fileName);
     const nfoTitle = (nfoMetadata?.showTitle ?? nfoMetadata?.title)?.trim() || null;
-    const hintedTitle = nfoTitle ?? normalizedTitleHint?.trim() ?? fallbackTitle;
-    const parsedReleaseYear = nfoMetadata?.year ?? parseReleaseYear(fileName);
+    const hintTitle = metadataHint?.title?.trim() ?? '';
+    const hintNormalizedTitle = metadataHint?.normalizedTitle?.trim() ?? '';
+    const hintedTitle =
+      nfoTitle ?? (hintTitle || hintNormalizedTitle || fallbackTitle);
+    const hintedReleaseYear =
+      typeof metadataHint?.releaseYear === 'number' &&
+      Number.isFinite(metadataHint.releaseYear)
+        ? Math.floor(metadataHint.releaseYear)
+        : null;
+    const parsedReleaseYear =
+      nfoMetadata?.year ?? parseReleaseYear(fileName) ?? hintedReleaseYear;
 
-    const tmdb = await this.tmdbMetadataService.lookup({
-      title: hintedTitle,
-      mediaType,
-      releaseYear: parsedReleaseYear,
-    });
+    const hintTags = this.normalizeTags(metadataHint?.tags ?? null);
+    const hasHintMetadataEnrichment =
+      hintTags.length > 0 ||
+      Boolean(metadataHint?.description?.trim()) ||
+      Boolean(metadataHint?.posterUrl?.trim()) ||
+      Boolean(metadataHint?.backdropUrl?.trim());
+    const shouldLookupRemoteMetadata = !hasHintMetadataEnrichment;
+    const tmdb = shouldLookupRemoteMetadata
+      ? await this.tmdbMetadataService.lookup({
+          title: hintedTitle,
+          mediaType,
+          releaseYear: parsedReleaseYear,
+        })
+      : null;
     const jikan =
-      !tmdb && this.shouldUseJikanFallback(relativePath, mediaType, hintedTitle)
+      shouldLookupRemoteMetadata &&
+      !tmdb &&
+      this.shouldUseJikanFallback(relativePath, mediaType, hintedTitle)
         ? await this.jikanMetadataService.lookup({
             title: hintedTitle,
             releaseYear: parsedReleaseYear,
@@ -143,7 +196,11 @@ export class MediaScannerService {
     const title = metadata?.title?.trim() || hintedTitle;
     const normalizedTitle = normalizeForKey(title);
     const tags = this.normalizeTags(
-      metadata?.tags?.length ? metadata.tags : nfoMetadata?.genres ?? null,
+      hintTags.length > 0
+        ? hintTags
+        : metadata?.tags?.length
+          ? metadata.tags
+          : nfoMetadata?.genres ?? null,
     );
     const releaseYear = parsedReleaseYear ?? metadata?.releaseYear ?? null;
     const episodeTitle =
@@ -165,18 +222,24 @@ export class MediaScannerService {
       settings.ffmpegPath,
       settings.thumbnailCaptureCount,
     );
-    const metadataPosterImagePath = metadata?.posterUrl
+    const hintPosterUrl = metadataHint?.posterUrl?.trim() || null;
+    const hintBackdropUrl = metadataHint?.backdropUrl?.trim() || null;
+    const metadataPosterSourceUrl = hintPosterUrl || metadata?.posterUrl || null;
+    const metadataBackdropSourceUrl = hintBackdropUrl || metadata?.backdropUrl || null;
+    const downloadedPosterImagePath = metadataPosterSourceUrl
       ? await this.mediaPreviewResolver.downloadPosterThumbnail(
-          metadata.posterUrl,
+          metadataPosterSourceUrl,
           filePath,
         )
       : null;
-    const metadataBackdropImagePath = metadata?.backdropUrl
+    const downloadedBackdropImagePath = metadataBackdropSourceUrl
       ? await this.mediaPreviewResolver.downloadBackdropThumbnail(
-          metadata.backdropUrl,
+          metadataBackdropSourceUrl,
           filePath,
         )
       : null;
+    const metadataPosterImagePath = downloadedPosterImagePath || metadataPosterSourceUrl;
+    const metadataBackdropImagePath = downloadedBackdropImagePath || metadataBackdropSourceUrl;
     const previewImagePath = this.mediaPreviewResolver.selectBestPreviewImagePath(
       sidecarPreviewImagePath,
       metadataPosterImagePath,
@@ -187,7 +250,8 @@ export class MediaScannerService {
       chapterThumbnails,
       sidecarPreviewImagePath,
     );
-    const description = sidecarDescription ?? metadata?.overview ?? null;
+    const hintDescription = metadataHint?.description?.trim() || null;
+    const description = sidecarDescription ?? hintDescription ?? metadata?.overview ?? null;
     const dedupeKey = this.buildDedupeKey({
       mediaType,
       normalizedTitle,
@@ -344,6 +408,104 @@ export class MediaScannerService {
     return [...deduped.values()].sort((left, right) =>
       left.localeCompare(right, undefined, { sensitivity: 'base' }),
     );
+  }
+
+  private resolveDurationSeconds(
+    payload: FfprobePayload,
+    fileSizeBytes: number,
+  ): number {
+    const directDuration = this.parseNumber(payload.format?.duration);
+    if (directDuration && directDuration > 0) {
+      return directDuration;
+    }
+
+    const formatTagDuration = this.parseDurationFromTagCollection(
+      payload.format?.tags,
+    );
+    if (formatTagDuration && formatTagDuration > 0) {
+      return formatTagDuration;
+    }
+
+    for (const stream of payload.streams ?? []) {
+      const streamTagDuration = this.parseDurationFromTagCollection(
+        stream.tags,
+      );
+      if (streamTagDuration && streamTagDuration > 0) {
+        return streamTagDuration;
+      }
+    }
+
+    const formatBitRate = this.parseNumber(payload.format?.bit_rate);
+    if (
+      formatBitRate
+      && formatBitRate > 0
+      && Number.isFinite(fileSizeBytes)
+      && fileSizeBytes > 0
+    ) {
+      const estimatedSeconds = (fileSizeBytes * 8) / formatBitRate;
+      if (
+        Number.isFinite(estimatedSeconds)
+        && estimatedSeconds > 30
+        && estimatedSeconds < 12 * 60 * 60
+      ) {
+        return estimatedSeconds;
+      }
+    }
+
+    return 0;
+  }
+
+  private parseDurationFromTagCollection(
+    tags: Record<string, string | undefined> | undefined,
+  ): number | null {
+    if (!tags) {
+      return null;
+    }
+
+    for (const [key, value] of Object.entries(tags)) {
+      if (!value || !key.toLowerCase().startsWith('duration')) {
+        continue;
+      }
+
+      const parsed = this.parseDurationString(value);
+      if (parsed && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  private parseDurationString(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed || /^n\/a$/i.test(trimmed)) {
+      return null;
+    }
+
+    const numeric = this.parseNumber(trimmed);
+    if (numeric && numeric > 0) {
+      return numeric;
+    }
+
+    const hhmmssMatch = trimmed.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
+    if (hhmmssMatch) {
+      const hours = Number.parseInt(hhmmssMatch[1], 10);
+      const minutes = Number.parseInt(hhmmssMatch[2], 10);
+      const seconds = Number.parseInt(hhmmssMatch[3], 10);
+      const fraction = hhmmssMatch[4]
+        ? Number.parseFloat(`0.${hhmmssMatch[4]}`)
+        : 0;
+
+      if (
+        Number.isFinite(hours)
+        && Number.isFinite(minutes)
+        && Number.isFinite(seconds)
+      ) {
+        return hours * 3600 + minutes * 60 + seconds + (Number.isFinite(fraction) ? fraction : 0);
+      }
+    }
+
+    return null;
   }
 
   private parseNumber(value?: string): number | null {

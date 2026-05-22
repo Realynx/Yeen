@@ -17,6 +17,7 @@ export interface MediaScanProgress {
   processedFiles: number;
   indexedItems: number;
   failedFiles: number;
+  skippedIndexedFiles: number;
   currentFile: string | null;
   message: string | null;
   error: string | null;
@@ -38,6 +39,7 @@ export function createIdleMediaScanProgress(): MediaScanProgress {
     processedFiles: 0,
     indexedItems: 0,
     failedFiles: 0,
+    skippedIndexedFiles: 0,
     currentFile: null,
     message: null,
     error: null,

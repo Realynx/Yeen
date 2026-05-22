@@ -24,6 +24,7 @@ export class MediaScanStore {
       processedFiles: 0,
       indexedItems: 0,
       failedFiles: 0,
+      skippedIndexedFiles: 0,
       currentFile: null,
       message: 'Collecting media files...',
       error: null,

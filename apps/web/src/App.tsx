@@ -1,13 +1,82 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthPanel } from './components/AuthPanel';
+import { InviteSignupPanel } from './components/InviteSignupPanel';
 import { TOKEN_STORAGE_KEY, me } from './lib/api';
 import type { AuthResponse, User } from './lib/types';
+import { canAccessTorrentTools, isAdminRole } from './lib/roles';
 import { HomePage } from './pages/HomePage';
+import { MediaExplorePage } from './pages/MediaExplorePage';
 import { MediaLibraryPage } from './pages/MediaLibraryPage';
 import { MediaDetailsPage } from './pages/MediaDetailsPage';
 import { PlayerPage } from './pages/PlayerPage';
+import { DownloadControlPage } from './pages/DownloadControlPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SystemSettingsPage } from './pages/SystemSettingsPage';
+import { AccountAccessPage } from './pages/AccountAccessPage';
+
+function titleForPath(pathname: string): string {
+  if (pathname === '/') {
+    return 'Home - Yeen';
+  }
+
+  if (pathname.startsWith('/library')) {
+    return 'Library - Yeen';
+  }
+
+  if (pathname.startsWith('/explore')) {
+    return 'Explore - Yeen';
+  }
+
+  if (pathname.startsWith('/details/')) {
+    return 'Media Details - Yeen';
+  }
+
+  if (pathname.startsWith('/player/')) {
+    return 'Player - Yeen';
+  }
+
+  if (pathname.startsWith('/settings')) {
+    return 'Settings - Yeen';
+  }
+
+  if (pathname.startsWith('/admin/system')) {
+    return 'System Settings - Yeen';
+  }
+
+  if (pathname.startsWith('/admin/accounts')) {
+    return 'Accounts & Access - Yeen';
+  }
+
+  if (pathname.startsWith('/admin/download')) {
+    return 'Download Control - Yeen';
+  }
+
+  return 'Yeen';
+}
+
+function inviteTokenFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/invite\/([^/]+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+function RouteTitleManager() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    document.title = titleForPath(pathname);
+  }, [pathname]);
+
+  return null;
+}
 
 function App() {
   const [token, setToken] = useState<string>(() => {
@@ -76,11 +145,22 @@ function App() {
   }
 
   if (!token || !user) {
+    const inviteToken = inviteTokenFromPath(window.location.pathname);
+    if (inviteToken) {
+      return (
+        <InviteSignupPanel
+          inviteToken={inviteToken}
+          onAuthenticated={handleAuthenticated}
+        />
+      );
+    }
+
     return <AuthPanel onAuthenticated={handleAuthenticated} />;
   }
 
   return (
     <BrowserRouter>
+      <RouteTitleManager />
       <Routes>
         <Route
           path="/"
@@ -88,11 +168,22 @@ function App() {
         />
         <Route
           path="/settings"
-          element={<SettingsPage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            <SettingsPage
+              token={token}
+              user={user}
+              onUserUpdated={setUser}
+              onLogout={handleLogout}
+            />
+          }
         />
         <Route
           path="/library"
           element={<MediaLibraryPage token={token} user={user} onLogout={handleLogout} />}
+        />
+        <Route
+          path="/explore"
+          element={<MediaExplorePage token={token} user={user} onLogout={handleLogout} />}
         />
         <Route
           path="/details/:mediaId"
@@ -101,6 +192,44 @@ function App() {
         <Route
           path="/player/:mediaId"
           element={<PlayerPage token={token} user={user} onLogout={handleLogout} />}
+        />
+        <Route
+          path="/admin/system"
+          element={
+            isAdminRole(user.role) ? (
+              <SystemSettingsPage token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/settings" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/accounts"
+          element={
+            isAdminRole(user.role) ? (
+              <AccountAccessPage token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/settings" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/downloads"
+          element={
+            canAccessTorrentTools(user.role) ? (
+              <DownloadControlPage token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/download-control"
+          element={<Navigate to="/admin/downloads" replace />}
+        />
+        <Route
+          path="/admin/metadata"
+          element={<Navigate to="/admin/system#system-metadata" replace />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,6 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent as ReactMouseEvent, MutableRefObject } from 'react';
 import { clamp } from './playerUtils';
+
+const PLAYER_SCRUBBING_CLASS = 'is-player-scrubbing';
+
+function clearDocumentSelection(): void {
+  try {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      selection.removeAllRanges();
+    }
+  } catch {
+    // Ignore selection API edge cases.
+  }
+}
 
 interface UsePlayerTimelineHandlersOptions {
   videoRef: MutableRefObject<HTMLVideoElement | null>;
@@ -52,6 +65,12 @@ export function usePlayerTimelineHandlers({
   revealControls,
   syncProgress,
 }: UsePlayerTimelineHandlersOptions): PlayerTimelineHandlers {
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove(PLAYER_SCRUBBING_CLASS);
+    };
+  }, []);
+
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
     if (!video) {
@@ -152,15 +171,21 @@ export function usePlayerTimelineHandlers({
   );
 
   const handleSeekPointerDown = useCallback(() => {
+    document.body.classList.add(PLAYER_SCRUBBING_CLASS);
+    clearDocumentSelection();
+
     setIsSeeking(true);
     revealControls();
   }, [revealControls, setIsSeeking]);
 
   const handleSeekPointerUp = useCallback(
     (event: ReactMouseEvent<HTMLInputElement>) => {
+      event.preventDefault();
       const parsed = Number(event.currentTarget.value);
       const nextValue = Number.isFinite(parsed) ? clamp(parsed, 0, totalDuration) : 0;
       setIsSeeking(false);
+      document.body.classList.remove(PLAYER_SCRUBBING_CLASS);
+      clearDocumentSelection();
       seekTo(nextValue);
     },
     [seekTo, setIsSeeking, totalDuration],

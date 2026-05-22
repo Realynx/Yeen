@@ -82,7 +82,7 @@ export function LibraryManageBar({
           disabled={selectedCount === 0}
           onClick={onDelete}
         >
-          Delete Permanently…
+          Delete To Recycle…
         </button>
       </div>
     </section>

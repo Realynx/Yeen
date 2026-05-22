@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type {
   CommitApplyResponse,
   CommitChainRollbackResponse,
@@ -7,6 +7,8 @@ import type {
 } from '../../lib/api';
 import {
   applyMetadataCommit,
+  exportMediaMetadata,
+  importMediaMetadata,
   listMetadataCommitHistory,
   planMetadataCommit,
   rollbackMetadataCommit,
@@ -16,6 +18,7 @@ import {
 
 interface MetadataCommitPanelProps {
   token: string;
+  embedded?: boolean;
 }
 
 function formatTimestamp(value: string): string {
@@ -32,13 +35,37 @@ function relativeName(path: string): string {
   return last || path;
 }
 
-export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
+function triggerJsonDownload(payload: unknown, exportedAt: string): string {
+  const safeStamp = exportedAt.replace(/[:.]/g, '-');
+  const fileName = `yeen-metadata-${safeStamp}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json',
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+  return fileName;
+}
+
+export function MetadataCommitPanel({
+  token,
+  embedded = false,
+}: MetadataCommitPanelProps) {
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [plan, setPlan] = useState<CommitPlanResponse | null>(null);
   const [report, setReport] = useState<CommitApplyResponse | null>(null);
   const [history, setHistory] = useState<CommitHistoryEntry[]>([]);
   const [writeNfo, setWriteNfo] = useState(true);
+  const [replaceOnImport, setReplaceOnImport] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [rollingBackId, setRollingBackId] = useState<string | null>(null);
   const [rollingBackToId, setRollingBackToId] = useState<string | null>(null);
   const [chainResult, setChainResult] = useState<CommitChainRollbackResponse | null>(null);
@@ -100,12 +127,20 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
       const result = await applyMetadataCommit(token, { writeNfo });
       setReport(result);
       setPlan(null);
-      setMessage(
-        `Committed: ${result.summary.filesRenamed} file(s) renamed, ` +
-          `${result.summary.sidecarsMoved} sidecar(s) moved, ` +
-          `${result.summary.nfoFilesWritten} NFO file(s) written, ` +
-          `${result.summary.errors} error(s).`,
-      );
+
+      const summaryText =
+        `${result.summary.filesRenamed} file(s) renamed, ` +
+        `${result.summary.sidecarsMoved} sidecar(s) moved, ` +
+        `${result.summary.nfoFilesWritten} NFO file(s) written.`;
+
+      if (result.summary.errors > 0) {
+        setError(
+          `Commit finished with ${result.summary.errors} error(s). ` +
+            `${summaryText} Check the change report below for failed items.`,
+        );
+      } else {
+        setMessage(`Committed: ${summaryText}`);
+      }
       await loadHistory();
     } catch (caught) {
       setError(toApiErrorMessage(caught, 'Failed to apply commit.'));
@@ -183,17 +218,81 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
     }
   }
 
+  async function handleExportMetadata() {
+    setExporting(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const payload = await exportMediaMetadata(token);
+      const fileName = triggerJsonDownload(payload, payload.exportedAt);
+      setMessage(
+        `Exported ${payload.itemCount} metadata item(s) to ${fileName}.`,
+      );
+    } catch (caught) {
+      setError(toApiErrorMessage(caught, 'Failed to export metadata.'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    setImporting(true);
+    setError(null);
+    setMessage(null);
+    setPlan(null);
+    setReport(null);
+    setChainResult(null);
+
+    try {
+      const mode = replaceOnImport ? 'replace' : 'upsert';
+      const result = await importMediaMetadata(token, {
+        mode,
+        file,
+      });
+
+      setMessage(`${result.message} Imported from ${file.name}.`);
+      await loadHistory();
+    } catch (caught) {
+      if (caught instanceof Error) {
+        setError(caught.message);
+      } else {
+        setError(toApiErrorMessage(caught, 'Failed to import metadata.'));
+      }
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const planChanges = plan ? plan.changes.filter((change) => change.willMove) : [];
 
   return (
-    <article className="settings-surface settings-surface-full">
-      <header className="settings-surface-header">
-        <div>
-          <p className="settings-section-kicker">Library Maintenance</p>
-          <h2>Commit Metadata To Disk</h2>
-        </div>
-        <span className="settings-pill">Admin Only</span>
-      </header>
+    <article
+      className={
+        embedded
+          ? 'metadata-commit-panel-embedded'
+          : 'settings-surface settings-surface-full'
+      }
+    >
+      {embedded ? null : (
+        <header className="settings-surface-header">
+          <div>
+            <p className="settings-section-kicker">Library Maintenance</p>
+            <h2>Commit Metadata To Disk</h2>
+          </div>
+          <span className="settings-pill">Admin Only</span>
+        </header>
+      )}
 
       <p className="muted commit-intro">
         Rename and restructure media files on disk to match your edited titles,
@@ -204,12 +303,66 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
         recorded so you can roll it back.
       </p>
 
+      <section className="commit-backup-panel">
+        <div className="commit-subheader">
+          <div>
+            <p className="settings-section-kicker">Metadata Backup</p>
+            <h3>Export / Import Metadata</h3>
+          </div>
+        </div>
+        <p className="muted commit-backup-copy">
+          Export your current metadata index to a JSON file and re-import it
+          later on this server.
+        </p>
+
+        <div className="commit-toolbar commit-toolbar-tight">
+          <label className="commit-toggle">
+            <input
+              type="checkbox"
+              checked={replaceOnImport}
+              onChange={(event) => setReplaceOnImport(event.target.checked)}
+              disabled={importing || exporting || planning || committing}
+            />
+            <span>Replace existing metadata during import</span>
+          </label>
+
+          <div className="commit-toolbar-spacer" />
+
+          <button
+            className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
+            type="button"
+            onClick={() => void handleExportMetadata()}
+            disabled={exporting || importing || planning || committing}
+          >
+            {exporting ? 'Exporting...' : 'Export Metadata JSON'}
+          </button>
+
+          <button
+            className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
+            type="button"
+            onClick={openImportDialog}
+            disabled={importing || exporting || planning || committing}
+          >
+            {importing ? 'Importing...' : 'Import Metadata JSON'}
+          </button>
+
+          <input
+            ref={importInputRef}
+            className="commit-import-input"
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => void handleImportFileSelected(event)}
+          />
+        </div>
+      </section>
+
       <div className="commit-toolbar">
         <label className="commit-toggle">
           <input
             type="checkbox"
             checked={writeNfo}
             onChange={(event) => setWriteNfo(event.target.checked)}
+            disabled={importing || exporting}
           />
           <span>Write Kodi-style .nfo sidecar files</span>
         </label>
@@ -220,7 +373,7 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
           className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
           type="button"
           onClick={() => void handlePlan()}
-          disabled={planning || committing}
+          disabled={planning || committing || importing || exporting}
         >
           {planning ? 'Building plan...' : 'Preview Commit Plan'}
         </button>
@@ -230,7 +383,12 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
           type="button"
           onClick={() => void handleCommit()}
           disabled={
-            !plan || plan.summary.movableItems === 0 || planning || committing
+            !plan ||
+            plan.summary.movableItems === 0 ||
+            planning ||
+            committing ||
+            importing ||
+            exporting
           }
         >
           {committing ? 'Committing...' : 'Commit Now'}
@@ -396,7 +554,7 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
           className="ghost-button small !rounded-lg !px-3 !py-1.5"
           type="button"
           onClick={() => void loadHistory()}
-          disabled={loadingHistory}
+          disabled={loadingHistory || importing || exporting}
         >
           {loadingHistory ? 'Refreshing...' : 'Refresh'}
         </button>
@@ -443,7 +601,9 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
                     !!entry.rolledBackAt ||
                     rollingBackId === entry.id ||
                     !!rollingBackToId ||
-                    committing
+                    committing ||
+                    importing ||
+                    exporting
                   }
                 >
                   {entry.rolledBackAt
@@ -461,7 +621,9 @@ export function MetadataCommitPanel({ token }: MetadataCommitPanelProps) {
                     disabled={
                       !!rollingBackToId ||
                       !!rollingBackId ||
-                      committing
+                      committing ||
+                      importing ||
+                      exporting
                     }
                   >
                     {rollingBackToId === entry.id

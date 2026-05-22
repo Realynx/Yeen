@@ -4,6 +4,7 @@ import {
   updateMediaMetadata,
   detectMediaFilename,
   toApiErrorMessage,
+  type MediaMetadataPatch,
   type MetadataSearchCandidate,
 } from '../lib/api';
 import { useMetadataSuggestions } from '../lib/use-metadata-suggestions';
@@ -55,11 +56,14 @@ export function EditMetadataDialog({
   const [episodeTitle, setEpisodeTitle] = useState(media.episodeTitle ?? '');
   const [description, setDescription] = useState(media.description ?? '');
   const [tagsInput, setTagsInput] = useState(initialTagsValue);
+  const [tagsDirty, setTagsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidatePosterUrl, setCandidatePosterUrl] = useState<string | null>(null);
   const [candidateBackdropUrl, setCandidateBackdropUrl] = useState<string | null>(null);
+  const [candidateRemoteSource, setCandidateRemoteSource] = useState<'tmdb' | 'jikan' | null>(null);
+  const [candidateRemoteSourceId, setCandidateRemoteSourceId] = useState<string | null>(null);
 
   const parsedYear = Number.parseInt(releaseYear, 10);
   const safeYear = Number.isFinite(parsedYear) ? parsedYear : null;
@@ -84,9 +88,12 @@ export function EditMetadataDialog({
     }
     if (candidate.tags.length > 0 && tagsInput.trim().length === 0) {
       setTagsInput(candidate.tags.join(', '));
+      setTagsDirty(true);
     }
     setCandidatePosterUrl(candidate.posterUrl ?? null);
     setCandidateBackdropUrl(candidate.backdropUrl ?? null);
+    setCandidateRemoteSource(candidate.remoteSource);
+    setCandidateRemoteSourceId(candidate.remoteSourceId);
   }
 
   useEffect(() => {
@@ -130,7 +137,7 @@ export function EditMetadataDialog({
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateMediaMetadata(token, media.id, {
+      const patch: MediaMetadataPatch = {
         title: title.trim(),
         type,
         description: description.trim() ? description : null,
@@ -138,10 +145,21 @@ export function EditMetadataDialog({
         seasonNumber: type === 'show' ? parseIntegerField(seasonNumber) : null,
         episodeNumber: type === 'show' ? parseIntegerField(episodeNumber) : null,
         episodeTitle: type === 'show' && episodeTitle.trim() ? episodeTitle : null,
-        tags: parseTagsField(tagsInput),
         ...(candidatePosterUrl ? { posterUrl: candidatePosterUrl } : {}),
         ...(candidateBackdropUrl ? { backdropUrl: candidateBackdropUrl } : {}),
-      });
+        ...(candidateRemoteSource && candidateRemoteSourceId
+          ? {
+              remoteSource: candidateRemoteSource,
+              remoteSourceId: candidateRemoteSourceId,
+            }
+          : {}),
+      };
+
+      if (tagsDirty) {
+        patch.tags = parseTagsField(tagsInput);
+      }
+
+      const updated = await updateMediaMetadata(token, media.id, patch);
       onSaved(updated);
     } catch (saveError) {
       setError(toApiErrorMessage(saveError, 'Failed to save metadata.'));
@@ -276,7 +294,10 @@ export function EditMetadataDialog({
               <input
                 type="text"
                 value={tagsInput}
-                onChange={(event) => setTagsInput(event.target.value)}
+                onChange={(event) => {
+                  setTagsInput(event.target.value);
+                  setTagsDirty(true);
+                }}
                 placeholder="anime, family, action"
               />
             </label>

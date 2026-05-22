@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../components/AssignToShowDialog';
 import { DeleteMediaDialog } from '../components/DeleteMediaDialog';
 import { EditMetadataDialog } from '../components/EditMetadataDialog';
+import { LibrarySearchForm } from '../components/LibrarySearchForm';
 import { LibraryManageBar } from '../components/LibraryManageBar';
 import { MediaTile } from '../components/MediaTile';
 import { ProfileMenu } from '../components/ProfileMenu';
-import type { BulkDeleteMediaResult } from '../lib/api';
+import {
+  searchRemoteMedia,
+  toApiErrorMessage,
+  type BulkDeleteMediaResult,
+} from '../lib/api';
 import type { MediaItem, User } from '../lib/types';
+import {
+  LIBRARY_SEARCH_QUERY_PARAM,
+  normalizeLibrarySearchTerm,
+  pickRandomItem,
+  toLibrarySearchPath,
+  toRandomDetailsCandidates,
+} from './librarySearchUtils';
 import {
   SORT_OPTIONS,
   artworkUrlForMedia,
@@ -31,14 +43,30 @@ interface MediaLibraryPageProps {
 
 export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const routeSearchTerm = normalizeLibrarySearchTerm(
+    searchParams.get(LIBRARY_SEARCH_QUERY_PARAM),
+  );
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(routeSearchTerm);
   const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>('all');
   const [tagFilter, setTagFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<MediaSortOrder>('updated-desc');
 
-  const { mediaItems, progressItems, loading, error, activeSearch, load, refresh, setError } =
-    useMediaLibrary(token);
+  const {
+    mediaItems,
+    progressItems,
+    downloadProgressItems,
+    loading,
+    error,
+    activeSearch,
+    refresh,
+    setError,
+  } = useMediaLibrary(token, routeSearchTerm);
+
+  useEffect(() => {
+    setQuery(routeSearchTerm);
+  }, [routeSearchTerm]);
 
   const isAdmin = user.role === 'admin';
   const [manageMode, setManageMode] = useState(false);
@@ -47,20 +75,39 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingMedia, setEditingMedia] = useState<MediaItem | null>(null);
+  const [remoteItems, setRemoteItems] = useState<MediaItem[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
 
   const openDetails = useCallback((mediaId: string) => {
     navigate(`/details/${mediaId}`);
   }, [navigate]);
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+  const randomDetailsCandidates = useMemo(
+    () => toRandomDetailsCandidates(mediaItems),
+    [mediaItems],
+  );
+
+  const hasRandomDetailsCandidate = randomDetailsCandidates.length > 0;
+
+  const openRandomDetails = useCallback(() => {
+    const randomCandidate = pickRandomItem(randomDetailsCandidates);
+    if (!randomCandidate) {
+      return;
+    }
+
+    openDetails(randomCandidate.id);
+  }, [openDetails, randomDetailsCandidates]);
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await load(query);
+    navigate(toLibrarySearchPath(query));
   }
 
   function handleClearSearch() {
     setQuery('');
     setTagFilter('');
-    void load();
+    navigate('/library');
   }
 
   function handleResetFilters() {
@@ -166,6 +213,58 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   }, [filteredItems, visibleIdsRef]);
 
   const progressMap = useMemo(() => toProgressMap(progressItems), [progressItems]);
+  const downloadProgressMap = useMemo(() => {
+    const map = new Map<string, number>();
+
+    for (const entry of downloadProgressItems) {
+      const normalizedPercent = Math.min(100, Math.max(0, entry.progressPercent));
+      map.set(entry.mediaId, normalizedPercent);
+    }
+
+    return map;
+  }, [downloadProgressItems]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRemoteResults() {
+      const searchTerm = activeSearch?.trim() ?? '';
+
+      if (!searchTerm || manageMode) {
+        setRemoteItems([]);
+        setRemoteLoading(false);
+        setRemoteError(null);
+        return;
+      }
+
+      setRemoteLoading(true);
+      setRemoteError(null);
+
+      try {
+        const payload = await searchRemoteMedia(token, searchTerm, 24);
+        if (!cancelled) {
+          setRemoteItems(payload.items);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setRemoteItems([]);
+          setRemoteError(
+            toApiErrorMessage(loadError, 'Failed to search remote media catalogs.'),
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setRemoteLoading(false);
+        }
+      }
+    }
+
+    void loadRemoteResults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSearch, manageMode, token]);
 
   const activeSearchLabel = useMemo(() => {
     const searchLabel = activeSearch ? `matches for "${activeSearch}"` : null;
@@ -181,6 +280,14 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     () => mediaItems.filter((item) => selectedIds.has(item.id)),
     [mediaItems, selectedIds],
   );
+
+  const useCompactRemoteGrid = remoteItems.length > 0 && remoteItems.length < 6;
+  const hideLocalSearchEmptyState =
+    !manageMode &&
+    Boolean(activeSearch) &&
+    !loading &&
+    !error &&
+    mediaItems.length === 0;
 
   return (
     <main className="browse-page media-library-page">
@@ -201,24 +308,24 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
             >
               Library
             </NavLink>
+            <NavLink
+              className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')}
+              to="/explore"
+            >
+              Explore
+            </NavLink>
           </nav>
         </div>
 
         <div className="top-nav-right">
-          <form className="search-row" onSubmit={handleSearch}>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search titles and paths"
-              aria-label="Search media"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="search"
-            />
-            <button type="submit">Search</button>
-          </form>
+          <LibrarySearchForm
+            query={query}
+            onQueryChange={setQuery}
+            onSearchSubmit={handleSearch}
+            placeholder="Search titles and paths"
+            onOpenRandomDetails={openRandomDetails}
+            randomDisabled={!hasRandomDetailsCandidate}
+          />
           <ProfileMenu user={user} onLogout={onLogout} />
         </div>
       </header>
@@ -331,54 +438,102 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
       {error ? <p className="error-text library-feedback">{error}</p> : null}
       {loading ? <p className="muted library-feedback">Loading media library...</p> : null}
 
-      <section className="browse-section library-results">
-        <div className="section-heading-row">
-          <h1 className="section-title">All Media</h1>
-          <p className="section-subtitle">{activeSearchLabel}</p>
-        </div>
-
-        {filteredItems.length > 0 ? (
-          <div className={useCompactResultsGrid ? 'library-grid is-compact' : 'library-grid'}>
-            {filteredItems.map((item) => (
-              <MediaTile
-                key={item.id}
-                media={item}
-                imageUrl={artworkUrlForMedia(item)}
-                progressPercent={toProgressPercent(progressMap.get(item.id))}
-                onOpen={openDetails}
-                selectable={manageMode}
-                selected={selectedIds.has(item.id)}
-                onSelectionToggle={toggleSelection}
-              />
-            ))}
+      {!hideLocalSearchEmptyState ? (
+        <section className="browse-section library-results">
+          <div className="section-heading-row">
+            <h1 className="section-title">All Media</h1>
+            <p className="section-subtitle">{activeSearchLabel}</p>
           </div>
-        ) : (
-          <article className="library-empty">
-            <h2>No titles match this filter</h2>
-            <p>
-              Try switching the media type, tag, or order settings.
-            </p>
-            <div className="library-empty-actions">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={handleResetFilters}
-              >
-                Reset Filters
-              </button>
-              {activeSearch || tagFilter ? (
+
+          {filteredItems.length > 0 ? (
+            <div className={useCompactResultsGrid ? 'library-grid is-compact' : 'library-grid'}>
+              {filteredItems.map((item) => {
+                const downloadProgressPercent = downloadProgressMap.get(item.id);
+                const watchedProgressPercent = toProgressPercent(progressMap.get(item.id));
+
+                return (
+                  <MediaTile
+                    key={item.id}
+                    media={item}
+                    imageUrl={artworkUrlForMedia(item)}
+                    progressPercent={downloadProgressPercent ?? watchedProgressPercent}
+                    progressKind={downloadProgressPercent !== undefined ? 'download' : 'watch'}
+                    layout="library"
+                    onOpen={openDetails}
+                    selectable={manageMode}
+                    selected={selectedIds.has(item.id)}
+                    onSelectionToggle={toggleSelection}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <article className="library-empty">
+              <h2>No titles match this filter</h2>
+              <p>
+                Try switching the media type, tag, or order settings.
+              </p>
+              <div className="library-empty-actions">
                 <button
                   type="button"
                   className="ghost-button"
-                  onClick={handleClearSearch}
+                  onClick={handleResetFilters}
                 >
-                  Clear Filters
+                  Reset Filters
                 </button>
-              ) : null}
+                {activeSearch || tagFilter ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={handleClearSearch}
+                  >
+                    Clear Filters
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          )}
+        </section>
+      ) : null}
+
+      {activeSearch && !manageMode ? (
+        <section className="browse-section library-results library-remote-results">
+          <div className="section-heading-row">
+            <h2 className="section-title">Outside Your Library</h2>
+            <p className="section-subtitle">
+              Matching titles from TMDB and Jikan that are not indexed locally.
+            </p>
+          </div>
+
+          {remoteError ? <p className="error-text library-feedback">{remoteError}</p> : null}
+          {remoteLoading ? (
+            <p className="muted library-feedback">Searching external media catalogs...</p>
+          ) : null}
+
+          {!remoteLoading && !remoteError && remoteItems.length > 0 ? (
+            <div className={useCompactRemoteGrid ? 'library-grid is-compact' : 'library-grid'}>
+              {remoteItems.map((item) => (
+                <MediaTile
+                  key={item.id}
+                  media={item}
+                  imageUrl={artworkUrlForMedia(item)}
+                  layout="library"
+                  onOpen={openDetails}
+                />
+              ))}
             </div>
-          </article>
-        )}
-      </section>
+          ) : null}
+
+          {!remoteLoading && !remoteError && remoteItems.length === 0 ? (
+            <article className="library-empty library-empty-remote">
+              <h2>No external matches yet</h2>
+              <p>
+                Try a broader title or fewer filters to discover media outside your local index.
+              </p>
+            </article>
+          ) : null}
+        </section>
+      ) : null}
 
       {showAssignDialog && manageMode ? (
         <AssignToShowDialog

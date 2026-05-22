@@ -6,6 +6,7 @@ import { basename, dirname, extname, join } from 'node:path';
 import { SubtitleTrack } from './entities/subtitle-track.entity';
 import { SubtitleCommandService } from './subtitle-command.service';
 import { SubtitleStorageService } from './subtitle-storage.service';
+import { sanitizeVttFile } from './subtitle-vtt-sanitizer';
 
 interface FfprobeStream {
   index: number;
@@ -13,11 +14,21 @@ interface FfprobeStream {
   codec_name?: string;
   tags?: {
     language?: string;
+    title?: string;
+  };
+  disposition?: {
+    default?: number;
+    forced?: number;
   };
 }
 
 interface FfprobePayload {
   streams?: FfprobeStream[];
+}
+
+interface EmbeddedTrackCandidate {
+  track: SubtitleTrack;
+  sortScore: number;
 }
 
 @Injectable()
@@ -37,6 +48,8 @@ export class SubtitleTracksService {
     'ssa',
     'text',
   ]);
+  private readonly nonDialogueTitlePattern =
+    /\b(signs?|songs?|karaoke|commentary|lyrics?|forced)\b/i;
 
   constructor(
     private readonly subtitleCommandService: SubtitleCommandService,
@@ -56,31 +69,84 @@ export class SubtitleTracksService {
     const parsed = JSON.parse(raw) as FfprobePayload;
     const streams = parsed.streams ?? [];
 
-    return streams
-      .filter((stream) => stream.codec_type === 'subtitle')
-      .map((stream) => {
-        const codec = (stream.codec_name ?? 'unknown').toLowerCase();
-        const outputName = `embedded_${stream.index}.vtt`;
-        const outputPath = join(
-          this.subtitleStorageService.subtitleFolder(mediaId),
-          outputName,
-        );
-        const extractable = this.textSubtitleCodecs.has(codec);
+    const candidates = await Promise.all(
+      streams
+        .filter((stream) => stream.codec_type === 'subtitle')
+        .map(async (stream): Promise<EmbeddedTrackCandidate> => {
+          const codec = (stream.codec_name ?? 'unknown').toLowerCase();
+          const outputName = `embedded_${stream.index}.vtt`;
+          const outputPath = join(
+            this.subtitleStorageService.subtitleFolder(mediaId),
+            outputName,
+          );
+          const extractable = this.textSubtitleCodecs.has(codec);
+          const streamTitle = stream.tags?.title?.trim() || null;
+          const language = stream.tags?.language?.trim() || null;
+          const isDefault = stream.disposition?.default === 1;
+          const isForced = stream.disposition?.forced === 1;
+          const likelyNonDialogue =
+            streamTitle !== null && this.nonDialogueTitlePattern.test(streamTitle);
 
-        return {
-          id: `embedded-${stream.index}`,
-          kind: 'embedded',
-          label: `Embedded ${stream.index}`,
-          language: stream.tags?.language ?? null,
-          format: codec,
-          extractable,
-          streamIndex: stream.index,
-          url:
-            extractable && existsSync(outputPath)
-              ? this.subtitleStorageService.subtitleUrl(mediaId, outputName)
-              : null,
-        };
-      });
+          let subtitleUrl: string | null = null;
+          if (extractable && existsSync(outputPath)) {
+            try {
+              await sanitizeVttFile(outputPath);
+              subtitleUrl = this.subtitleStorageService.subtitleUrl(mediaId, outputName);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              this.logger.warn(
+                `Ignoring extracted embedded subtitle stream ${stream.index} for ${mediaId}: ${message}`,
+              );
+            }
+          }
+
+          let sortScore = stream.index;
+          if (!extractable) {
+            sortScore += 10_000;
+          }
+          if (isForced) {
+            sortScore += 1_000;
+          }
+          if (likelyNonDialogue) {
+            sortScore += 500;
+          }
+          if (!isDefault) {
+            sortScore += 10;
+          }
+
+          const labelParts: string[] = [];
+          if (isDefault) {
+            labelParts.push('default');
+          }
+          if (isForced) {
+            labelParts.push('forced');
+          }
+
+          const labelBase = streamTitle || `Embedded ${stream.index}`;
+          const label =
+            labelParts.length > 0
+              ? `${labelBase} (${labelParts.join(', ')})`
+              : labelBase;
+
+          return {
+            track: {
+              id: `embedded-${stream.index}`,
+              kind: 'embedded',
+              label,
+              language,
+              format: codec,
+              extractable,
+              streamIndex: stream.index,
+              url: subtitleUrl,
+            },
+            sortScore,
+          };
+        }),
+    );
+
+    return candidates
+      .sort((left, right) => left.sortScore - right.sortScore)
+      .map((candidate) => candidate.track);
   }
 
   async prepareExternalTracks(

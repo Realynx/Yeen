@@ -46,7 +46,10 @@ export function MediaRow({ children }: MediaRowProps) {
       return;
     }
 
-    const amount = Math.max(el.clientWidth * 0.85, 240);
+    const viewportWidth = el.parentElement instanceof HTMLElement
+      ? el.parentElement.clientWidth
+      : el.clientWidth;
+    const amount = Math.max(viewportWidth * 0.85, 240);
     el.scrollBy({ left: direction * amount, behavior: 'smooth' });
   }, []);
 

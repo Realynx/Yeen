@@ -25,7 +25,10 @@ interface UsePlayerVideoPanelHandlersOptions {
   switchingToHls: boolean;
   source: PlaybackSource | null;
   attemptedHlsFallbackRef: MutableRefObject<boolean>;
-  switchToHls: (forceFresh?: boolean) => Promise<boolean>;
+  switchToHls: (options?: {
+    forceFresh?: boolean;
+    audioStreamIndex?: number | null;
+  }) => Promise<boolean>;
   videoRef: MutableRefObject<HTMLVideoElement | null>;
 }
 
@@ -166,7 +169,7 @@ export function usePlayerVideoPanelHandlers({
         `Transcoded playback failed (${mediaErrorText}). Restarting stream session...`,
       );
 
-      void switchToHls(true).then((switched) => {
+      void switchToHls({ forceFresh: true }).then((switched) => {
         if (!switched) {
           setPlayerError(
             `Transcoded playback failed (${mediaErrorText}) and session restart could not start.`,
