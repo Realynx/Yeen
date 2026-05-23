@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MediaItem } from '../../domain/entities/media-item.entity';
+import { MediaItem } from '../../../domain/entities/media-item.entity';
 
 @Injectable()
 export class MediaFsNfoService {

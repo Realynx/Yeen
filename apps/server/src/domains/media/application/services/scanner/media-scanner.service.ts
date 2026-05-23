@@ -3,25 +3,25 @@ import { randomUUID } from 'node:crypto';
 import { readdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
-import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
-import { MediaItem } from '../../domain/entities/media-item.entity';
-import { MediaNfoReader } from '../../infrastructure/readers/media-nfo.reader';
-import { MediaPreviewResolver } from '../../infrastructure/resolvers/media-preview.resolver';
+import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
+import { MediaItem } from '../../../domain/entities/media-item.entity';
+import { MediaNfoReader } from '../../../infrastructure/readers/media-nfo.reader';
+import { MediaPreviewResolver } from '../../../infrastructure/resolvers/media-preview.resolver';
 import {
   MediaProbeAdapter,
   type FfprobePayload,
-} from '../../infrastructure/adapters/media-probe.adapter';
-import { MediaSubtitleResolver } from '../../infrastructure/resolvers/media-subtitle.resolver';
-import { JikanMetadataService } from './remote-metadata/jikan-metadata.service';
-import { TmdbMetadataService } from './remote-metadata/tmdb-metadata.service';
+} from '../../../infrastructure/adapters/media-probe.adapter';
+import { MediaSubtitleResolver } from '../../../infrastructure/resolvers/media-subtitle.resolver';
+import { JikanMetadataService } from '../remote-metadata/jikan-metadata.service';
+import { TmdbMetadataService } from '../remote-metadata/tmdb-metadata.service';
 import {
   parseReleaseYear,
   parseSeasonEpisode,
-} from '../../infrastructure/helpers/filename-metadata';
+} from '../../../infrastructure/helpers/filename-metadata';
 import {
   cleanTitle,
   normalizeForKey,
-} from '../../infrastructure/helpers/title-normalizer';
+} from '../../../infrastructure/helpers/title-normalizer';
 
 export interface MediaProbeHint {
   title?: string;

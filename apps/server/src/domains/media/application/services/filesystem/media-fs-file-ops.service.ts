@@ -11,7 +11,7 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { CommitOperation } from '../../infrastructure/stores/media-commit.store';
+import { CommitOperation } from '../../../infrastructure/stores/media-commit.store';
 
 const DEFAULT_MOVE_CHUNK_BYTES = 8 * 1024 * 1024;
 

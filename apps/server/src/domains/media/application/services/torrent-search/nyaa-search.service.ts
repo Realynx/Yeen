@@ -11,7 +11,7 @@ import type {
   IptorrentsSearchItem,
   IptorrentsSearchResponse,
 } from './iptorrents-search.service';
-import { MetadataApiCacheStore } from '../../infrastructure/stores/metadata-api-cache.store';
+import { MetadataApiCacheStore } from '../../../infrastructure/stores/metadata-api-cache.store';
 
 const NYAA_BASE_URL = 'https://nyaa.si';
 const DEFAULT_NYAA_TIMEOUT_MS = 12000;

@@ -9,9 +9,9 @@ import {
   resolve,
   sep,
 } from 'node:path';
-import { MediaItem } from '../../domain/entities/media-item.entity';
-import { MediaLocationsStore } from '../../infrastructure/stores/media-locations.store';
-import { CommitPlan, PlannedMediaChange } from '../types/media-fs-commit.types';
+import { MediaItem } from '../../../domain/entities/media-item.entity';
+import { MediaLocationsStore } from '../../../infrastructure/stores/media-locations.store';
+import { CommitPlan, PlannedMediaChange } from '../../types/media-fs-commit.types';
 
 const SIDECAR_EXTENSIONS = new Set([
   '.srt',

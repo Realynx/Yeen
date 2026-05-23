@@ -6,8 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { load } from 'cheerio';
-import { MetadataApiCacheStore } from '../../infrastructure/stores/metadata-api-cache.store';
-import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
+import { MetadataApiCacheStore } from '../../../infrastructure/stores/metadata-api-cache.store';
+import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
 
 const IPT_BASE_URL = 'https://iptorrents.com';
 const DEFAULT_IPTORRENTS_TIMEOUT_MS = 15000;
