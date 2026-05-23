@@ -11,16 +11,16 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { AccountsStore } from '../../infrastructure/stores/accounts.store';
-import { ChangePasswordDto } from '../dto/change-password.dto.ts/change-password.dto';
-import { CreateAdminAccountDto } from '../dto/create-admin-account.dto.ts/create-admin-account.dto';
-import { LoginDto } from '../dto/login.dto.ts/login.dto';
-import { RegisterDto } from '../dto/register.dto.ts/register.dto';
-import { UpdateAccountInvitesDto } from '../dto/update-account-invites.dto.ts/update-account-invites.dto';
-import { UpdateAccountRoleDto } from '../dto/update-account-role.dto.ts/update-account-role.dto';
-import { UpdateProfileDto } from '../dto/update-profile.dto.ts/update-profile.dto';
-import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity.ts/account-invite-record.entity';
-import { AccountRecord } from '../../domain/entities/account-record.entity.ts/account-record.entity';
-import { AuthUser } from '../../domain/entities/auth-user.entity.ts/auth-user.entity';
+import { ChangePasswordDto } from '../dto/change-password.dto';
+import { CreateAdminAccountDto } from '../dto/create-admin-account.dto';
+import { LoginDto } from '../dto/login.dto';
+import { RegisterDto } from '../dto/register.dto';
+import { UpdateAccountInvitesDto } from '../dto/update-account-invites.dto';
+import { UpdateAccountRoleDto } from '../dto/update-account-role.dto';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
+import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity';
+import { AccountRecord } from '../../domain/entities/account-record.entity';
+import { AuthUser } from '../../domain/entities/auth-user.entity';
 import { InviteTokensStore } from '../../infrastructure/stores/invite-tokens.store';
 
 interface UploadedAvatarImage {
@@ -443,3 +443,4 @@ export class AuthService implements OnModuleInit {
     );
   }
 }
+

@@ -12,7 +12,7 @@ import {
 import type { Response } from 'express';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
-import { ExtractSubtitleDto } from '../../application/dto/extract-subtitle.dto.ts/extract-subtitle.dto';
+import { ExtractSubtitleDto } from '../../application/dto/extract-subtitle.dto';
 import { SubtitleExtractionService } from '../../application/services/subtitle-extraction.service';
 import { SubtitleFileStreamService } from '../../application/services/subtitle-file-stream.service';
 import { SubtitleListingService } from '../../application/services/subtitle-listing.service';
@@ -82,3 +82,4 @@ export class SubtitleController {
     return null;
   }
 }
+

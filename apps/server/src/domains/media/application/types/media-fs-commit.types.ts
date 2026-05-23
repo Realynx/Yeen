@@ -1,5 +1,8 @@
-import { MediaItem } from '../../domain/entities/media-item.entity.ts/media-item.entity';
-import { CommitOperation, CommitSummary } from '../../infrastructure/stores/media-commit.store';
+import { MediaItem } from '../../domain/entities/media-item.entity';
+import {
+  CommitOperation,
+  CommitSummary,
+} from '../../infrastructure/stores/media-commit.store';
 
 export interface PlannedOperation {
   type: CommitOperation['type'];
@@ -54,3 +57,4 @@ export interface RollbackResult {
   reverted: number;
   errors: string[];
 }
+

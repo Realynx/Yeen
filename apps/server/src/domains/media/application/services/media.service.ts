@@ -14,7 +14,6 @@ import { createReadStream } from 'node:fs';
 import type { Dirent, Stats } from 'node:fs';
 import {
   mkdir,
-  open,
   readFile as readFileBuffer,
   readdir,
   rm,
@@ -39,8 +38,11 @@ import {
 import { lookup } from 'mime-types';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { MediaAiMetadataService } from './media-ai-metadata.service';
-import { MediaItem, SeriesAssignmentRules } from '../../domain/entities/media-item.entity.ts/media-item.entity';
-import { MediaScanProgress } from '../../domain/entities/media-scan-progress.entity.ts/media-scan-progress.entity';
+import {
+  MediaItem,
+  SeriesAssignmentRules,
+} from '../../domain/entities/media-item.entity';
+import { MediaScanProgress } from '../../domain/entities/media-scan-progress.entity';
 import { MediaLocationsStore } from '../../infrastructure/stores/media-locations.store';
 import { MediaScanStore } from '../../infrastructure/stores/media-scan.store';
 import { MediaStore } from '../../infrastructure/stores/media.store';
@@ -59,18 +61,26 @@ import {
   type TmdbRemoteCandidate,
 } from './tmdb-metadata.service';
 import { MediaPreviewResolver } from '../../infrastructure/resolvers/media-preview.resolver';
-import { cleanTitle, normalizeForKey } from '../../infrastructure/support/title-normalizer';
+import {
+  cleanTitle,
+  normalizeForKey,
+} from '../../infrastructure/helpers/title-normalizer';
 import {
   detectFromFilenameAndPath,
   type FilenameDetectResult,
-} from '../../infrastructure/support/filename-metadata';
+} from '../../infrastructure/helpers/filename-metadata';
 import {
   TorrentService,
   type TorrentFileHint,
   type TorrentListItem,
 } from '../../../torrent/application/services/torrent.service';
 import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
+import {
+  readMediaFileHeader,
+  scoreMediaHeader as scoreSharedMediaHeader,
+} from '../../../core/infrastructure/shared/media-header-probe';
 import { MediaFsFileOpsService } from './media-fs-file-ops.service';
+import { MediaPathResolverService } from './media-path-resolver.service';
 
 export interface MediaMetadataPatch {
   title?: string;
@@ -381,6 +391,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     private readonly jikanMetadataService: JikanMetadataService,
     private readonly mediaPreviewResolver: MediaPreviewResolver,
     private readonly mediaFsFileOpsService: MediaFsFileOpsService,
+    private readonly mediaPathResolver: MediaPathResolverService,
     private readonly torrentService: TorrentService,
     private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
   ) {}
@@ -763,7 +774,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     providedContext?: MetadataImportPathContext,
   ): Promise<string> {
     const context = providedContext ?? (await this.createImportPathContext());
-    const candidates = this.buildMediaFilePathCandidates(
+    const candidates = this.mediaPathResolver.buildMediaFilePathCandidates(
       filePath,
       relativePath,
       context,
@@ -775,7 +786,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const fuzzyResolved = await this.resolveRelativePathFuzzy(
+    const fuzzyResolved = await this.mediaPathResolver.resolveRelativePathFuzzy(
       relativePath,
       context,
     );
@@ -950,11 +961,12 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         candidate.name,
       );
 
-      const absoluteFileCandidates = this.buildTorrentAbsoluteFileCandidates({
-        savePath,
-        contentPath: torrentPaths.contentPath,
-        torrentRelativePath: candidate.name,
-      });
+      const absoluteFileCandidates =
+        this.mediaPathResolver.buildTorrentAbsoluteFileCandidates({
+          savePath,
+          contentPath: torrentPaths.contentPath,
+          torrentRelativePath: candidate.name,
+        });
       const existing = await this.findIndexedMediaByFilePathCandidates(
         absoluteFileCandidates,
       );
@@ -1477,65 +1489,6 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return true;
   }
 
-  private buildTorrentAbsoluteFileCandidates(input: {
-    savePath: string;
-    contentPath: string | null;
-    torrentRelativePath: string;
-  }): string[] {
-    const normalizedRelativePath = input.torrentRelativePath
-      .trim()
-      .replace(/\\/g, '/');
-    if (!normalizedRelativePath) {
-      return [];
-    }
-
-    const candidates: string[] = [];
-    const seen = new Set<string>();
-
-    const addCandidate = (candidatePath: string) => {
-      const resolved = resolve(candidatePath);
-      const key = resolved.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        candidates.push(resolved);
-      }
-    };
-
-    addCandidate(resolve(input.savePath, normalizedRelativePath));
-    addCandidate(resolve(input.savePath, basename(normalizedRelativePath)));
-
-    if (input.contentPath) {
-      const resolvedContentPath = resolve(input.contentPath);
-      const parentContentPath = dirname(resolvedContentPath);
-      const relativeFirstSegment =
-        normalizedRelativePath.split('/').find((segment) => segment.trim()) ??
-        '';
-
-      addCandidate(resolve(resolvedContentPath, normalizedRelativePath));
-      addCandidate(resolve(parentContentPath, normalizedRelativePath));
-      addCandidate(
-        resolve(resolvedContentPath, basename(normalizedRelativePath)),
-      );
-
-      if (
-        relativeFirstSegment &&
-        basename(resolvedContentPath).toLowerCase() ===
-          relativeFirstSegment.toLowerCase()
-      ) {
-        addCandidate(resolve(parentContentPath, normalizedRelativePath));
-      }
-
-      if (
-        basename(resolvedContentPath).toLowerCase() ===
-        basename(normalizedRelativePath).toLowerCase()
-      ) {
-        addCandidate(resolvedContentPath);
-      }
-    }
-
-    return candidates;
-  }
-
   private async findIndexedMediaByFilePathCandidates(
     absoluteFileCandidates: string[],
   ): Promise<MediaItem | null> {
@@ -1632,169 +1585,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     filePath: string,
     byteCount: number,
   ): Promise<Buffer | null> {
-    const cached = await this.readFileHeaderCached(filePath, byteCount, 'r');
-    if (cached === null || cached.length === 0) {
-      return cached;
-    }
-
-    const cachedAllZero = cached.every((byte) => byte === 0);
-    if (!cachedAllZero) {
-      return cached;
-    }
-
-    // Retry with the "rs" flag first: Node asks the OS for synchronous reads,
-    // which helps on network filesystems where normal cached reads can keep
-    // serving qBittorrent's original pre-allocation zeros.
-    const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
-    if (
-      uncached !== null &&
-      uncached.length > 0 &&
-      !uncached.every((byte) => byte === 0)
-    ) {
-      return uncached;
-    }
-
-    // qBittorrent pre-allocates the file remotely with zero-fill. The Windows
-    // SMB redirector caches those zeroed pages and Node's cached fs.read keeps
-    // returning them long after qBit has written real data to the remote disk
-    // (other apps like Windows Media Player use FILE_FLAG_NO_BUFFERING and
-    // read fine). When we see all-zero bytes on a clearly pre-allocated file
-    // (size > a few MB), retry one more time with NO_BUFFERING via a one-shot
-    // PowerShell helper. That bypasses the local cache, breaks the oplock,
-    // and after it succeeds normal Node reads usually see real bytes too.
-    if (process.platform === 'win32') {
-      const unbuffered = await this.readFileHeaderUnbuffered(
-        filePath,
-        byteCount,
-      );
-      if (unbuffered !== null) {
-        return unbuffered;
-      }
-    }
-
-    return uncached ?? cached;
-  }
-
-  private async readFileHeaderCached(
-    filePath: string,
-    byteCount: number,
-    flag: 'r' | 'rs' = 'r',
-  ): Promise<Buffer | null> {
-    try {
-      const handle = await open(filePath, flag);
-      try {
-        const buffer = Buffer.alloc(byteCount);
-        const { bytesRead } = await handle.read(buffer, 0, byteCount, 0);
-        return bytesRead > 0 ? buffer.subarray(0, bytesRead) : null;
-      } finally {
-        await handle.close();
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Windows-only: read the first `byteCount` bytes of the file via a spawned
-   * PowerShell process that opens the file with `FILE_FLAG_NO_BUFFERING`
-   * (0x20000000). This bypasses the SMB client cache, which otherwise serves
-   * the original zero-fill from qBittorrent's pre-allocation indefinitely.
-   *
-   * Returns null on any failure (PowerShell missing, file unreadable, timeout).
-   * Reads are sector-aligned (we read the next multiple of 512 bytes) which is
-   * required by FILE_FLAG_NO_BUFFERING.
-   */
-  private async readFileHeaderUnbuffered(
-    filePath: string,
-    byteCount: number,
-  ): Promise<Buffer | null> {
-    const alignedBytes = Math.max(512, Math.ceil(byteCount / 512) * 512);
-    // PowerShell single-quoted strings escape a literal quote by doubling it.
-    // UNC paths typically have no quotes, but escape defensively.
-    const escapedPath = filePath.replace(/'/g, "''");
-    // Inline values directly into the script. PowerShell's `-Command` does
-    // NOT reliably pass positional arguments through as $args when invoked
-    // with extra tokens, so we substitute the path and size literally.
-    // FileOptions is a [Flags] enum that accepts arbitrary ints via cast;
-    // 0x20000000 = FILE_FLAG_NO_BUFFERING.
-    const script =
-      "$ErrorActionPreference='Stop';" +
-      `$p='${escapedPath}';` +
-      `$s=${alignedBytes};` +
-      'try{' +
-      '$fs=New-Object System.IO.FileStream(' +
-      '$p,' +
-      '[System.IO.FileMode]::Open,' +
-      '[System.IO.FileAccess]::Read,' +
-      '[System.IO.FileShare]::ReadWrite,' +
-      '4096,' +
-      '([System.IO.FileOptions][int]0x20000000));' +
-      '$b=New-Object byte[] $s;' +
-      '$n=$fs.Read($b,0,$s);' +
-      '$fs.Close();' +
-      'if($n -le 0){exit 2}' +
-      '[Console]::OpenStandardOutput().Write($b,0,$n);' +
-      'exit 0' +
-      '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
-
-    return await new Promise<Buffer | null>((resolvePromise) => {
-      let settled = false;
-      const settle = (value: Buffer | null) => {
-        if (settled) return;
-        settled = true;
-        resolvePromise(value);
-      };
-
-      let child: ReturnType<typeof spawn>;
-      try {
-        child = spawn(
-          'powershell.exe',
-          [
-            '-NoProfile',
-            '-NonInteractive',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-Command',
-            script,
-          ],
-          { windowsHide: true },
-        );
-      } catch {
-        settle(null);
-        return;
-      }
-
-      const chunks: Buffer[] = [];
-      child.stdout?.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
-      child.on('error', () => settle(null));
-      child.on('close', (code) => {
-        if (code !== 0) {
-          settle(null);
-          return;
-        }
-        const buffer = Buffer.concat(chunks);
-        if (buffer.length === 0) {
-          settle(null);
-          return;
-        }
-        settle(
-          buffer.length >= byteCount ? buffer.subarray(0, byteCount) : buffer,
-        );
-      });
-
-      // Hard cap so we never block the prepare-page poll on a hung child.
-      const timer = setTimeout(() => {
-        try {
-          child.kill();
-        } catch {
-          // ignore
-        }
-        settle(null);
-      }, 5000);
-      child.on('close', () => clearTimeout(timer));
-    });
+    return await readMediaFileHeader(filePath, byteCount);
   }
 
   /**
@@ -1852,52 +1643,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   private scoreMediaHeader(header: Buffer | null, fileSize: number): number {
-    if (!header || header.length < 4) {
-      // Unreadable; lowest preference but still above an all-zero candidate.
-      return 0;
-    }
-
-    // EBML/Matroska header: 1A 45 DF A3
-    if (
-      header[0] === 0x1a &&
-      header[1] === 0x45 &&
-      header[2] === 0xdf &&
-      header[3] === 0xa3
-    ) {
-      return 100;
-    }
-
-    // MP4/MOV: bytes 4..7 = 'ftyp'
-    if (
-      header.length >= 8 &&
-      header[4] === 0x66 &&
-      header[5] === 0x74 &&
-      header[6] === 0x79 &&
-      header[7] === 0x70
-    ) {
-      return 100;
-    }
-
-    // RIFF (AVI/WAV): 'RIFF'
-    if (
-      header[0] === 0x52 &&
-      header[1] === 0x49 &&
-      header[2] === 0x46 &&
-      header[3] === 0x46
-    ) {
-      return 100;
-    }
-
-    // All-zero head means the first piece hasn't been flushed to this file
-    // yet. Strongly deprioritize so we don't probe a dead pre-allocated file.
-    const isAllZero = header.every((byte) => byte === 0);
-    if (isAllZero) {
-      return -1;
-    }
-
-    // Unknown header but non-zero data; might be a partial header. Prefer
-    // larger files (qBit's active download will typically be the biggest).
-    return 1 + Math.min(10, Math.floor(fileSize / (1024 * 1024 * 1024)));
+    return scoreSharedMediaHeader(header, fileSize);
   }
 
   /**
@@ -4631,7 +4377,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     relativePath: string,
     context: MetadataImportPathContext,
   ): Promise<ResolvedMediaLocationPath> {
-    const candidates = this.buildMediaFilePathCandidates(
+    const candidates = this.mediaPathResolver.buildMediaFilePathCandidates(
       importedFilePath,
       relativePath,
       context,
@@ -4648,7 +4394,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const fuzzyResolved = await this.resolveRelativePathFuzzy(
+    const fuzzyResolved = await this.mediaPathResolver.resolveRelativePathFuzzy(
       relativePath,
       context,
     );
@@ -5200,7 +4946,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     relativePath: string,
     context: MetadataImportPathContext,
   ): string {
-    const candidates = this.buildMediaFilePathCandidates(
+    const candidates = this.mediaPathResolver.buildMediaFilePathCandidates(
       importedFilePath,
       relativePath,
       context,
@@ -5211,200 +4957,6 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     return candidates[0];
-  }
-
-  private buildMediaFilePathCandidates(
-    importedFilePath: string,
-    relativePath: string,
-    context: MetadataImportPathContext,
-  ): string[] {
-    const deduped = new Set<string>();
-    const relativeSegments = relativePath
-      .replace(/[\\/]+/g, '/')
-      .split('/')
-      .filter(Boolean);
-
-    const pushCandidate = (candidate: string) => {
-      const cleaned = candidate.trim();
-      if (!cleaned) {
-        return;
-      }
-
-      deduped.add(resolve(cleaned));
-    };
-
-    if (relativeSegments.length > 0) {
-      for (const root of context.roots) {
-        const rootLabel = basename(root).trim().toLowerCase();
-
-        if (
-          rootLabel &&
-          relativeSegments[0].toLowerCase() === rootLabel &&
-          relativeSegments.length > 1
-        ) {
-          pushCandidate(resolve(root, ...relativeSegments.slice(1)));
-        }
-
-        pushCandidate(resolve(root, ...relativeSegments));
-      }
-    }
-
-    const trimmedImportedPath = importedFilePath.trim();
-    if (trimmedImportedPath) {
-      if (isAbsolute(trimmedImportedPath)) {
-        pushCandidate(trimmedImportedPath);
-      } else if (context.roots.length > 0) {
-        for (const root of context.roots) {
-          pushCandidate(resolve(root, trimmedImportedPath));
-        }
-      } else {
-        pushCandidate(trimmedImportedPath);
-      }
-
-      if (!trimmedImportedPath.endsWith('.!qB')) {
-        const qbVariant = `${trimmedImportedPath}.!qB`;
-        if (isAbsolute(qbVariant)) {
-          pushCandidate(qbVariant);
-        } else if (context.roots.length > 0) {
-          for (const root of context.roots) {
-            pushCandidate(resolve(root, qbVariant));
-          }
-        }
-      }
-    }
-
-    return [...deduped];
-  }
-
-  private async resolveRelativePathFuzzy(
-    relativePath: string,
-    context: MetadataImportPathContext,
-  ): Promise<string | null> {
-    const normalized = relativePath
-      .replace(/[\\/]+/g, '/')
-      .replace(/^\/+/, '')
-      .replace(/\/+$/, '')
-      .trim();
-
-    if (!normalized) {
-      return null;
-    }
-
-    const segments = normalized.split('/').filter(Boolean);
-    if (segments.length === 0) {
-      return null;
-    }
-
-    for (const root of context.roots) {
-      const options: string[][] = [segments];
-      const rootLabel = basename(root).trim().toLowerCase();
-      if (
-        rootLabel &&
-        segments.length > 1 &&
-        segments[0].toLowerCase() === rootLabel
-      ) {
-        options.push(segments.slice(1));
-      }
-
-      for (const optionSegments of options) {
-        const resolved = await this.tryResolvePathUnderRoot(
-          root,
-          optionSegments,
-        );
-        if (resolved) {
-          return resolved;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  private async tryResolvePathUnderRoot(
-    root: string,
-    segments: string[],
-  ): Promise<string | null> {
-    if (segments.length === 0) {
-      return null;
-    }
-
-    let current = resolve(root);
-
-    for (let index = 0; index < segments.length; index += 1) {
-      const expected = segments[index];
-      const isLast = index === segments.length - 1;
-      const matchedName = await this.findPathEntryMatch(
-        current,
-        expected,
-        !isLast,
-      );
-
-      if (!matchedName) {
-        return null;
-      }
-
-      current = resolve(current, matchedName);
-    }
-
-    return (await this.fileExists(current)) ? current : null;
-  }
-
-  private async findPathEntryMatch(
-    directoryPath: string,
-    expectedName: string,
-    expectDirectory: boolean,
-  ): Promise<string | null> {
-    let entries: Dirent[];
-
-    try {
-      entries = await readdir(directoryPath, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-
-    const filtered = entries.filter((entry) =>
-      expectDirectory ? entry.isDirectory() : entry.isFile(),
-    );
-
-    if (filtered.length === 0) {
-      return null;
-    }
-
-    const exact = filtered.find((entry) => entry.name === expectedName);
-    if (exact) {
-      return exact.name;
-    }
-
-    const expectedLower = expectedName.toLowerCase();
-    const caseInsensitive = filtered.filter(
-      (entry) => entry.name.toLowerCase() === expectedLower,
-    );
-    if (caseInsensitive.length === 1) {
-      return caseInsensitive[0].name;
-    }
-
-    const expectedToken = this.normalizePathToken(expectedName);
-    if (!expectedToken) {
-      return null;
-    }
-
-    const tokenMatches = filtered.filter(
-      (entry) => this.normalizePathToken(entry.name) === expectedToken,
-    );
-
-    if (tokenMatches.length === 1) {
-      return tokenMatches[0].name;
-    }
-
-    return null;
-  }
-
-  private normalizePathToken(value: string): string {
-    return value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '');
   }
 
   private extractImportedItems(value: unknown): unknown[] {
@@ -7242,3 +6794,5 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
   }
 }
+
+

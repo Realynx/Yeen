@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, sep } from 'node:path';
-import { MediaItem } from '../../domain/entities/media-item.entity.ts/media-item.entity';
+import { MediaItem } from '../../domain/entities/media-item.entity';
 import {
   ChainRollbackCommitResult,
   ChainRollbackResult,
@@ -416,3 +416,4 @@ export class MediaFsCommitService {
     return this.planner.matchLibraryRoot(filePath);
   }
 }
+

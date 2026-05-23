@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { copyFile, readdir } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
-import { SubtitleTrack } from '../../domain/entities/subtitle-track.entity.ts/subtitle-track.entity';
+import { SubtitleTrack } from '../../domain/entities/subtitle-track.entity';
 import { SubtitleCommandService } from './subtitle-command.service';
 import { SubtitleStorageService } from './subtitle-storage.service';
-import { sanitizeVttFile } from '../../infrastructure/support/subtitle-vtt-sanitizer';
+import { sanitizeVttFile } from '../../infrastructure/helpers/subtitle-vtt-sanitizer';
 
 interface FfprobeStream {
   index: number;
@@ -234,3 +234,5 @@ export class SubtitleTracksService {
     return tracks;
   }
 }
+
+

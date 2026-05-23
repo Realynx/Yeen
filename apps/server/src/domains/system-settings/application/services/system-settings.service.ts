@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UpdateSystemSettingsDto } from '../dto/update-system-settings.dto.ts/update-system-settings.dto';
+import { UpdateSystemSettingsDto } from '../dto/update-system-settings.dto';
 import {
   QbittorrentPathMapping,
   SystemSettings,
-} from '../../domain/entities/system-settings.entity.ts/system-settings.entity';
+} from '../../domain/entities/system-settings.entity';
 import { SystemSettingsStore } from '../../infrastructure/stores/system-settings.store';
 
 const DEFAULT_MEDIA_METADATA_SQLITE_PATH = 'data/media-metadata.sqlite';
@@ -326,3 +326,4 @@ export class SystemSettingsService {
     return this.normalizePathMappings(parsed);
   }
 }
+

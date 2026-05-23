@@ -6,54 +6,54 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
-import { AddTorrentDto } from '../dto/add-torrent.dto.ts/add-torrent.dto';
+import { AddTorrentDto } from '../dto/add-torrent.dto';
 import { KnownTorrentMetadataStore } from '../../infrastructure/stores/known-torrent-metadata.store';
 import {
   AddTorrentInput,
   QbittorrentApiClient,
   QbTorrentFile,
 } from '../../infrastructure/clients/qbittorrent-api.client';
+import { parseTorrentMetadata } from '../../domain/parsers/torrent-metadata.parser';
 import {
-  parseTorrentMetadata,
-  type TorrentMetadataFileHint,
-} from '../../domain/parsers/torrent-metadata.parser';
+  applyTorrentPathMappings,
+  buildTorrentPathMappings,
+  type TorrentPathMapping,
+} from '../helpers/torrent-path-and-file-helpers';
+import {
+  buildKnownTorrentMetadataUpsertEntry,
+  cloneKnownTorrentMetadata,
+  type KnownTorrentMetadataRecord,
+  type KnownTorrentMetadataUpdateInput,
+} from '../helpers/torrent-known-metadata-helpers';
+import { discoverTorrentHashByTag } from '../helpers/torrent-hash-discovery-helpers';
+import {
+  buildTorrentOrderModeMessage,
+  buildTorrentOrderTogglePlan,
+  hasToggleableOrderFlags,
+  isSequentialOrderEnforced,
+  resolveTorrentOrderModeFromRequest,
+  type TorrentOrderMode,
+} from '../helpers/torrent-order-mode-helpers';
+import {
+  extractTorrentPathsFromInfoList,
+  mapQbTorrentToListItem,
+} from '../helpers/torrent-qbittorrent-mappers';
+import {
+  normalizeTorrentMediaHint,
+  normalizeOptionalInfoHash,
+  normalizeTorrentHashInput,
+} from '../helpers/torrent-value-normalizers';
 import type {
   TorrentFileHint as SharedTorrentFileHint,
+  TorrentListItem as SharedTorrentListItem,
   TorrentMediaHint as SharedTorrentMediaHint,
+  TorrentPaths as SharedTorrentPaths,
 } from '../types/torrent.service.types';
 
-export interface TorrentListItem {
-  hash: string;
-  name: string;
-  state: string;
-  progress: number;
-  etaSeconds: number;
-  downloadRate: number;
-  uploadRate: number;
-  sizeBytes: number;
-  completedBytes: number;
-  savePath: string | null;
-  sequentialDownload: boolean | null;
-  firstLastPiecePriority: boolean | null;
-}
-
+export type TorrentListItem = SharedTorrentListItem;
 export type TorrentFileHint = SharedTorrentFileHint;
 export type TorrentMediaHint = SharedTorrentMediaHint;
-
-export interface TorrentPaths {
-  savePath: string | null;
-  contentPath: string | null;
-}
-
-interface KnownTorrentMetadata {
-  hash: string;
-  titleHint: string | null;
-  mediaHint: TorrentMediaHint | null;
-  savePath: string | null;
-  contentPath: string | null;
-  files: TorrentFileHint[];
-  updatedAtMs: number;
-}
+export type TorrentPaths = SharedTorrentPaths;
 
 @Injectable()
 export class TorrentService {
@@ -71,7 +71,7 @@ export class TorrentService {
     const torrents = await this.qbittorrentApiClient.listTorrents();
 
     const items = torrents
-      .map((item) => this.toTorrentListItem(item))
+      .map((item) => mapQbTorrentToListItem(item))
       .filter((item): item is TorrentListItem => item !== null);
 
     return { items };
@@ -88,7 +88,7 @@ export class TorrentService {
     const parsedTorrentMetadata = hasTorrentFile
       ? parseTorrentMetadata(torrentFile!.buffer)
       : null;
-    const hashFromTorrentFile = this.normalizeOptionalHash(
+    const hashFromTorrentFile = normalizeOptionalInfoHash(
       parsedTorrentMetadata?.infoHash,
     );
 
@@ -186,9 +186,9 @@ export class TorrentService {
         );
         return;
       }
-      const seq = observed.sequentialDownload;
-      const firstLast = observed.firstLastPiecePriority;
-      if (seq !== true || firstLast !== true) {
+      if (!isSequentialOrderEnforced(observed)) {
+        const seq = observed.sequentialDownload;
+        const firstLast = observed.firstLastPiecePriority;
         this.logger.warn(
           `ensureSequentialDownload: qBit did not apply flags for ${normalizedHash} ` +
             `(seq=${seq} firstLast=${firstLast} state=${observed.state} progress=${(observed.progress * 100).toFixed(2)}%)`,
@@ -224,7 +224,7 @@ export class TorrentService {
     });
 
     for (const raw of torrents) {
-      const item = this.toTorrentListItem(raw);
+      const item = mapQbTorrentToListItem(raw);
       if (item?.hash === normalizedHash) {
         return item;
       }
@@ -243,24 +243,9 @@ export class TorrentService {
       hashes: normalizedHash,
     });
 
-    let savePath: string | null = null;
-    let contentPath: string | null = null;
-
-    for (const raw of torrentInfoList) {
-      if (typeof raw !== 'object' || raw === null) {
-        continue;
-      }
-      const rawObj = raw as Record<string, unknown>;
-      savePath =
-        typeof rawObj['save_path'] === 'string'
-          ? rawObj['save_path'].trim() || null
-          : null;
-      contentPath =
-        typeof rawObj['content_path'] === 'string'
-          ? rawObj['content_path'].trim() || null
-          : null;
-      break;
-    }
+    const torrentPaths = extractTorrentPathsFromInfoList(torrentInfoList);
+    const contentPath = torrentPaths.contentPath;
+    let savePath = torrentPaths.savePath;
 
     // Fall back to properties endpoint for save_path if the list returned nothing.
     // The properties call may fail (404) when qBittorrent no longer knows the
@@ -298,8 +283,8 @@ export class TorrentService {
 
     const mappings = await this.loadPathMappings();
     return {
-      savePath: this.applyPathMappings(resolvedSavePath, mappings),
-      contentPath: this.applyPathMappings(resolvedContentPath, mappings),
+      savePath: applyTorrentPathMappings(resolvedSavePath, mappings),
+      contentPath: applyTorrentPathMappings(resolvedContentPath, mappings),
     };
   }
 
@@ -312,55 +297,12 @@ export class TorrentService {
   async translateRemotePath(input: string | null): Promise<string | null> {
     if (!input) return input;
     const mappings = await this.loadPathMappings();
-    return this.applyPathMappings(input, mappings);
+    return applyTorrentPathMappings(input, mappings);
   }
 
-  private async loadPathMappings(): Promise<
-    Array<{ from: string; to: string; fromNormalized: string }>
-  > {
+  private async loadPathMappings(): Promise<TorrentPathMapping[]> {
     const settings = await this.systemSettingsService.getSettings();
-    const raw = settings.qbittorrentPathMappings ?? [];
-    return raw
-      .map((entry) => ({
-        from: entry.from,
-        to: entry.to,
-        fromNormalized: this.normalizeForCompare(entry.from),
-      }))
-      .filter((entry) => entry.fromNormalized.length > 0 && entry.to.length > 0)
-      .sort((a, b) => b.fromNormalized.length - a.fromNormalized.length);
-  }
-
-  private applyPathMappings(
-    input: string | null,
-    mappings: Array<{ from: string; to: string; fromNormalized: string }>,
-  ): string | null {
-    if (!input || mappings.length === 0) return input;
-    const candidate = this.normalizeForCompare(input);
-    for (const mapping of mappings) {
-      const prefix = mapping.fromNormalized;
-      const matches =
-        candidate === prefix ||
-        candidate.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`);
-      if (!matches) continue;
-
-      const remainder = candidate.slice(prefix.length).replace(/^\/+/, '');
-      const targetUsesBackslash =
-        /[\\]/.test(mapping.to) || /^[A-Za-z]:[\\/]/.test(mapping.to);
-      const trimmedTo = mapping.to.replace(/[\\/]+$/, '');
-      if (!remainder) {
-        return trimmedTo;
-      }
-      const remainderNative = targetUsesBackslash
-        ? remainder.replace(/\//g, '\\')
-        : remainder;
-      const separator = targetUsesBackslash ? '\\' : '/';
-      return `${trimmedTo}${separator}${remainderNative}`;
-    }
-    return input;
-  }
-
-  private normalizeForCompare(value: string): string {
-    return value.replace(/\\+/g, '/').replace(/\/+$/, '').toLowerCase();
+    return buildTorrentPathMappings(settings.qbittorrentPathMappings ?? []);
   }
 
   async getTorrentSavePath(hash: string): Promise<string | null> {
@@ -425,7 +367,7 @@ export class TorrentService {
     hint: Partial<TorrentMediaHint> | null,
   ): Promise<void> {
     const normalizedHash = this.normalizeHash(hash);
-    const normalizedHint = this.normalizeTorrentMediaHint(hint);
+    const normalizedHint = normalizeTorrentMediaHint(hint);
 
     await this.rememberKnownTorrentMetadata({
       hash: normalizedHash,
@@ -438,36 +380,30 @@ export class TorrentService {
   }
 
   private async discoverHashByTag(tag: string): Promise<string | null> {
-    const deadline = Date.now() + TorrentService.HASH_DISCOVERY_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
-      try {
-        const torrents = await this.qbittorrentApiClient.listTorrents({ tag });
-        for (const raw of torrents) {
-          const item = this.toTorrentListItem(raw);
-          if (item?.hash) {
-            return item.hash;
-          }
-        }
-      } catch (error) {
+    const discoveredHash = await discoverTorrentHashByTag({
+      tag,
+      timeoutMs: TorrentService.HASH_DISCOVERY_TIMEOUT_MS,
+      pollIntervalMs: TorrentService.HASH_DISCOVERY_POLL_MS,
+      listTorrentsByTag: (nextTag) =>
+        this.qbittorrentApiClient.listTorrents({ tag: nextTag }),
+      extractHash: (raw) => mapQbTorrentToListItem(raw)?.hash ?? null,
+      onListError: (error) => {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
           `Failed to discover qBittorrent hash for tag ${tag}: ${message}`,
         );
-      }
+      },
+    });
 
-      await this.delay(TorrentService.HASH_DISCOVERY_POLL_MS);
+    if (discoveredHash) {
+      return discoveredHash;
     }
 
     this.logger.warn(
       `Timed out discovering qBittorrent hash for tag ${tag} after ${TorrentService.HASH_DISCOVERY_TIMEOUT_MS}ms.`,
     );
     return null;
-  }
-
-  private delay(durationMs: number): Promise<void> {
-    return new Promise((resolveDelay) => setTimeout(resolveDelay, durationMs));
   }
 
   async startTorrent(hash: string) {
@@ -514,45 +450,42 @@ export class TorrentService {
     };
   }
 
-  async setTorrentOrderMode(hash: string, orderMode: 'sequential' | 'random') {
+  async setTorrentOrderMode(hash: string, orderMode: TorrentOrderMode) {
     const normalizedHash = this.normalizeHash(hash);
     // The /torrents/properties endpoint does not include seq_dl /
     // f_l_piece_prio in all qBittorrent versions; the /torrents/info list
     // endpoint reliably does. Fetch the single-torrent entry from there.
     const torrent = await this.getTorrentByHash(normalizedHash);
 
-    if (
-      !torrent ||
-      typeof torrent.sequentialDownload !== 'boolean' ||
-      typeof torrent.firstLastPiecePriority !== 'boolean'
-    ) {
+    if (!hasToggleableOrderFlags(torrent)) {
       throw new BadGatewayException(
         'qBittorrent did not return sequential download flags for this torrent.',
       );
     }
 
-    const desiredSequential = orderMode === 'sequential';
-    const desiredFirstLastPiecePriority = desiredSequential;
+    const togglePlan = buildTorrentOrderTogglePlan({
+      orderMode,
+      sequentialDownload: torrent.sequentialDownload,
+      firstLastPiecePriority: torrent.firstLastPiecePriority,
+    });
 
-    let sequentialChanged = false;
-    let firstLastPiecePriorityChanged = false;
-
-    if (torrent.sequentialDownload !== desiredSequential) {
+    if (togglePlan.sequentialChanged) {
       await this.qbittorrentApiClient.toggleSequentialDownload(normalizedHash);
-      sequentialChanged = true;
     }
 
-    if (torrent.firstLastPiecePriority !== desiredFirstLastPiecePriority) {
+    if (togglePlan.firstLastPiecePriorityChanged) {
       await this.qbittorrentApiClient.toggleFirstLastPiecePriority(
         normalizedHash,
       );
-      firstLastPiecePriorityChanged = true;
     }
 
-    if (sequentialChanged || firstLastPiecePriorityChanged) {
+    if (
+      togglePlan.sequentialChanged ||
+      togglePlan.firstLastPiecePriorityChanged
+    ) {
       this.logger.log(
         `Enforced ${orderMode} order on ${normalizedHash} ` +
-          `(seq toggled=${sequentialChanged}, first/last toggled=${firstLastPiecePriorityChanged}; ` +
+          `(seq toggled=${togglePlan.sequentialChanged}, first/last toggled=${togglePlan.firstLastPiecePriorityChanged}; ` +
           `was seq=${torrent.sequentialDownload} firstLast=${torrent.firstLastPiecePriority})`,
       );
     }
@@ -560,28 +493,21 @@ export class TorrentService {
     return {
       hash: normalizedHash,
       orderMode,
-      sequentialChanged,
-      firstLastPiecePriorityChanged,
-      message:
-        orderMode === 'sequential'
-          ? 'Torrent switched to sequential piece order.'
-          : 'Torrent switched to random piece order.',
+      sequentialChanged: togglePlan.sequentialChanged,
+      firstLastPiecePriorityChanged: togglePlan.firstLastPiecePriorityChanged,
+      message: buildTorrentOrderModeMessage(orderMode),
     };
   }
 
   private async resolveOrderMode(
     dto: AddTorrentDto,
-  ): Promise<'sequential' | 'random'> {
-    if (dto.orderMode) {
-      return dto.orderMode;
-    }
-
-    if (dto.intent === 'stream') {
-      return 'sequential';
-    }
-
-    if (dto.intent === 'background') {
-      return 'random';
+  ): Promise<TorrentOrderMode> {
+    const requestedOrderMode = resolveTorrentOrderModeFromRequest({
+      orderMode: dto.orderMode,
+      intent: dto.intent,
+    });
+    if (requestedOrderMode) {
+      return requestedOrderMode;
     }
 
     const settings = await this.systemSettingsService.getSettings();
@@ -589,7 +515,7 @@ export class TorrentService {
   }
 
   private normalizeHash(hash: string): string {
-    const normalized = hash.trim().toLowerCase();
+    const normalized = normalizeTorrentHashInput(hash);
     if (!normalized) {
       throw new BadRequestException('Torrent hash is required.');
     }
@@ -597,293 +523,28 @@ export class TorrentService {
     return normalized;
   }
 
-  private normalizeOptionalHash(
-    hash: string | null | undefined,
-  ): string | null {
-    if (typeof hash !== 'string') {
-      return null;
-    }
-
-    const normalized = hash.trim().toLowerCase();
-    if (!normalized) {
-      return null;
-    }
-
-    return /^[a-f0-9]{40}$/.test(normalized) ? normalized : null;
-  }
-
   private async getKnownTorrentMetadata(
     hash: string,
-  ): Promise<KnownTorrentMetadata | null> {
+  ): Promise<KnownTorrentMetadataRecord | null> {
     const persisted = await this.knownTorrentMetadataStore.get(hash);
-    if (!persisted) {
-      return null;
-    }
-    return {
-      hash: persisted.hash,
-      titleHint: persisted.titleHint,
-      mediaHint: persisted.mediaHint
-        ? {
-            ...persisted.mediaHint,
-            tags: [...persisted.mediaHint.tags],
-          }
-        : null,
-      savePath: persisted.savePath,
-      contentPath: persisted.contentPath,
-      files: persisted.files.map((file) => ({ ...file })),
-      updatedAtMs: persisted.updatedAtMs,
-    };
+    return cloneKnownTorrentMetadata(persisted);
   }
 
-  private async rememberKnownTorrentMetadata(input: {
-    hash: string;
-    titleHint: string | null;
-    mediaHint?: Partial<TorrentMediaHint> | TorrentMediaHint | null;
-    savePath: string | null;
-    contentPath: string | null;
-    files: TorrentMetadataFileHint[];
-  }): Promise<void> {
+  private async rememberKnownTorrentMetadata(
+    input: KnownTorrentMetadataUpdateInput,
+  ): Promise<void> {
     const normalizedHash = this.normalizeHash(input.hash);
     const existing = await this.knownTorrentMetadataStore.get(normalizedHash);
 
-    const mergedFiles = this.mergeKnownTorrentFiles(
-      existing?.files ?? [],
-      input.files,
+    await this.knownTorrentMetadataStore.upsert(
+      buildKnownTorrentMetadataUpsertEntry({
+        normalizedHash,
+        existing,
+        update: input,
+        nowMs: Date.now(),
+      }),
     );
-    const nextSavePath = input.savePath?.trim() || existing?.savePath || null;
-    const nextContentPath =
-      input.contentPath?.trim() || existing?.contentPath || null;
-    const nextTitleHint =
-      input.titleHint?.trim() || existing?.titleHint || null;
-    const incomingMediaHint = this.normalizeTorrentMediaHint(input.mediaHint);
-    const nextMediaHint = incomingMediaHint ?? existing?.mediaHint ?? null;
-
-    await this.knownTorrentMetadataStore.upsert({
-      hash: normalizedHash,
-      titleHint: nextTitleHint,
-      mediaHint: nextMediaHint,
-      savePath: nextSavePath,
-      contentPath: nextContentPath,
-      files: mergedFiles,
-      updatedAtMs: Date.now(),
-    });
-  }
-
-  private normalizeTorrentMediaHint(
-    hint: Partial<TorrentMediaHint> | TorrentMediaHint | null | undefined,
-  ): TorrentMediaHint | null {
-    if (!hint || typeof hint !== 'object' || Array.isArray(hint)) {
-      return null;
-    }
-
-    const title = typeof hint.title === 'string' ? hint.title.trim() : '';
-    if (!title) {
-      return null;
-    }
-
-    const normalizedTitle =
-      typeof hint.normalizedTitle === 'string'
-        ? hint.normalizedTitle.trim() || title
-        : title;
-    const releaseYear =
-      typeof hint.releaseYear === 'number' && Number.isFinite(hint.releaseYear)
-        ? Math.floor(hint.releaseYear)
-        : null;
-    const mediaType =
-      hint.mediaType === 'movie' ||
-      hint.mediaType === 'show' ||
-      hint.mediaType === 'other'
-        ? hint.mediaType
-        : null;
-    const description =
-      typeof hint.description === 'string'
-        ? hint.description.trim() || null
-        : null;
-    const tags = Array.isArray(hint.tags)
-      ? hint.tags
-          .filter((tag): tag is string => typeof tag === 'string')
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      : [];
-    const posterUrl =
-      typeof hint.posterUrl === 'string' ? hint.posterUrl.trim() || null : null;
-    const backdropUrl =
-      typeof hint.backdropUrl === 'string'
-        ? hint.backdropUrl.trim() || null
-        : null;
-    const remoteSource =
-      hint.remoteSource === 'tmdb' || hint.remoteSource === 'jikan'
-        ? hint.remoteSource
-        : null;
-    const remoteSourceId =
-      typeof hint.remoteSourceId === 'string'
-        ? hint.remoteSourceId.trim() || null
-        : null;
-
-    return {
-      title,
-      normalizedTitle,
-      releaseYear,
-      mediaType,
-      description,
-      tags,
-      posterUrl,
-      backdropUrl,
-      remoteSource,
-      remoteSourceId,
-    };
-  }
-
-  private mergeKnownTorrentFiles(
-    existingFiles: TorrentFileHint[],
-    incomingFiles: TorrentMetadataFileHint[],
-  ): TorrentFileHint[] {
-    const merged = new Map<string, TorrentFileHint>();
-
-    const insert = (name: string, size: number) => {
-      const normalizedName = this.normalizeTorrentRelativePath(name);
-      if (!normalizedName) {
-        return;
-      }
-
-      const key = normalizedName.toLowerCase();
-      const safeSize = Number.isFinite(size)
-        ? Math.max(0, Math.floor(size))
-        : 0;
-      const previous = merged.get(key);
-      if (!previous || safeSize > previous.size) {
-        merged.set(key, { name: normalizedName, size: safeSize });
-      }
-    };
-
-    for (const file of existingFiles) {
-      insert(file.name, file.size);
-    }
-
-    for (const file of incomingFiles) {
-      insert(file.name, file.size);
-    }
-
-    return [...merged.values()];
-  }
-
-  private normalizeTorrentRelativePath(value: string): string | null {
-    const normalized = value.trim().replace(/\\/g, '/');
-    if (!normalized) {
-      return null;
-    }
-
-    const segments = normalized
-      .split('/')
-      .map((segment) => segment.trim())
-      .filter(Boolean)
-      .filter((segment) => segment !== '.');
-
-    if (segments.length === 0 || segments.some((segment) => segment === '..')) {
-      return null;
-    }
-
-    return segments.join('/');
-  }
-
-  private toTorrentListItem(value: unknown): TorrentListItem | null {
-    if (!this.isObject(value)) {
-      return null;
-    }
-
-    const hash = this.toStringOrEmpty(value.hash).trim();
-    if (!hash) {
-      return null;
-    }
-
-    return {
-      hash,
-      name: this.toStringOrEmpty(value.name) || hash,
-      state: this.toStringOrEmpty(value.state) || 'unknown',
-      progress: this.clampFraction(this.toNumber(value.progress, 0)),
-      etaSeconds: this.toInteger(value.eta, 0),
-      downloadRate: this.toInteger(value.dlspeed, 0),
-      uploadRate: this.toInteger(value.upspeed, 0),
-      sizeBytes: this.toInteger(value.size, 0),
-      completedBytes: this.toInteger(value.completed, 0),
-      savePath: this.toNullableString(value.save_path),
-      sequentialDownload: this.toOptionalBoolean(value.seq_dl),
-      firstLastPiecePriority: this.toOptionalBoolean(value.f_l_piece_prio),
-    };
-  }
-
-  private isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-  }
-
-  private toStringOrEmpty(value: unknown): string {
-    return typeof value === 'string' ? value : '';
-  }
-
-  private toNullableString(value: unknown): string | null {
-    return typeof value === 'string' && value.trim() ? value : null;
-  }
-
-  private toInteger(value: unknown, fallback: number): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return Math.max(0, Math.round(value));
-    }
-
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed)) {
-        return Math.max(0, parsed);
-      }
-    }
-
-    return fallback;
-  }
-
-  private toNumber(value: unknown, fallback: number): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number.parseFloat(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-
-    return fallback;
-  }
-
-  private clampFraction(value: number): number {
-    return Math.max(0, Math.min(1, value));
-  }
-
-  private toOptionalBoolean(value: unknown): boolean | null {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-
-    if (typeof value === 'number') {
-      if (value === 0) {
-        return false;
-      }
-
-      if (value === 1) {
-        return true;
-      }
-    }
-
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-        return true;
-      }
-
-      if (['0', 'false', 'no', 'off'].includes(normalized)) {
-        return false;
-      }
-    }
-
-    return null;
   }
 }
+
+

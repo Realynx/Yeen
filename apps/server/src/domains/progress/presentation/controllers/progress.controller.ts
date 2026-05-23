@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../../auth/presentation/decorators/current-user.decorator';
-import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity.ts/auth-user.entity';
+import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
-import { UpdateProgressDto } from '../../application/dto/update-progress.dto.ts/update-progress.dto';
+import { UpdateProgressDto } from '../../application/dto/update-progress.dto';
 import { ProgressService } from '../../application/services/progress.service';
 
 @UseGuards(JwtAuthGuard)
@@ -29,3 +29,4 @@ export class ProgressController {
     return this.progressService.upsert(user, mediaId, dto);
   }
 }
+

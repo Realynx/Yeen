@@ -10,24 +10,27 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import {
-  access,
-  mkdir,
-  open,
-  readdir,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { access, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
-import { MediaService, type PlaybackAudioTrack } from '../../../media/application/services/media.service';
+import {
+  MediaService,
+  type PlaybackAudioTrack,
+} from '../../../media/application/services/media.service';
 import { resolveSafePathFromFileName } from '../../../core/infrastructure/shared/safe-path';
+import {
+  readMediaFileHeader,
+  readMediaFileHeaderCached,
+  readMediaFileHeaderUnbuffered,
+  scoreMediaHeader as scoreSharedMediaHeader,
+} from '../../../core/infrastructure/shared/media-header-probe';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
 import { TorrentService } from '../../../torrent/application/services/torrent.service';
-import { HlsSession, HlsSessionStore } from '../../infrastructure/stores/hls-session.store';
+import {
+  HlsSession,
+  HlsSessionStore,
+} from '../../infrastructure/stores/hls-session.store';
 import { RangeStreamService } from './range-stream.service';
 import {
   buildAudioEncoderArgs,
@@ -43,7 +46,6 @@ import {
 import {
   computeSegmentTiming,
   parseSegmentIndex,
-  segmentFileName,
   totalSegmentCount,
 } from '../../infrastructure/hls/hls-segment-naming';
 
@@ -752,143 +754,7 @@ export class StreamService implements OnModuleInit {
     filePath: string,
     byteCount: number,
   ): Promise<Buffer | null> {
-    const cached = await this.readFileHeaderCached(filePath, byteCount, 'r');
-    if (cached === null || cached.length === 0) {
-      return cached;
-    }
-
-    if (!cached.every((byte) => byte === 0)) {
-      return cached;
-    }
-
-    const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
-    if (
-      uncached !== null &&
-      uncached.length > 0 &&
-      !uncached.every((byte) => byte === 0)
-    ) {
-      return uncached;
-    }
-
-    if (process.platform === 'win32') {
-      const unbuffered = await this.readFileHeaderUnbuffered(
-        filePath,
-        byteCount,
-      );
-      if (unbuffered !== null) {
-        return unbuffered;
-      }
-    }
-
-    return uncached ?? cached;
-  }
-
-  private async readFileHeaderCached(
-    filePath: string,
-    byteCount: number,
-    flag: 'r' | 'rs',
-  ): Promise<Buffer | null> {
-    const handle = await open(filePath, flag).catch(() => null);
-    if (!handle) {
-      return null;
-    }
-
-    try {
-      const buffer = Buffer.alloc(byteCount);
-      const { bytesRead } = await handle.read(buffer, 0, byteCount, 0);
-      return bytesRead > 0 ? buffer.subarray(0, bytesRead) : null;
-    } catch {
-      return null;
-    } finally {
-      await handle.close().catch(() => undefined);
-    }
-  }
-
-  private async readFileHeaderUnbuffered(
-    filePath: string,
-    byteCount: number,
-  ): Promise<Buffer | null> {
-    const alignedBytes = Math.max(512, Math.ceil(byteCount / 512) * 512);
-    const escapedPath = filePath.replace(/'/g, "''");
-    const script =
-      "$ErrorActionPreference='Stop';" +
-      `$p='${escapedPath}';` +
-      `$s=${alignedBytes};` +
-      'try{' +
-      '$fs=New-Object System.IO.FileStream(' +
-      '$p,' +
-      '[System.IO.FileMode]::Open,' +
-      '[System.IO.FileAccess]::Read,' +
-      '[System.IO.FileShare]::ReadWrite,' +
-      '4096,' +
-      '([System.IO.FileOptions][int]0x20000000));' +
-      '$b=New-Object byte[] $s;' +
-      '$n=$fs.Read($b,0,$s);' +
-      '$fs.Close();' +
-      'if($n -le 0){exit 2}' +
-      '[Console]::OpenStandardOutput().Write($b,0,$n);' +
-      'exit 0' +
-      '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
-
-    return await new Promise<Buffer | null>((resolvePromise) => {
-      let settled = false;
-      const settle = (value: Buffer | null) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        resolvePromise(value);
-      };
-
-      let child: ReturnType<typeof spawn>;
-      try {
-        child = spawn(
-          'powershell.exe',
-          [
-            '-NoProfile',
-            '-NonInteractive',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-Command',
-            script,
-          ],
-          { windowsHide: true },
-        );
-      } catch {
-        settle(null);
-        return;
-      }
-
-      const chunks: Buffer[] = [];
-      child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
-      child.on('error', () => settle(null));
-      child.on('close', (code) => {
-        if (code !== 0) {
-          settle(null);
-          return;
-        }
-
-        const buffer = Buffer.concat(chunks);
-        if (buffer.length === 0) {
-          settle(null);
-          return;
-        }
-
-        settle(
-          buffer.length >= byteCount ? buffer.subarray(0, byteCount) : buffer,
-        );
-      });
-
-      const timer = setTimeout(() => {
-        try {
-          child.kill();
-        } catch {
-          // ignore
-        }
-        settle(null);
-      }, 5000);
-      child.on('close', () => clearTimeout(timer));
-    });
+    return await readMediaFileHeader(filePath, byteCount);
   }
 
   private clearStartSegmentFailureState(session: HlsSession): void {
@@ -1047,7 +913,7 @@ export class StreamService implements OnModuleInit {
     filePath: string,
     byteCount: number,
   ): Promise<Buffer | null> {
-    const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
+    const uncached = await readMediaFileHeaderCached(filePath, byteCount, 'rs');
     if (
       uncached !== null &&
       uncached.length > 0 &&
@@ -1057,7 +923,7 @@ export class StreamService implements OnModuleInit {
     }
 
     if (process.platform === 'win32') {
-      const unbuffered = await this.readFileHeaderUnbuffered(
+      const unbuffered = await readMediaFileHeaderUnbuffered(
         filePath,
         byteCount,
       );
@@ -1070,7 +936,7 @@ export class StreamService implements OnModuleInit {
       }
     }
 
-    const cached = await this.readFileHeaderCached(filePath, byteCount, 'r');
+    const cached = await readMediaFileHeaderCached(filePath, byteCount, 'r');
     if (
       cached !== null &&
       cached.length > 0 &&
@@ -1083,46 +949,7 @@ export class StreamService implements OnModuleInit {
   }
 
   private scoreMediaHeader(header: Buffer | null): number {
-    if (!header || header.length < 4) {
-      return 0;
-    }
-
-    // EBML/Matroska header
-    if (
-      header[0] === 0x1a &&
-      header[1] === 0x45 &&
-      header[2] === 0xdf &&
-      header[3] === 0xa3
-    ) {
-      return 100;
-    }
-
-    // MP4/MOV ('ftyp' at bytes 4..7)
-    if (
-      header.length >= 8 &&
-      header[4] === 0x66 &&
-      header[5] === 0x74 &&
-      header[6] === 0x79 &&
-      header[7] === 0x70
-    ) {
-      return 100;
-    }
-
-    // RIFF
-    if (
-      header[0] === 0x52 &&
-      header[1] === 0x49 &&
-      header[2] === 0x46 &&
-      header[3] === 0x46
-    ) {
-      return 100;
-    }
-
-    if (header.every((byte) => byte === 0)) {
-      return -1;
-    }
-
-    return 1;
+    return scoreSharedMediaHeader(header);
   }
 
   private isRecoverableTranscodeInputError(message: string): boolean {

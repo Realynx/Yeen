@@ -17,21 +17,21 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AdminGuard } from '../../../auth/presentation/guards/admin.guard';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
 import { TorrentAccessGuard } from '../../../auth/presentation/guards/torrent-access.guard';
-import { ScanMediaDto } from '../../application/dto/scan-media.dto.ts/scan-media.dto';
-import { SetMediaLocationsDto } from '../../application/dto/set-media-locations.dto.ts/set-media-locations.dto';
+import { ScanMediaDto } from '../../application/dto/scan-media.dto';
+import { SetMediaLocationsDto } from '../../application/dto/set-media-locations.dto';
 import {
   BulkAssignEpisodesDto,
   BulkUpdateMediaDto,
   UpdateMediaDto,
-} from '../../application/dto/update-media.dto.ts/update-media.dto';
-import { BulkDeleteMediaDto } from '../../application/dto/delete-media.dto.ts/delete-media.dto';
+} from '../../application/dto/update-media.dto';
+import { BulkDeleteMediaDto } from '../../application/dto/delete-media.dto';
 import {
   CommitMetadataDto,
   PlanCommitMetadataDto,
-} from '../../application/dto/commit-metadata.dto.ts/commit-metadata.dto';
-import { ImportMetadataDto } from '../../application/dto/import-metadata.dto.ts/import-metadata.dto';
-import { DownloadIptorrentDto } from '../../application/dto/download-iptorrent.dto.ts/download-iptorrent.dto';
-import { PurgeRecycleDeletionsDto } from '../../application/dto/purge-recycle-deletions.dto.ts/purge-recycle-deletions.dto';
+} from '../../application/dto/commit-metadata.dto';
+import { ImportMetadataDto } from '../../application/dto/import-metadata.dto';
+import { DownloadIptorrentDto } from '../../application/dto/download-iptorrent.dto';
+import { PurgeRecycleDeletionsDto } from '../../application/dto/purge-recycle-deletions.dto';
 import { IptorrentsSearchService } from '../../application/services/iptorrents-search.service';
 import { NyaaSearchService } from '../../application/services/nyaa-search.service';
 import { MediaFsCommitService } from '../../application/services/media-fs-commit.service';
@@ -556,3 +556,4 @@ export class MediaController {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'node:path';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
-import { SystemSettings } from '../../domain/entities/system-settings.entity.ts/system-settings.entity';
+import { SystemSettings } from '../../domain/entities/system-settings.entity';
 
 @Injectable()
 export class SystemSettingsStore extends JsonFileStore<
@@ -34,3 +34,4 @@ export class SystemSettingsStore extends JsonFileStore<
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

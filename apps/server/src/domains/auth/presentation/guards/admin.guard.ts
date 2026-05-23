@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import type { AuthUser } from '../../domain/entities/auth-user.entity.ts/auth-user.entity';
+import type { AuthUser } from '../../domain/entities/auth-user.entity';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -20,3 +20,4 @@ export class AdminGuard implements CanActivate {
     return true;
   }
 }
+

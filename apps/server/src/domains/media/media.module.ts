@@ -22,6 +22,7 @@ import { MediaFsFileOpsService } from './application/services/media-fs-file-ops.
 import { MediaFsNfoService } from './application/services/media-fs-nfo.service';
 import { IptorrentsSearchService } from './application/services/iptorrents-search.service';
 import { NyaaSearchService } from './application/services/nyaa-search.service';
+import { MediaPathResolverService } from './application/services/media-path-resolver.service';
 import { TorrentModule } from '../torrent/torrent.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaFsCommitPlannerService,
     MediaFsFileOpsService,
     MediaFsNfoService,
+    MediaPathResolverService,
     MediaFsCommitService,
     IptorrentsSearchService,
     NyaaSearchService,

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { basename, dirname, extname, join } from 'node:path';
-import { MediaChapterThumbnail } from '../../domain/entities/media-item.entity.ts/media-item.entity';
+import { MediaChapterThumbnail } from '../../domain/entities/media-item.entity';
 
 @Injectable()
 export class MediaPreviewResolver {
@@ -510,3 +510,4 @@ export class MediaPreviewResolver {
     });
   }
 }
+
