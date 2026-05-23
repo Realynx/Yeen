@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, sep } from 'node:path';
-import { MediaItem } from '../../domain/entities/media-item.entity';
+import { MediaItem } from '../../../domain/entities/media-item.entity';
 import {
   ChainRollbackCommitResult,
   ChainRollbackResult,
@@ -15,7 +15,7 @@ import {
   CommitOperation,
   CommitSummary,
   MediaCommitStore,
-} from '../../infrastructure/stores/media-commit.store';
+} from '../../../infrastructure/stores/media-commit.store';
 import { MediaFsCommitPlannerService } from './media-fs-commit-planner.service';
 import { MediaFsFileOpsService } from './media-fs-file-ops.service';
 import { MediaFsNfoService } from './media-fs-nfo.service';
@@ -23,8 +23,8 @@ import {
   CommitPlan,
   CommitResult,
   RollbackResult,
-} from '../types/media-fs-commit.types';
-import { MediaStore } from '../../infrastructure/stores/media.store';
+} from '../../types/media-fs-commit.types';
+import { MediaStore } from '../../../infrastructure/stores/media.store';
 
 export type {
   CommitPlan,
@@ -32,7 +32,7 @@ export type {
   PlannedMediaChange,
   PlannedOperation,
   RollbackResult,
-} from '../types/media-fs-commit.types';
+} from '../../types/media-fs-commit.types';
 
 @Injectable()
 export class MediaFsCommitService {

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MetadataApiCacheStore } from '../../infrastructure/stores/metadata-api-cache.store';
+import { MetadataApiCacheStore } from '../../../infrastructure/stores/metadata-api-cache.store';
 
 class JikanRateLimitError extends Error {
   constructor(

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MetadataApiCacheStore } from '../../infrastructure/stores/metadata-api-cache.store';
-import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
+import { MetadataApiCacheStore } from '../../../infrastructure/stores/metadata-api-cache.store';
+import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
 
 interface TmdbSearchResponse {
   results?: unknown[];
