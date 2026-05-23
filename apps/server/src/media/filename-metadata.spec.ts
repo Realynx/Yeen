@@ -47,7 +47,10 @@ describe('parseSeasonEpisode', () => {
 
   it('combines folder-based season with filename episode markers', () => {
     expect(
-      parseSeasonEpisode('Episode.05.1080p', 'Show Name/Season 02/Episode.05.1080p.mkv'),
+      parseSeasonEpisode(
+        'Episode.05.1080p',
+        'Show Name/Season 02/Episode.05.1080p.mkv',
+      ),
     ).toEqual({
       seasonNumber: 2,
       episodeNumber: 5,
@@ -120,7 +123,10 @@ describe('parseSeasonEpisode', () => {
 
   it('returns folder-only season when filename has no episode signal', () => {
     expect(
-      parseSeasonEpisode('Mystery File', 'Show Name/Season 03/Mystery File.mkv'),
+      parseSeasonEpisode(
+        'Mystery File',
+        'Show Name/Season 03/Mystery File.mkv',
+      ),
     ).toEqual({
       seasonNumber: 3,
       episodeNumber: null,

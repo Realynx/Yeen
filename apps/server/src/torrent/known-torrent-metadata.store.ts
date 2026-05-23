@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'node:path';
 import { JsonFileStore } from '../shared/json-file-store';
-import type { TorrentFileHint, TorrentMediaHint } from './torrent.service.types';
+import type {
+  TorrentFileHint,
+  TorrentMediaHint,
+} from './torrent.service.types';
 
 export interface PersistedKnownTorrentMetadata {
   hash: string;
@@ -27,14 +30,19 @@ export class KnownTorrentMetadataStore extends JsonFileStore<StoreState> {
     }
 
     const result: StoreState = {};
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, entry] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       if (!entry || typeof entry !== 'object') continue;
       const raw = entry as Record<string, unknown>;
       const hash = typeof raw.hash === 'string' ? raw.hash : key;
       if (!hash || !/^[a-f0-9]{40}$/i.test(hash)) continue;
       const files: TorrentFileHint[] = Array.isArray(raw.files)
         ? raw.files
-            .filter((file): file is Record<string, unknown> => Boolean(file) && typeof file === 'object')
+            .filter(
+              (file): file is Record<string, unknown> =>
+                Boolean(file) && typeof file === 'object',
+            )
             .map((file) => ({
               name: typeof file.name === 'string' ? file.name : '',
               size:
@@ -89,7 +97,8 @@ export class KnownTorrentMetadataStore extends JsonFileStore<StoreState> {
             ? candidate.backdropUrl.trim() || null
             : null;
         const remoteSource =
-          candidate.remoteSource === 'tmdb' || candidate.remoteSource === 'jikan'
+          candidate.remoteSource === 'tmdb' ||
+          candidate.remoteSource === 'jikan'
             ? candidate.remoteSource
             : null;
         const remoteSourceId =
@@ -118,10 +127,12 @@ export class KnownTorrentMetadataStore extends JsonFileStore<StoreState> {
         titleHint: typeof raw.titleHint === 'string' ? raw.titleHint : null,
         mediaHint,
         savePath: typeof raw.savePath === 'string' ? raw.savePath : null,
-        contentPath: typeof raw.contentPath === 'string' ? raw.contentPath : null,
+        contentPath:
+          typeof raw.contentPath === 'string' ? raw.contentPath : null,
         files,
         updatedAtMs:
-          typeof raw.updatedAtMs === 'number' && Number.isFinite(raw.updatedAtMs)
+          typeof raw.updatedAtMs === 'number' &&
+          Number.isFinite(raw.updatedAtMs)
             ? raw.updatedAtMs
             : Date.now(),
       };

@@ -93,14 +93,20 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('me/password')
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
+  changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
     return this.authService.changePassword(user, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('me/avatar')
   @UseInterceptors(FileInterceptor('avatar'))
-  uploadAvatar(@CurrentUser() user: AuthUser, @UploadedFile() imageFile?: unknown) {
+  uploadAvatar(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() imageFile?: unknown,
+  ) {
     const normalizedFile = this.normalizeUploadedImage(imageFile);
     return this.authService.uploadAvatar(user, normalizedFile);
   }

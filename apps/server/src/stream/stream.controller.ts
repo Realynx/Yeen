@@ -10,8 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { AuthUser } from '../auth/entities/auth-user.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StreamService } from './stream.service';
 
@@ -58,7 +56,6 @@ export class StreamController {
   getHlsFile(
     @Param('sessionId') sessionId: string,
     @Param('fileName') fileName: string,
-    @CurrentUser() user: AuthUser,
     @Req() request: Request,
     @Res() response: Response,
   ) {
@@ -68,7 +65,6 @@ export class StreamController {
       sessionId,
       fileName,
       response,
-      user,
       accessToken,
     );
   }

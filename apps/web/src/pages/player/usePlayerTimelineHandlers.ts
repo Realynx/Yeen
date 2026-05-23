@@ -21,7 +21,6 @@ interface UsePlayerTimelineHandlersOptions {
   requestedStartSeconds: number;
   resumeAtSeconds: number;
   isSeeking: boolean;
-  lastSyncRef: MutableRefObject<number>;
   hasAppliedInitialSeekRef: MutableRefObject<boolean>;
   setCurrentTime: (seconds: number) => void;
   setSeekValue: (seconds: number) => void;
@@ -32,7 +31,7 @@ interface UsePlayerTimelineHandlersOptions {
   setSeekPreviewSeconds: (seconds: number | null) => void;
   seekTo: (seconds: number) => void;
   revealControls: () => void;
-  syncProgress: (completed?: boolean) => Promise<void>;
+  syncProgress: (completed?: boolean, keepalive?: boolean) => Promise<void>;
 }
 
 interface PlayerTimelineHandlers {
@@ -52,7 +51,6 @@ export function usePlayerTimelineHandlers({
   requestedStartSeconds,
   resumeAtSeconds,
   isSeeking,
-  lastSyncRef,
   hasAppliedInitialSeekRef,
   setCurrentTime,
   setSeekValue,
@@ -80,15 +78,7 @@ export function usePlayerTimelineHandlers({
     if (!isSeeking) {
       setCurrentTime(video.currentTime || 0);
     }
-
-    const now = Date.now();
-    if (now - lastSyncRef.current < 8000) {
-      return;
-    }
-
-    lastSyncRef.current = now;
-    void syncProgress(false);
-  }, [isSeeking, lastSyncRef, setCurrentTime, syncProgress, videoRef]);
+  }, [isSeeking, setCurrentTime, videoRef]);
 
   const handleBufferedProgress = useCallback(() => {
     const video = videoRef.current;
@@ -187,8 +177,9 @@ export function usePlayerTimelineHandlers({
       document.body.classList.remove(PLAYER_SCRUBBING_CLASS);
       clearDocumentSelection();
       seekTo(nextValue);
+      void syncProgress(false);
     },
-    [seekTo, setIsSeeking, totalDuration],
+    [seekTo, setIsSeeking, syncProgress, totalDuration],
   );
 
   const handleSeekPreview = useCallback(

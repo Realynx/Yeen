@@ -19,11 +19,18 @@ interface JikanDetailsResponse {
   data?: unknown;
 }
 
+interface JikanEpisodesResponse {
+  data?: unknown[];
+  pagination?: unknown;
+}
+
 interface JikanGenreCatalogResponse {
   data?: unknown[];
 }
 
 interface JikanCandidate {
+  providerId: string;
+  mediaType: 'movie' | 'show';
   title: string;
   titlesForMatch: string[];
   tags: string[];
@@ -40,12 +47,28 @@ interface JikanLookupInput {
 }
 
 export interface JikanLookupResult {
+  providerId: string;
+  mediaType: 'movie' | 'show';
   title: string;
   tags: string[];
   overview: string | null;
   releaseYear: number | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+}
+
+export interface JikanSeriesEpisode {
+  episodeNumber: number;
+  title: string;
+  airedAt: string | null;
+  synopsis: string | null;
+}
+
+export interface JikanSeriesEpisodeCatalog {
+  providerId: string;
+  totalEpisodeCount: number;
+  episodes: JikanSeriesEpisode[];
+  updatedAt: string;
 }
 
 export interface JikanRemoteCandidate {
@@ -94,6 +117,10 @@ const JIKAN_GENRES_BY_ID: Record<number, string> = {
 export class JikanMetadataService {
   private readonly logger = new Logger(JikanMetadataService.name);
   private readonly cache = new Map<string, JikanLookupResult | null>();
+  private readonly seriesCatalogInFlight = new Map<
+    string,
+    Promise<JikanSeriesEpisodeCatalog | null>
+  >();
   private readonly cacheProvider = 'jikan.anime';
   private readonly minRequestIntervalMs = 2_200;
   private readonly defaultRateLimitCooldownMs = 60_000;
@@ -335,7 +362,9 @@ export class JikanMetadataService {
     }
   }
 
-  async getRemoteDetails(providerId: string): Promise<JikanRemoteCandidate | null> {
+  async getRemoteDetails(
+    providerId: string,
+  ): Promise<JikanRemoteCandidate | null> {
     const resolvedId = this.extractProviderId({ mal_id: providerId });
     if (!resolvedId) {
       return null;
@@ -382,6 +411,143 @@ export class JikanMetadataService {
     }
   }
 
+  async getSeriesEpisodeCatalog(
+    providerId: string,
+    options?: { useCache?: boolean },
+  ): Promise<JikanSeriesEpisodeCatalog | null> {
+    const resolvedId = this.extractProviderId({ mal_id: providerId });
+    if (!resolvedId) {
+      return null;
+    }
+
+    const useCache = options?.useCache !== false;
+    const requestKey = `series-episodes:${resolvedId}:v1`;
+
+    if (useCache) {
+      const cachedCatalog =
+        await this.metadataApiCacheStore.get<JikanSeriesEpisodeCatalog>(
+          this.cacheProvider,
+          requestKey,
+        );
+      if (cachedCatalog) {
+        const normalized = this.normalizeSeriesEpisodeCatalog(cachedCatalog);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
+    const inFlight = this.seriesCatalogInFlight.get(resolvedId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const loadPromise = this.loadSeriesEpisodeCatalog(resolvedId, useCache)
+      .catch((error) => {
+        if (error instanceof JikanRateLimitError) {
+          this.applyRateLimitCooldown(error.retryAfterMs, `id:${resolvedId}`);
+          return null;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Jikan series episode catalog lookup failed for ${resolvedId}: ${message}`,
+        );
+        return null;
+      })
+      .finally(() => {
+        this.seriesCatalogInFlight.delete(resolvedId);
+      });
+
+    this.seriesCatalogInFlight.set(resolvedId, loadPromise);
+    return loadPromise;
+  }
+
+  warmSeriesEpisodeCatalog(providerId: string): void {
+    void this.getSeriesEpisodeCatalog(providerId).catch((error) => {
+      if (error instanceof JikanRateLimitError) {
+        this.applyRateLimitCooldown(error.retryAfterMs, `id:${providerId}`);
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Jikan series episode warmup failed for ${providerId}: ${message}`,
+      );
+    });
+  }
+
+  private async loadSeriesEpisodeCatalog(
+    resolvedId: string,
+    useCache: boolean,
+  ): Promise<JikanSeriesEpisodeCatalog | null> {
+    if (Date.now() < this.rateLimitedUntil) {
+      return null;
+    }
+
+    const episodes: JikanSeriesEpisode[] = [];
+    let page = 1;
+    const maxPages = 200;
+
+    while (page <= maxPages) {
+      const params = new URLSearchParams({ page: String(page) });
+      const requestKey = `series-episodes:${resolvedId}:page:${page}`;
+
+      let payload: JikanEpisodesResponse | undefined;
+      if (useCache) {
+        payload = await this.metadataApiCacheStore.get<JikanEpisodesResponse>(
+          this.cacheProvider,
+          requestKey,
+        );
+      }
+
+      if (payload === undefined) {
+        const url = `https://api.jikan.moe/v4/anime/${resolvedId}/episodes?${params.toString()}`;
+        payload = (await this.fetchJson(url, 15000)) as JikanEpisodesResponse;
+
+        if (useCache) {
+          await this.metadataApiCacheStore.set(
+            this.cacheProvider,
+            requestKey,
+            payload,
+          );
+        }
+      }
+
+      const pageEpisodes = this.extractSeriesEpisodes(payload.data);
+      if (pageEpisodes.length > 0) {
+        episodes.push(...pageEpisodes);
+      }
+
+      if (!this.hasNextEpisodePage(payload.pagination, page)) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    const normalizedEpisodes = this.dedupeSeriesEpisodes(episodes);
+
+    if (normalizedEpisodes.length === 0) {
+      return null;
+    }
+
+    const catalog: JikanSeriesEpisodeCatalog = {
+      providerId: resolvedId,
+      totalEpisodeCount: normalizedEpisodes.length,
+      episodes: normalizedEpisodes,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.metadataApiCacheStore.set(
+      this.cacheProvider,
+      `series-episodes:${resolvedId}:v1`,
+      catalog,
+    );
+
+    return catalog;
+  }
+
   private async searchJikan(
     input: JikanLookupInput,
   ): Promise<JikanLookupResult | null> {
@@ -392,10 +558,11 @@ export class JikanMetadataService {
     });
 
     const requestKey = params.toString();
-    const cachedPayload = await this.metadataApiCacheStore.get<JikanSearchResponse>(
-      this.cacheProvider,
-      requestKey,
-    );
+    const cachedPayload =
+      await this.metadataApiCacheStore.get<JikanSearchResponse>(
+        this.cacheProvider,
+        requestKey,
+      );
 
     let payload: JikanSearchResponse;
     if (cachedPayload !== undefined) {
@@ -422,6 +589,8 @@ export class JikanMetadataService {
 
     const picked = this.pickBestCandidate(exactCandidates, input.releaseYear);
     return {
+      providerId: picked.providerId,
+      mediaType: picked.mediaType,
       title: picked.title,
       tags: picked.tags,
       overview: picked.overview,
@@ -437,6 +606,11 @@ export class JikanMetadataService {
     }
 
     const value = item as Record<string, unknown>;
+    const providerId = this.extractProviderId(value);
+    if (!providerId) {
+      return null;
+    }
+
     const titlesForMatch = this.collectTitles(value);
     if (titlesForMatch.length === 0) {
       return null;
@@ -448,6 +622,8 @@ export class JikanMetadataService {
       titlesForMatch[0];
 
     return {
+      providerId,
+      mediaType: this.resolveMediaType(value),
       title: preferredTitle,
       titlesForMatch,
       tags: this.extractTags(value),
@@ -513,11 +689,7 @@ export class JikanMetadataService {
     }
 
     for (const entry of source) {
-      if (
-        typeof entry !== 'object' ||
-        entry === null ||
-        Array.isArray(entry)
-      ) {
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
         continue;
       }
 
@@ -771,9 +943,13 @@ export class JikanMetadataService {
     return /^\d+$/.test(cleaned) ? cleaned : null;
   }
 
-  private extractDurationSeconds(value: Record<string, unknown>): number | null {
+  private extractDurationSeconds(
+    value: Record<string, unknown>,
+  ): number | null {
     const duration =
-      typeof value.duration === 'string' ? value.duration.trim().toLowerCase() : '';
+      typeof value.duration === 'string'
+        ? value.duration.trim().toLowerCase()
+        : '';
     if (!duration) {
       return null;
     }
@@ -792,6 +968,146 @@ export class JikanMetadataService {
     return totalMinutes > 0 ? totalMinutes * 60 : null;
   }
 
+  private normalizeSeriesEpisodeCatalog(
+    value: unknown,
+  ): JikanSeriesEpisodeCatalog | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return null;
+    }
+
+    const source = value as Record<string, unknown>;
+    const providerId = this.extractProviderId({ mal_id: source.providerId });
+    if (!providerId) {
+      return null;
+    }
+
+    const episodes = this.extractSeriesEpisodes(source.episodes);
+    if (episodes.length === 0) {
+      return null;
+    }
+
+    const normalizedEpisodes = this.dedupeSeriesEpisodes(episodes);
+
+    const totalEpisodeCount = this.extractPositiveInt(source.totalEpisodeCount);
+    const updatedAt = this.getNullableString(source.updatedAt);
+
+    return {
+      providerId,
+      totalEpisodeCount: totalEpisodeCount ?? normalizedEpisodes.length,
+      episodes: normalizedEpisodes,
+      updatedAt: updatedAt ?? new Date().toISOString(),
+    };
+  }
+
+  private extractSeriesEpisodes(value: unknown): JikanSeriesEpisode[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const episodes: JikanSeriesEpisode[] = [];
+
+    for (const entry of value) {
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+        continue;
+      }
+
+      const row = entry as Record<string, unknown>;
+      const episodeNumber = this.extractPositiveInt(row.mal_id);
+      if (!episodeNumber) {
+        continue;
+      }
+
+      const title =
+        this.getTitleString(row.title) ??
+        this.getTitleString(row.title_romanji) ??
+        this.getTitleString(row.title_japanese) ??
+        `Episode ${episodeNumber}`;
+
+      const airedAt =
+        this.getNullableString(row.aired) ??
+        this.getNullableString(row.premiered) ??
+        null;
+
+      const synopsis =
+        this.getNullableString(row.synopsis) ??
+        this.getNullableString(row.description) ??
+        null;
+
+      episodes.push({
+        episodeNumber,
+        title,
+        airedAt,
+        synopsis,
+      });
+    }
+
+    return episodes;
+  }
+
+  private dedupeSeriesEpisodes(
+    episodes: JikanSeriesEpisode[],
+  ): JikanSeriesEpisode[] {
+    const deduped = new Map<number, JikanSeriesEpisode>();
+
+    for (const episode of episodes) {
+      const existing = deduped.get(episode.episodeNumber);
+      if (!existing) {
+        deduped.set(episode.episodeNumber, episode);
+        continue;
+      }
+
+      deduped.set(episode.episodeNumber, {
+        episodeNumber: existing.episodeNumber,
+        title: existing.title || episode.title,
+        airedAt: existing.airedAt ?? episode.airedAt,
+        synopsis: existing.synopsis ?? episode.synopsis,
+      });
+    }
+
+    return [...deduped.values()].sort(
+      (left, right) => left.episodeNumber - right.episodeNumber,
+    );
+  }
+
+  private hasNextEpisodePage(pagination: unknown, currentPage: number): boolean {
+    if (
+      typeof pagination !== 'object' ||
+      pagination === null ||
+      Array.isArray(pagination)
+    ) {
+      return false;
+    }
+
+    const value = pagination as Record<string, unknown>;
+    if (value.has_next_page === true) {
+      return true;
+    }
+
+    const lastVisiblePage = this.extractPositiveInt(value.last_visible_page);
+    if (lastVisiblePage && currentPage < lastVisiblePage) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private extractPositiveInt(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const rounded = Math.trunc(value);
+      return rounded > 0 ? rounded : null;
+    }
+
+    if (typeof value === 'string') {
+      const cleaned = value.trim();
+      if (/^\d+$/.test(cleaned)) {
+        const parsed = Number.parseInt(cleaned, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      }
+    }
+
+    return null;
+  }
+
   private cacheKey(title: string, releaseYear: number | null): string {
     return `${title.toLowerCase()}:${releaseYear ?? 0}`;
   }
@@ -806,8 +1122,8 @@ export class JikanMetadataService {
     }
 
     const hasFreshCatalog =
-      this.genreIdsByNormalizedLabel.size > 0
-      && Date.now() - this.genreCatalogLoadedAt < this.genreCatalogCacheTtlMs;
+      this.genreIdsByNormalizedLabel.size > 0 &&
+      Date.now() - this.genreCatalogLoadedAt < this.genreCatalogCacheTtlMs;
 
     if (!hasFreshCatalog) {
       try {
@@ -816,7 +1132,8 @@ export class JikanMetadataService {
         if (error instanceof JikanRateLimitError) {
           this.applyRateLimitCooldown(error.retryAfterMs, `genre:${tag}`);
         } else {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.warn(`Jikan genre catalog refresh failed: ${message}`);
         }
       }
@@ -850,9 +1167,9 @@ export class JikanMetadataService {
     for (const [id, label] of Object.entries(JIKAN_GENRES_BY_ID)) {
       const normalizedLabel = this.normalizeGenreLabel(label);
       if (
-        normalizedLabel === normalizedTag
-        || normalizedLabel.includes(normalizedTag)
-        || normalizedTag.includes(normalizedLabel)
+        normalizedLabel === normalizedTag ||
+        normalizedLabel.includes(normalizedTag) ||
+        normalizedTag.includes(normalizedLabel)
       ) {
         return Number.parseInt(id, 10);
       }
@@ -870,15 +1187,19 @@ export class JikanMetadataService {
       let payload: JikanGenreCatalogResponse | undefined;
 
       if (useCache) {
-        payload = await this.metadataApiCacheStore.get<JikanGenreCatalogResponse>(
-          this.cacheProvider,
-          requestKey,
-        );
+        payload =
+          await this.metadataApiCacheStore.get<JikanGenreCatalogResponse>(
+            this.cacheProvider,
+            requestKey,
+          );
       }
 
       if (payload === undefined) {
         const url = `https://api.jikan.moe/v4/genres/anime?${params.toString()}`;
-        payload = (await this.fetchJson(url, 15000)) as JikanGenreCatalogResponse;
+        payload = (await this.fetchJson(
+          url,
+          15000,
+        )) as JikanGenreCatalogResponse;
 
         if (useCache) {
           await this.metadataApiCacheStore.set(

@@ -52,6 +52,26 @@ export interface MediaChapterThumbnail {
   second: number;
 }
 
+export interface SeriesAssignmentKeywordRule {
+  keyword: string;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+}
+
+export interface SeriesAssignmentPatternRule {
+  pattern: string;
+  flags?: string;
+  seasonGroup?: number | null;
+  episodeGroup?: number | null;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+}
+
+export interface SeriesAssignmentRules {
+  keywordMappings?: SeriesAssignmentKeywordRule[];
+  patternMappings?: SeriesAssignmentPatternRule[];
+}
+
 export interface MediaItem {
   id: string;
   title: string;
@@ -87,6 +107,9 @@ export interface MediaItem {
   remoteSource?: 'tmdb' | 'jikan';
   remoteSourceId?: string | null;
   remoteSourceLabel?: string | null;
+  episodeCatalogSource?: 'tmdb' | 'jikan' | null;
+  episodeCatalogSourceId?: string | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
 
 export interface PlaybackPlan {
@@ -180,6 +203,7 @@ export interface ProgressEntry {
   mediaId: string;
   positionSeconds: number;
   durationSeconds: number;
+  syncTimestampMs?: number | null;
   completed: boolean;
   seriesPreferenceKey?: string | null;
   preferredAudioLanguage?: string | null;
@@ -209,6 +233,37 @@ export interface ApiCacheClearResult {
   inMemoryEntriesCleared: number;
   message: string;
 }
+
+export interface SeriesEpisodeTrackerMissingEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+}
+
+export type SeriesEpisodeTrackerResult =
+  | {
+      status: 'unavailable';
+      reason: string;
+      source: null;
+    }
+  | {
+      status: 'ready';
+      source: 'jikan' | 'tmdb';
+      sourceLabel: string;
+      providerId: string;
+      isComplete: boolean;
+      completionPercent: number;
+      expectedEpisodeCount: number;
+      collectedEpisodeCount: number;
+      missingEpisodeCount: number;
+      primarySeasonNumber: number;
+      seasonsSeen: number[];
+      extraSeasons: number[];
+      missingSeasons: number[];
+      missingEpisodes: SeriesEpisodeTrackerMissingEpisode[];
+      updatedAt: string;
+      note: string | null;
+    };
 
 export interface MediaMetadataClearResult {
   removedEntries: number;

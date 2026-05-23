@@ -38,7 +38,10 @@ import {
 import { lookup } from 'mime-types';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { MediaAiMetadataService } from './media-ai-metadata.service';
-import { MediaItem } from './entities/media-item.entity';
+import {
+  MediaItem,
+  SeriesAssignmentRules,
+} from './entities/media-item.entity';
 import { MediaScanProgress } from './entities/media-scan-progress.entity';
 import { MediaLocationsStore } from './media-locations.store';
 import { MediaScanStore } from './media-scan.store';
@@ -84,6 +87,7 @@ export interface MediaMetadataPatch {
   backdropUrl?: string | null;
   remoteSource?: 'tmdb' | 'jikan' | null;
   remoteSourceId?: string | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
 
 export interface BulkAssignEpisodesInput {
@@ -95,6 +99,7 @@ export interface BulkAssignEpisodesInput {
   episodeOrder?: 'filename-asc' | 'existing-episode' | 'as-provided';
   tags?: string[];
   releaseYear?: number | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
 
 export interface DeletedMediaItemResult {
@@ -127,40 +132,71 @@ export interface PlaybackAudioTrack {
   channels: number | null;
   isDefault: boolean;
 }
-  
-  export interface RecycleDeletionEntry {
-    operationId: string;
-    driveRoot: string;
-    folderPath: string;
-    createdAt: string | null;
-    updatedAt: string;
-    sizeBytes: number;
-    fileCount: number;
-  }
-  
-  export interface RecycleDeletionsListResult {
-    rootsScanned: string[];
-    totalEntries: number;
-    totalSizeBytes: number;
-    truncated: boolean;
-    entries: RecycleDeletionEntry[];
-  }
-  
-  export interface PurgeRecycleDeletionsResultItem {
-    folderPath: string;
-    success: boolean;
-    reclaimedBytes: number;
-    error?: string;
-  }
-  
-  export interface PurgeRecycleDeletionsResult {
-    requested: number;
-    deleted: number;
-    failed: number;
-    reclaimedBytes: number;
-    results: PurgeRecycleDeletionsResultItem[];
-    message: string;
-  }
+
+export interface RecycleDeletionEntry {
+  operationId: string;
+  driveRoot: string;
+  folderPath: string;
+  createdAt: string | null;
+  updatedAt: string;
+  sizeBytes: number;
+  fileCount: number;
+}
+
+export interface RecycleDeletionsListResult {
+  rootsScanned: string[];
+  totalEntries: number;
+  totalSizeBytes: number;
+  truncated: boolean;
+  entries: RecycleDeletionEntry[];
+}
+
+export interface PurgeRecycleDeletionsResultItem {
+  folderPath: string;
+  success: boolean;
+  reclaimedBytes: number;
+  error?: string;
+}
+
+export interface PurgeRecycleDeletionsResult {
+  requested: number;
+  deleted: number;
+  failed: number;
+  reclaimedBytes: number;
+  results: PurgeRecycleDeletionsResultItem[];
+  message: string;
+}
+
+export interface SeriesEpisodeTrackerMissingEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+}
+
+export type SeriesEpisodeTrackerResult =
+  | {
+      status: 'unavailable';
+      reason: string;
+      source: null;
+    }
+  | {
+      status: 'ready';
+      source: 'jikan' | 'tmdb';
+      sourceLabel: string;
+      providerId: string;
+      isComplete: boolean;
+      completionPercent: number;
+      expectedEpisodeCount: number;
+      collectedEpisodeCount: number;
+      missingEpisodeCount: number;
+      primarySeasonNumber: number;
+      seasonsSeen: number[];
+      extraSeasons: number[];
+      missingSeasons: number[];
+      missingEpisodes: SeriesEpisodeTrackerMissingEpisode[];
+      updatedAt: string;
+      note: string | null;
+    };
 
 export type MetadataImportMode = 'replace' | 'upsert';
 
@@ -204,6 +240,43 @@ interface ResolvedMediaLocationPath {
   locationRoot: string;
   locationLabel: string;
   relativePathUnderLocation: string;
+}
+
+interface RemoteSelectionRef {
+  provider: RemoteMediaProvider;
+  providerId: string;
+}
+
+interface EnrichedMetadataPatchResult {
+  effectivePatch: MediaMetadataPatch;
+  remoteSelectionChanged: boolean;
+  remoteCandidate: RemoteMediaCandidate | null;
+}
+
+interface RebuiltArtworkResult {
+  previewImagePath: string | null;
+  backdropImagePath: string | null;
+  chapterThumbnails: MediaItem['chapterThumbnails'];
+}
+
+interface EpisodeCatalogLink {
+  source: 'jikan' | 'tmdb';
+  providerId: string;
+}
+
+interface NormalizedSeriesCatalogEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  synopsis: string | null;
+}
+
+interface NormalizedSeriesEpisodeCatalog {
+  source: 'jikan' | 'tmdb';
+  providerId: string;
+  totalEpisodeCount: number;
+  episodes: NormalizedSeriesCatalogEpisode[];
+  updatedAt: string;
 }
 
 @Injectable()
@@ -339,7 +412,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
 
       const candidates = torrents
-        .filter((item) => typeof item.hash === 'string' && item.hash.trim().length > 0)
+        .filter(
+          (item) =>
+            typeof item.hash === 'string' && item.hash.trim().length > 0,
+        )
         .sort((left, right) => {
           const leftComplete = left.progress >= 0.999;
           const rightComplete = right.progress >= 0.999;
@@ -372,7 +448,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
               existingMapping.mediaId,
             );
             if (existingMedia) {
-              const existsOnDisk = await this.fileExists(existingMedia.filePath);
+              const existsOnDisk = await this.fileExists(
+                existingMedia.filePath,
+              );
               if (!existsOnDisk) {
                 await this.torrentMediaIndexStore.remove(normalizedHash);
               } else {
@@ -396,7 +474,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
           await this.indexTorrentFile(normalizedHash);
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.debug(
             `Automatic intake failed for torrent ${normalizedHash}: ${message}`,
           );
@@ -481,6 +560,154 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return item;
   }
 
+  async getSeriesEpisodeTracker(
+    mediaId: string,
+  ): Promise<SeriesEpisodeTrackerResult> {
+    const current = await this.getById(mediaId);
+
+    if (current.isRemote) {
+      return {
+        status: 'unavailable',
+        reason: 'Series tracker is only available for indexed library items.',
+        source: null,
+      };
+    }
+
+    if (current.type !== 'show') {
+      return {
+        status: 'unavailable',
+        reason: 'Series tracker is only available for show entries.',
+        source: null,
+      };
+    }
+
+    const catalogLink = this.resolveEpisodeCatalogLink(current);
+    if (!catalogLink) {
+      return {
+        status: 'unavailable',
+        reason:
+          'No linked series catalog match is available yet. Re-run indexing or choose a TMDB/Jikan match in metadata edit first.',
+        source: null,
+      };
+    }
+
+    const catalog = await this.loadSeriesEpisodeCatalog(catalogLink);
+    if (!catalog || catalog.episodes.length === 0) {
+      const sourceLabel = this.remoteSourceLabel(catalogLink.source);
+      return {
+        status: 'unavailable',
+        reason: `Episode catalog could not be loaded from ${sourceLabel} for this series.`,
+        source: null,
+      };
+    }
+
+    const allItems = await this.mediaStore.all();
+    const seriesItems = this.collectSeriesItemsForEpisodeTracker(
+      allItems,
+      current,
+      catalogLink,
+    );
+
+    const seasonNumbers = new Set<number>();
+    const localEpisodesBySeason = new Map<number, Set<number>>();
+
+    for (const item of seriesItems) {
+      if (item.type !== 'show') {
+        continue;
+      }
+
+      const episode = this.coercePositiveEpisodeNumber(item.episodeNumber);
+      if (!episode) {
+        continue;
+      }
+
+      const season = this.coerceSeasonForTracker(item.seasonNumber);
+      seasonNumbers.add(season);
+
+      const existingSeasonEpisodes =
+        localEpisodesBySeason.get(season) ?? new Set<number>();
+      existingSeasonEpisodes.add(episode);
+      localEpisodesBySeason.set(season, existingSeasonEpisodes);
+    }
+
+    const seasonsSeen = [...seasonNumbers].sort((left, right) => left - right);
+    const expectedSeasons = [...new Set(catalog.episodes.map((episode) => episode.seasonNumber))]
+      .sort((left, right) => left - right);
+    const preferredSeasonNumber = this.coerceSeasonForTracker(
+      current.seasonNumber,
+    );
+    const primarySeasonNumber = expectedSeasons.includes(preferredSeasonNumber)
+      ? preferredSeasonNumber
+      : expectedSeasons[0] ?? seasonsSeen[0] ?? 1;
+
+    const missingSeasons = expectedSeasons.filter(
+      (seasonNumber) => !localEpisodesBySeason.has(seasonNumber),
+    );
+
+    const missingEpisodes = catalog.episodes
+      .filter((episode) => {
+        const localSeasonEpisodes = localEpisodesBySeason.get(
+          episode.seasonNumber,
+        );
+        return !localSeasonEpisodes?.has(episode.episodeNumber);
+      })
+      .map((episode) => ({
+        seasonNumber: episode.seasonNumber,
+        episodeNumber: episode.episodeNumber,
+        title: episode.title,
+      }));
+
+    const expectedEpisodeCount = Math.max(
+      catalog.totalEpisodeCount,
+      catalog.episodes.length,
+    );
+    const collectedEpisodeCount = Math.max(
+      0,
+      expectedEpisodeCount - missingEpisodes.length,
+    );
+    const missingEpisodeCount = missingEpisodes.length;
+    const completionPercent =
+      expectedEpisodeCount > 0
+        ? Math.max(
+            0,
+            Math.min(
+              100,
+              Math.round((collectedEpisodeCount / expectedEpisodeCount) * 100),
+            ),
+          )
+        : 0;
+    const extraSeasons = seasonsSeen.filter(
+      (season) => !expectedSeasons.includes(season),
+    );
+    const isComplete =
+      missingSeasons.length === 0 && missingEpisodeCount === 0;
+    const sourceLabel = this.remoteSourceLabel(catalog.source);
+
+    return {
+      status: 'ready',
+      source: catalog.source,
+      sourceLabel,
+      providerId: catalog.providerId,
+      isComplete,
+      completionPercent,
+      expectedEpisodeCount,
+      collectedEpisodeCount,
+      missingEpisodeCount,
+      primarySeasonNumber,
+      seasonsSeen,
+      extraSeasons,
+      missingSeasons,
+      missingEpisodes,
+      updatedAt: catalog.updatedAt,
+      note:
+        expectedSeasons.length > 1
+          ? `Multiple seasons are tracked against the linked ${sourceLabel} episode catalog.`
+          : extraSeasons.length > 0
+            ? `Local episodes include seasons outside the linked ${sourceLabel} catalog.`
+          : null,
+    };
+  }
+
   async resolveMediaFilePath(
     filePath: string,
     relativePath: string,
@@ -537,8 +764,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           return { status: 'indexed', media: cachedMedia };
         }
         this.logger.warn(
-          `Torrent ${normalizedHash} previously indexed as ${cachedMedia.id} `
-            + `but file is missing on disk (${cachedMedia.filePath}); dropping mapping.`,
+          `Torrent ${normalizedHash} previously indexed as ${cachedMedia.id} ` +
+            `but file is missing on disk (${cachedMedia.filePath}); dropping mapping.`,
         );
         await this.torrentMediaIndexStore.remove(normalizedHash);
       } else {
@@ -552,8 +779,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       .getTorrentPaths(normalizedHash)
       .catch((error) => {
         if (
-          error instanceof BadGatewayException
-          || error instanceof GatewayTimeoutException
+          error instanceof BadGatewayException ||
+          error instanceof GatewayTimeoutException
         ) {
           const message =
             error instanceof Error ? error.message : 'Unknown error';
@@ -574,8 +801,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     const savePath =
-      torrentPaths.savePath
-      ?? (torrentPaths.contentPath ? dirname(torrentPaths.contentPath) : null);
+      torrentPaths.savePath ??
+      (torrentPaths.contentPath ? dirname(torrentPaths.contentPath) : null);
     if (!savePath) {
       return {
         status: 'pending',
@@ -587,8 +814,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       .getTorrentFiles(normalizedHash)
       .catch((error) => {
         if (
-          error instanceof BadGatewayException
-          || error instanceof GatewayTimeoutException
+          error instanceof BadGatewayException ||
+          error instanceof GatewayTimeoutException
         ) {
           const message =
             error instanceof Error ? error.message : 'Unknown error';
@@ -629,7 +856,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       '.webm',
     ]);
     const candidateFiles = this.rankTorrentVideoCandidates(
-      files.filter((file) => videoExtensions.has(extname(file.name).toLowerCase())),
+      files.filter((file) =>
+        videoExtensions.has(extname(file.name).toLowerCase()),
+      ),
     );
 
     if (candidateFiles.length === 0) {
@@ -663,7 +892,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       const candidate = candidateFiles[i];
       const isPrimaryCandidate = i === 0;
       const candidateBaseName = basename(candidate.name);
-      const candidateFileName = basename(candidate.name, extname(candidate.name));
+      const candidateFileName = basename(
+        candidate.name,
+        extname(candidate.name),
+      );
       const candidateDetection = detectFromFilenameAndPath(
         candidateFileName,
         candidate.name,
@@ -686,7 +918,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
             continue;
           }
 
-          const existingHeader = await this.readFileHeader(existing.filePath, 16);
+          const existingHeader = await this.readFileHeader(
+            existing.filePath,
+            16,
+          );
           const existingHeaderScore = this.scoreMediaHeader(
             existingHeader,
             existingStats.size,
@@ -714,8 +949,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       );
 
       if (
-        !allocated
-        && this.shouldAttemptFallbackWalk(normalizedHash, 10_000)
+        !allocated &&
+        this.shouldAttemptFallbackWalk(normalizedHash, 10_000)
       ) {
         const searchRoots = this.collectTorrentSearchRoots({
           savePath,
@@ -737,13 +972,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       if (!allocated) {
         if (isPrimaryCandidate) {
           this.logger.warn(
-            `Torrent file not yet allocated on disk. hash=${normalizedHash} `
-              + `savePath=${savePath} contentPath=${torrentPaths.contentPath ?? '(none)'} `
-              + `expected=${candidate.name} candidates=${JSON.stringify(absoluteFileCandidates)}`,
+            `Torrent file not yet allocated on disk. hash=${normalizedHash} ` +
+              `savePath=${savePath} contentPath=${torrentPaths.contentPath ?? '(none)'} ` +
+              `expected=${candidate.name} candidates=${JSON.stringify(absoluteFileCandidates)}`,
           );
           primaryPendingReason =
-            'Waiting for qBittorrent to allocate the first episode on disk. '
-            + 'If this keeps happening, check qBittorrent path mapping in Settings -> System.';
+            'Waiting for qBittorrent to allocate the first episode on disk. ' +
+            'If this keeps happening, check qBittorrent path mapping in Settings -> System.';
         }
         continue;
       }
@@ -779,8 +1014,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       );
       if (fileStats.size < minBytesForProbe) {
         if (isPrimaryCandidate) {
-          primaryPendingReason =
-            `Waiting for enough of the first episode to download (${fileStats.size} / ~${Math.round(minBytesForProbe)} bytes).`;
+          primaryPendingReason = `Waiting for enough of the first episode to download (${fileStats.size} / ~${Math.round(minBytesForProbe)} bytes).`;
           continue;
         }
 
@@ -793,8 +1027,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       let headerScore = this.scoreMediaHeader(headerBytes, fileStats.size);
 
       if (
-        headerScore <= 0
-        && this.shouldAttemptFallbackWalk(normalizedHash, 10_000)
+        headerScore <= 0 &&
+        this.shouldAttemptFallbackWalk(normalizedHash, 10_000)
       ) {
         const searchRoots = this.collectTorrentSearchRoots({
           savePath,
@@ -805,8 +1039,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           candidateBaseName,
         );
         if (
-          discovered
-          && !this.arePathsEquivalent(discovered.probePath, probePath)
+          discovered &&
+          !this.arePathsEquivalent(discovered.probePath, probePath)
         ) {
           const discoveredHeaderBytes = await this.readFileHeader(
             discovered.probePath,
@@ -818,8 +1052,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           );
           if (discoveredHeaderScore > headerScore) {
             this.logger.log(
-              `Switched torrent probe path for ${normalizedHash} to ${discovered.probePath} `
-                + `(previous ${probePath} score=${headerScore}, discovered score=${discoveredHeaderScore}).`,
+              `Switched torrent probe path for ${normalizedHash} to ${discovered.probePath} ` +
+                `(previous ${probePath} score=${headerScore}, discovered score=${discoveredHeaderScore}).`,
             );
             canonicalPath = discovered.canonicalPath;
             probePath = discovered.probePath;
@@ -861,15 +1095,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           probeHint,
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
           `Probe failed for torrent file ${probePath}: ${message}`,
         );
 
-        if (
-          headerScore > 0
-          && this.isRecoverableTorrentProbeError(message)
-        ) {
+        if (headerScore > 0 && this.isRecoverableTorrentProbeError(message)) {
           if (isPrimaryCandidate) {
             primaryPendingReason =
               'Waiting for first-episode metadata probe to stabilize while the file grows.';
@@ -888,15 +1120,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         const shortMessage =
           message.length > 220 ? `${message.slice(0, 220)}…` : message;
         if (isPrimaryCandidate) {
-          primaryPendingReason =
-            `Video header is not yet readable; waiting for more data. (probe: ${shortMessage})`;
+          primaryPendingReason = `Video header is not yet readable; waiting for more data. (probe: ${shortMessage})`;
         }
         continue;
       }
 
       if (
-        !Number.isFinite(probed.durationSeconds)
-        || probed.durationSeconds <= 0
+        !Number.isFinite(probed.durationSeconds) ||
+        probed.durationSeconds <= 0
       ) {
         if (isPrimaryCandidate) {
           primaryPendingReason =
@@ -911,7 +1142,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
       if (probePath !== canonicalPath) {
         probed.filePath = canonicalPath;
-        probed.relativePath = relative(libraryRoot, canonicalPath).split(sep).join('/');
+        probed.relativePath = relative(libraryRoot, canonicalPath)
+          .split(sep)
+          .join('/');
         probed.extension = extname(canonicalPath).toLowerCase();
       }
 
@@ -984,10 +1217,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   private isRecoverableTorrentProbeError(message: string): boolean {
     const normalized = message.toLowerCase();
     return (
-      normalized.includes('invalid data found')
-      || normalized.includes('end of file')
-      || normalized.includes('error reading')
-      || normalized.includes('moov atom not found')
+      normalized.includes('invalid data found') ||
+      normalized.includes('end of file') ||
+      normalized.includes('error reading') ||
+      normalized.includes('moov atom not found')
     );
   }
 
@@ -1006,9 +1239,12 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const now = new Date().toISOString();
     const extension = extname(input.canonicalPath).toLowerCase();
     const hintedTitle = input.probeHint?.title?.trim() ?? '';
-    const title = hintedTitle || cleanTitle(input.fallbackTitle) || input.fallbackTitle;
+    const title =
+      hintedTitle || cleanTitle(input.fallbackTitle) || input.fallbackTitle;
     const normalizedTitle = normalizeForKey(title);
-    const relativePath = (input.relativePathHint || relative(input.libraryRoot, input.canonicalPath))
+    const relativePath = (
+      input.relativePathHint || relative(input.libraryRoot, input.canonicalPath)
+    )
       .split(sep)
       .join('/');
     const filenameDetection = detectFromFilenameAndPath(
@@ -1020,9 +1256,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         ? input.mediaTypeHint
         : filenameDetection.suggestedType;
     const mediaType =
-      input.probeHint?.mediaType === 'movie'
-      || input.probeHint?.mediaType === 'show'
-      || input.probeHint?.mediaType === 'other'
+      input.probeHint?.mediaType === 'movie' ||
+      input.probeHint?.mediaType === 'show' ||
+      input.probeHint?.mediaType === 'other'
         ? input.probeHint.mediaType
         : fallbackMediaType === 'show'
           ? 'show'
@@ -1030,11 +1266,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
             ? 'other'
             : 'other';
     const releaseYear =
-      typeof input.probeHint?.releaseYear === 'number'
-      && Number.isFinite(input.probeHint.releaseYear)
+      typeof input.probeHint?.releaseYear === 'number' &&
+      Number.isFinite(input.probeHint.releaseYear)
         ? Math.floor(input.probeHint.releaseYear)
         : null;
-    const estimatedBitRate = this.estimateProvisionalBitRate(input.fileSizeBytes);
+    const estimatedBitRate = this.estimateProvisionalBitRate(
+      input.fileSizeBytes,
+    );
     const durationSeconds = this.estimateProvisionalDurationSeconds(
       input.fileSizeBytes,
       estimatedBitRate,
@@ -1042,21 +1280,15 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const tags = this.normalizeProvisionalTags(input.probeHint?.tags);
     const seasonNumber =
       mediaType === 'show'
-        ? input.seasonNumberHint
-          ?? filenameDetection.seasonNumber
-          ?? null
+        ? (input.seasonNumberHint ?? filenameDetection.seasonNumber ?? null)
         : null;
     const episodeNumber =
       mediaType === 'show'
-        ? input.episodeNumberHint
-          ?? filenameDetection.episodeNumber
-          ?? null
+        ? (input.episodeNumberHint ?? filenameDetection.episodeNumber ?? null)
         : null;
     const episodeTitle =
       mediaType === 'show'
-        ? input.episodeTitleHint
-          ?? filenameDetection.episodeTitle
-          ?? null
+        ? (input.episodeTitleHint ?? filenameDetection.episodeTitle ?? null)
         : null;
 
     return {
@@ -1227,22 +1459,26 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       const resolvedContentPath = resolve(input.contentPath);
       const parentContentPath = dirname(resolvedContentPath);
       const relativeFirstSegment =
-        normalizedRelativePath.split('/').find((segment) => segment.trim()) ?? '';
+        normalizedRelativePath.split('/').find((segment) => segment.trim()) ??
+        '';
 
       addCandidate(resolve(resolvedContentPath, normalizedRelativePath));
       addCandidate(resolve(parentContentPath, normalizedRelativePath));
-      addCandidate(resolve(resolvedContentPath, basename(normalizedRelativePath)));
+      addCandidate(
+        resolve(resolvedContentPath, basename(normalizedRelativePath)),
+      );
 
       if (
-        relativeFirstSegment
-        && basename(resolvedContentPath).toLowerCase() === relativeFirstSegment.toLowerCase()
+        relativeFirstSegment &&
+        basename(resolvedContentPath).toLowerCase() ===
+          relativeFirstSegment.toLowerCase()
       ) {
         addCandidate(resolve(parentContentPath, normalizedRelativePath));
       }
 
       if (
-        basename(resolvedContentPath).toLowerCase()
-        === basename(normalizedRelativePath).toLowerCase()
+        basename(resolvedContentPath).toLowerCase() ===
+        basename(normalizedRelativePath).toLowerCase()
       ) {
         addCandidate(resolvedContentPath);
       }
@@ -1362,9 +1598,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     // serving qBittorrent's original pre-allocation zeros.
     const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
     if (
-      uncached !== null
-      && uncached.length > 0
-      && !uncached.every((byte) => byte === 0)
+      uncached !== null &&
+      uncached.length > 0 &&
+      !uncached.every((byte) => byte === 0)
     ) {
       return uncached;
     }
@@ -1433,24 +1669,24 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     // FileOptions is a [Flags] enum that accepts arbitrary ints via cast;
     // 0x20000000 = FILE_FLAG_NO_BUFFERING.
     const script =
-      "$ErrorActionPreference='Stop';"
-      + `$p='${escapedPath}';`
-      + `$s=${alignedBytes};`
-      + 'try{'
-      + '$fs=New-Object System.IO.FileStream('
-      + '$p,'
-      + '[System.IO.FileMode]::Open,'
-      + '[System.IO.FileAccess]::Read,'
-      + '[System.IO.FileShare]::ReadWrite,'
-      + '4096,'
-      + '([System.IO.FileOptions][int]0x20000000));'
-      + '$b=New-Object byte[] $s;'
-      + '$n=$fs.Read($b,0,$s);'
-      + '$fs.Close();'
-      + 'if($n -le 0){exit 2}'
-      + '[Console]::OpenStandardOutput().Write($b,0,$n);'
-      + 'exit 0'
-      + '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
+      "$ErrorActionPreference='Stop';" +
+      `$p='${escapedPath}';` +
+      `$s=${alignedBytes};` +
+      'try{' +
+      '$fs=New-Object System.IO.FileStream(' +
+      '$p,' +
+      '[System.IO.FileMode]::Open,' +
+      '[System.IO.FileAccess]::Read,' +
+      '[System.IO.FileShare]::ReadWrite,' +
+      '4096,' +
+      '([System.IO.FileOptions][int]0x20000000));' +
+      '$b=New-Object byte[] $s;' +
+      '$n=$fs.Read($b,0,$s);' +
+      '$fs.Close();' +
+      'if($n -le 0){exit 2}' +
+      '[Console]::OpenStandardOutput().Write($b,0,$n);' +
+      'exit 0' +
+      '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
 
     return await new Promise<Buffer | null>((resolvePromise) => {
       let settled = false;
@@ -1547,11 +1783,11 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       const torrent = await this.torrentService.getTorrentByHash(hash);
       if (torrent) {
         qbInfo =
-          `qb seq=${torrent.sequentialDownload} `
-          + `firstLast=${torrent.firstLastPiecePriority} `
-          + `progress=${(torrent.progress * 100).toFixed(2)}% `
-          + `state=${torrent.state} `
-          + `dlRate=${torrent.downloadRate}`;
+          `qb seq=${torrent.sequentialDownload} ` +
+          `firstLast=${torrent.firstLastPiecePriority} ` +
+          `progress=${(torrent.progress * 100).toFixed(2)}% ` +
+          `state=${torrent.state} ` +
+          `dlRate=${torrent.downloadRate}`;
       } else {
         qbInfo = 'qb=(torrent not found)';
       }
@@ -1561,8 +1797,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.logger.warn(
-      `Head-byte gate blocked hash=${hash} path=${probePath} `
-        + `bytes=${hex} score=${headerScore} statSize=${fileSize} ${qbInfo}`,
+      `Head-byte gate blocked hash=${hash} path=${probePath} ` +
+        `bytes=${hex} score=${headerScore} statSize=${fileSize} ${qbInfo}`,
     );
   }
 
@@ -1787,13 +2023,11 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         : Number.NEGATIVE_INFINITY;
 
       if (
-        score > bestScore
-        || (score === bestScore && mtimeMs > bestMtimeMs)
-        || (
-          score === bestScore
-          && mtimeMs === bestMtimeMs
-          && candidate.fileStats.size > best.fileStats.size
-        )
+        score > bestScore ||
+        (score === bestScore && mtimeMs > bestMtimeMs) ||
+        (score === bestScore &&
+          mtimeMs === bestMtimeMs &&
+          candidate.fileStats.size > best.fileStats.size)
       ) {
         best = candidate;
         bestScore = score;
@@ -1824,9 +2058,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         isExtra: detection.suggestedType === 'other',
         hasEpisodeSignal,
         seasonNumber:
-          detection.seasonNumber ?? (hasEpisodeSignal ? 1 : Number.MAX_SAFE_INTEGER),
-        episodeNumber:
-          detection.episodeNumber ?? Number.MAX_SAFE_INTEGER,
+          detection.seasonNumber ??
+          (hasEpisodeSignal ? 1 : Number.MAX_SAFE_INTEGER),
+        episodeNumber: detection.episodeNumber ?? Number.MAX_SAFE_INTEGER,
       };
     });
 
@@ -1872,7 +2106,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
 
       const key = normalizedName.toLowerCase();
-      const safeSize = Number.isFinite(size) ? Math.max(0, Math.floor(size)) : 0;
+      const safeSize = Number.isFinite(size)
+        ? Math.max(0, Math.floor(size))
+        : 0;
       const existing = merged.get(key);
       if (!existing || safeSize > existing.size) {
         merged.set(key, {
@@ -1943,27 +2179,26 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       message: `Cleared ${removedEntries} metadata ${noun}.`,
     };
   }
-  
+
   async listRecycleDeletions(
     limit?: number,
   ): Promise<RecycleDeletionsListResult> {
     const cappedLimit = Number.isFinite(limit)
       ? Math.max(1, Math.min(1000, Math.floor(limit ?? 0)))
       : 300;
-  
+
     const basePaths = await this.resolveRecycleDeletionBases();
     const entries = await this.collectRecycleDeletionEntries(basePaths);
     entries.sort(
-      (left, right) =>
-        Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
+      (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
     );
-  
+
     const totalSizeBytes = entries.reduce(
       (sum, entry) => sum + entry.sizeBytes,
       0,
     );
     const visibleEntries = entries.slice(0, cappedLimit);
-  
+
     return {
       rootsScanned: basePaths,
       totalEntries: entries.length,
@@ -1972,7 +2207,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       entries: visibleEntries,
     };
   }
-  
+
   async purgeRecycleDeletions(input: {
     operationPaths?: string[];
     purgeAll?: boolean;
@@ -1985,16 +2220,16 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       Number.isFinite(input.olderThanDays)
         ? Math.floor(input.olderThanDays)
         : null;
-  
+
     if (olderThanDays !== null && olderThanDays <= 0) {
       throw new BadRequestException('olderThanDays must be greater than zero.');
     }
-  
+
     let targetPaths: string[] = [];
-  
+
     if (purgeAll || olderThanDays !== null) {
       const entries = await this.collectRecycleDeletionEntries(basePaths);
-  
+
       if (olderThanDays !== null) {
         const cutoffMs = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
         targetPaths = entries
@@ -2011,16 +2246,16 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         );
       }
     }
-  
+
     const dedupedTargetPaths = this.normalizeRecycleOperationPaths(targetPaths);
     const results: PurgeRecycleDeletionsResultItem[] = [];
     let deleted = 0;
     let failed = 0;
     let reclaimedBytes = 0;
-  
+
     for (const folderPath of dedupedTargetPaths) {
       const resolvedPath = resolve(folderPath);
-  
+
       if (!this.isValidRecycleOperationPath(resolvedPath, basePaths)) {
         failed += 1;
         results.push({
@@ -2032,7 +2267,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         });
         continue;
       }
-  
+
       if (!(await this.mediaFsFileOpsService.pathExists(resolvedPath))) {
         results.push({
           folderPath: resolvedPath,
@@ -2041,32 +2276,33 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         });
         continue;
       }
-  
+
       try {
         const directoryStats = await stat(resolvedPath);
         if (!directoryStats.isDirectory()) {
           throw new Error('Target path is not a directory.');
         }
-  
+
         const summary = await this.summarizeRecycleOperation(resolvedPath);
-  
+
         await rm(resolvedPath, { recursive: true, force: false });
         deleted += 1;
         reclaimedBytes += summary.sizeBytes;
-  
+
         results.push({
           folderPath: resolvedPath,
           success: true,
           reclaimedBytes: summary.sizeBytes,
         });
-  
+
         const recycleCategoryPath = dirname(resolvedPath);
         const recycleRootPath = dirname(recycleCategoryPath);
         await this.removeDirectoryIfEmpty(recycleCategoryPath);
         await this.removeDirectoryIfEmpty(recycleRootPath);
       } catch (error) {
         failed += 1;
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         results.push({
           folderPath: resolvedPath,
           success: false,
@@ -2075,13 +2311,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         });
       }
     }
-  
+
     const requested = dedupedTargetPaths.length;
     const message =
       failed === 0
         ? `Purged ${deleted} recycle operation folder(s), reclaimed ${reclaimedBytes} bytes.`
         : `Purged ${deleted} of ${requested} recycle operation folder(s), reclaimed ${reclaimedBytes} bytes; ${failed} failed.`;
-  
+
     return {
       requested,
       deleted,
@@ -2159,8 +2395,11 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           filePath: resolved.absoluteFilePath,
           relativePath: `${resolved.locationLabel}/${resolved.relativePathUnderLocation}`,
           extension:
-            (extname(resolved.absoluteFilePath) || nextItem.extension || '').toLowerCase() ||
-            nextItem.extension,
+            (
+              extname(resolved.absoluteFilePath) ||
+              nextItem.extension ||
+              ''
+            ).toLowerCase() || nextItem.extension,
         };
       } catch {
         unresolvedPaths.push(item.relativePath || item.filePath);
@@ -2229,28 +2468,517 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     patch: MediaMetadataPatch,
   ): Promise<MediaItem> {
     const existing = await this.getById(mediaId);
-    const updated = this.applyPatch(existing, patch);
+    const { effectivePatch, remoteSelectionChanged, remoteCandidate } =
+      await this.enrichPatchFromRemoteSelection(existing, patch);
+    await this.enrichPatchFromEpisodeCatalogSelection(
+      existing,
+      patch,
+      effectivePatch,
+      remoteSelectionChanged,
+      remoteCandidate,
+    );
+    const updated = this.applyPatch(existing, effectivePatch);
+    this.reconcileEpisodeCatalogLink(updated, existing, remoteCandidate, true);
 
-    if (patch.posterUrl) {
-      const posterPath = await this.mediaPreviewResolver.downloadPosterThumbnail(
-        patch.posterUrl,
-        existing.filePath,
-        true,
-      );
-      updated.previewImagePath = posterPath || patch.posterUrl;
-    }
+    const posterPatchProvided = this.hasPatchKey(patch, 'posterUrl');
+    const backdropPatchProvided = this.hasPatchKey(patch, 'backdropUrl');
+    const shouldRebuildArtwork =
+      remoteSelectionChanged || posterPatchProvided || backdropPatchProvided;
 
-    if (patch.backdropUrl) {
-      const backdropPath = await this.mediaPreviewResolver.downloadBackdropThumbnail(
-        patch.backdropUrl,
-        existing.filePath,
-        true,
+    if (shouldRebuildArtwork) {
+      const preferredPosterUrl = this.normalizeOptionalString(
+        this.hasPatchKey(effectivePatch, 'posterUrl')
+          ? effectivePatch.posterUrl
+          : (remoteCandidate?.posterUrl ?? null),
       );
-      updated.backdropImagePath = backdropPath || patch.backdropUrl;
+      const preferredBackdropUrl = this.normalizeOptionalString(
+        this.hasPatchKey(effectivePatch, 'backdropUrl')
+          ? effectivePatch.backdropUrl
+          : (remoteCandidate?.backdropUrl ?? null),
+      );
+
+      const rebuiltArtwork = await this.rebuildArtworkForMetadataUpdate({
+        item: updated,
+        preferredPosterUrl,
+        preferredBackdropUrl,
+        forceDownload: true,
+        allowExistingFallback: !remoteSelectionChanged,
+      });
+
+      updated.previewImagePath = rebuiltArtwork.previewImagePath;
+      updated.backdropImagePath = rebuiltArtwork.backdropImagePath;
+      updated.chapterThumbnails = rebuiltArtwork.chapterThumbnails;
     }
 
     await this.mediaStore.upsert(updated);
     return updated;
+  }
+
+  private async enrichPatchFromRemoteSelection(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): Promise<EnrichedMetadataPatchResult> {
+    const touchesRemoteSelection =
+      this.hasPatchKey(patch, 'remoteSource') ||
+      this.hasPatchKey(patch, 'remoteSourceId');
+
+    const effectivePatch: MediaMetadataPatch = { ...patch };
+
+    if (!touchesRemoteSelection) {
+      return {
+        effectivePatch,
+        remoteSelectionChanged: false,
+        remoteCandidate: null,
+      };
+    }
+
+    const previousSelection = this.resolveRemoteSelectionFromItem(existing);
+    const nextSelection = this.resolveRemoteSelectionAfterPatch(
+      existing,
+      patch,
+    );
+    const remoteSelectionChanged = !this.remoteSelectionsEqual(
+      previousSelection,
+      nextSelection,
+    );
+
+    if (!nextSelection) {
+      return {
+        effectivePatch,
+        remoteSelectionChanged,
+        remoteCandidate: null,
+      };
+    }
+
+    const mediaTypeHint = this.resolveMediaTypeHintAfterPatch(existing, patch);
+    const remoteCandidate = await this.fetchRemoteCandidate(
+      nextSelection.provider,
+      nextSelection.providerId,
+      mediaTypeHint,
+    );
+
+    if (!remoteCandidate) {
+      return {
+        effectivePatch,
+        remoteSelectionChanged,
+        remoteCandidate: null,
+      };
+    }
+
+    if (
+      !this.hasPatchKey(effectivePatch, 'posterUrl') &&
+      this.hasNonEmptyString(remoteCandidate.posterUrl)
+    ) {
+      effectivePatch.posterUrl = remoteCandidate.posterUrl;
+    }
+
+    if (
+      !this.hasPatchKey(effectivePatch, 'backdropUrl') &&
+      this.hasNonEmptyString(remoteCandidate.backdropUrl)
+    ) {
+      effectivePatch.backdropUrl = remoteCandidate.backdropUrl;
+    }
+
+    if (
+      remoteSelectionChanged &&
+      !this.hasPatchKey(effectivePatch, 'releaseYear') &&
+      typeof remoteCandidate.releaseYear === 'number' &&
+      Number.isFinite(remoteCandidate.releaseYear)
+    ) {
+      effectivePatch.releaseYear = Math.floor(remoteCandidate.releaseYear);
+    }
+
+    if (
+      remoteSelectionChanged &&
+      this.shouldHydrateDescriptionFromRemote(existing, patch) &&
+      this.hasNonEmptyString(remoteCandidate.overview)
+    ) {
+      effectivePatch.description = remoteCandidate.overview;
+    }
+
+    return {
+      effectivePatch,
+      remoteSelectionChanged,
+      remoteCandidate,
+    };
+  }
+
+  private async enrichPatchFromEpisodeCatalogSelection(
+    existing: MediaItem,
+    originalPatch: MediaMetadataPatch,
+    effectivePatch: MediaMetadataPatch,
+    remoteSelectionChanged: boolean,
+    remoteCandidate: RemoteMediaCandidate | null,
+  ): Promise<void> {
+    const nextType = this.resolveMediaTypeHintAfterPatch(existing, effectivePatch);
+    if (nextType !== 'show') {
+      return;
+    }
+
+    const nextSelection = this.resolveRemoteSelectionAfterPatch(
+      existing,
+      effectivePatch,
+    );
+    if (
+      !nextSelection ||
+      (nextSelection.provider !== 'jikan' && nextSelection.provider !== 'tmdb')
+    ) {
+      return;
+    }
+
+    const seasonNumber = this.hasPatchKey(effectivePatch, 'seasonNumber')
+      ? (effectivePatch.seasonNumber ?? null)
+      : existing.seasonNumber;
+    if (
+      typeof seasonNumber === 'number' &&
+      Number.isFinite(seasonNumber) &&
+      Math.floor(seasonNumber) < 0
+    ) {
+      return;
+    }
+
+    const normalizedSeasonNumber =
+      typeof seasonNumber === 'number' && Number.isFinite(seasonNumber)
+        ? Math.floor(seasonNumber)
+        : 1;
+
+    const episodeNumber = this.hasPatchKey(effectivePatch, 'episodeNumber')
+      ? this.coercePositiveEpisodeNumber(effectivePatch.episodeNumber ?? null)
+      : this.coercePositiveEpisodeNumber(existing.episodeNumber);
+    if (!episodeNumber) {
+      return;
+    }
+
+    const catalog = await this.loadSeriesEpisodeCatalog({
+      source: nextSelection.provider,
+      providerId: nextSelection.providerId,
+    });
+    if (!catalog || catalog.episodes.length === 0) {
+      return;
+    }
+
+    const episodeDetails =
+      catalog.source === 'jikan'
+        ? catalog.episodes.find(
+            (episode) => episode.episodeNumber === episodeNumber,
+          )
+        : normalizedSeasonNumber < 1
+          ? null
+          : catalog.episodes.find(
+              (episode) =>
+                episode.seasonNumber === normalizedSeasonNumber &&
+                episode.episodeNumber === episodeNumber,
+            );
+    if (!episodeDetails) {
+      return;
+    }
+
+    const incomingEpisodeTitle = this.normalizeOptionalString(
+      this.hasPatchKey(originalPatch, 'episodeTitle')
+        ? (originalPatch.episodeTitle ?? null)
+        : null,
+    );
+
+    const shouldReplaceEpisodeTitle =
+      remoteSelectionChanged ||
+      this.hasPatchKey(originalPatch, 'episodeNumber') ||
+      this.hasPatchKey(originalPatch, 'seasonNumber') ||
+      !this.hasPatchKey(originalPatch, 'episodeTitle') ||
+      !incomingEpisodeTitle;
+
+    if (shouldReplaceEpisodeTitle) {
+      effectivePatch.episodeTitle = episodeDetails.title;
+    }
+
+    const episodeSynopsis = this.normalizeOptionalString(episodeDetails.synopsis);
+    if (!episodeSynopsis) {
+      return;
+    }
+
+    const incomingDescription = this.normalizeOptionalString(
+      this.hasPatchKey(originalPatch, 'description')
+        ? (originalPatch.description ?? null)
+        : null,
+    );
+    const remoteOverview = this.normalizeOptionalString(
+      remoteCandidate?.overview ?? null,
+    );
+
+    const shouldReplaceDescription =
+      remoteSelectionChanged ||
+      this.hasPatchKey(originalPatch, 'episodeNumber') ||
+      this.hasPatchKey(originalPatch, 'seasonNumber') ||
+      !this.hasPatchKey(originalPatch, 'description') ||
+      !incomingDescription ||
+      this.shouldHydrateDescriptionFromRemote(existing, originalPatch) ||
+      (!!remoteOverview && incomingDescription === remoteOverview);
+
+    if (shouldReplaceDescription) {
+      effectivePatch.description = episodeSynopsis;
+    }
+  }
+
+  private resolveRemoteSelectionFromItem(
+    item: MediaItem,
+  ): RemoteSelectionRef | null {
+    const remoteSourceId = this.normalizeOptionalString(item.remoteSourceId);
+
+    if (
+      (item.remoteSource !== 'tmdb' && item.remoteSource !== 'jikan') ||
+      !remoteSourceId
+    ) {
+      return null;
+    }
+
+    return {
+      provider: item.remoteSource,
+      providerId: remoteSourceId,
+    };
+  }
+
+  private resolveRemoteSelectionAfterPatch(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): RemoteSelectionRef | null {
+    const nextSource = this.hasPatchKey(patch, 'remoteSource')
+      ? (patch.remoteSource ?? null)
+      : (existing.remoteSource ?? null);
+    const nextId = this.hasPatchKey(patch, 'remoteSourceId')
+      ? this.normalizeOptionalString(patch.remoteSourceId)
+      : this.normalizeOptionalString(existing.remoteSourceId);
+
+    if ((nextSource !== 'tmdb' && nextSource !== 'jikan') || !nextId) {
+      return null;
+    }
+
+    return {
+      provider: nextSource,
+      providerId: nextId,
+    };
+  }
+
+  private remoteSelectionsEqual(
+    left: RemoteSelectionRef | null,
+    right: RemoteSelectionRef | null,
+  ): boolean {
+    if (!left || !right) {
+      return left === right;
+    }
+
+    return (
+      left.provider === right.provider && left.providerId === right.providerId
+    );
+  }
+
+  private resolveMediaTypeHintAfterPatch(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): 'movie' | 'show' | null {
+    const patchedType = this.hasPatchKey(patch, 'type')
+      ? patch.type
+      : existing.type;
+
+    if (patchedType === 'movie' || patchedType === 'show') {
+      return patchedType;
+    }
+
+    return existing.type === 'movie' || existing.type === 'show'
+      ? existing.type
+      : null;
+  }
+
+  private shouldHydrateDescriptionFromRemote(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): boolean {
+    if (!this.hasPatchKey(patch, 'description')) {
+      return true;
+    }
+
+    if (typeof patch.description !== 'string') {
+      return false;
+    }
+
+    const incomingDescription = patch.description.trim();
+    if (!incomingDescription) {
+      return true;
+    }
+
+    const existingDescription =
+      this.normalizeOptionalString(existing.description) ?? '';
+    return incomingDescription === existingDescription;
+  }
+
+  private async fetchRemoteCandidate(
+    provider: RemoteMediaProvider,
+    providerId: string,
+    mediaTypeHint: 'movie' | 'show' | null,
+  ): Promise<RemoteMediaCandidate | null> {
+    try {
+      if (provider === 'tmdb') {
+        if (mediaTypeHint) {
+          return await this.tmdbMetadataService.getRemoteDetails({
+            providerId,
+            mediaType: mediaTypeHint,
+          });
+        }
+
+        const movieCandidate = await this.tmdbMetadataService.getRemoteDetails({
+          providerId,
+          mediaType: 'movie',
+        });
+        if (movieCandidate) {
+          return movieCandidate;
+        }
+
+        return await this.tmdbMetadataService.getRemoteDetails({
+          providerId,
+          mediaType: 'show',
+        });
+      }
+
+      const candidate =
+        await this.jikanMetadataService.getRemoteDetails(providerId);
+      if (!candidate) {
+        return null;
+      }
+
+      if (mediaTypeHint && candidate.mediaType !== mediaTypeHint) {
+        return {
+          ...candidate,
+          mediaType: mediaTypeHint,
+        };
+      }
+
+      return candidate;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Remote metadata hydration failed for ${provider}:${providerId}: ${message}`,
+      );
+      return null;
+    }
+  }
+
+  private async rebuildArtworkForMetadataUpdate(input: {
+    item: MediaItem;
+    preferredPosterUrl: string | null;
+    preferredBackdropUrl: string | null;
+    forceDownload: boolean;
+    allowExistingFallback: boolean;
+  }): Promise<RebuiltArtworkResult> {
+    const existingPreview = input.allowExistingFallback
+      ? this.normalizeOptionalString(input.item.previewImagePath)
+      : null;
+    const existingBackdrop = input.allowExistingFallback
+      ? this.normalizeOptionalString(input.item.backdropImagePath)
+      : null;
+    const existingChapters = input.allowExistingFallback
+      ? input.item.chapterThumbnails
+      : [];
+
+    let resolvedFilePath = input.item.filePath;
+    try {
+      resolvedFilePath = await this.resolveMediaFilePath(
+        input.item.filePath,
+        input.item.relativePath,
+      );
+    } catch {
+      // Fall back to the stored path if the importer path resolver cannot map it.
+    }
+
+    const sidecarPreviewImagePath = await this.mediaPreviewResolver
+      .findPreviewImagePath(resolvedFilePath)
+      .catch(() => null);
+
+    let chapterThumbnails: MediaItem['chapterThumbnails'] = [];
+    try {
+      const fileStats = await stat(resolvedFilePath);
+      if (fileStats.isFile()) {
+        const settings = await this.systemSettingsService.getSettings();
+        chapterThumbnails =
+          await this.mediaPreviewResolver.generateChapterThumbnails(
+            resolvedFilePath,
+            Math.max(0, input.item.durationSeconds),
+            fileStats.mtimeMs,
+            settings.ffmpegPath,
+            settings.thumbnailCaptureCount,
+          );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Chapter thumbnail refresh skipped for ${input.item.filePath}: ${message}`,
+      );
+    }
+
+    const posterSourceUrl = this.normalizeOptionalString(
+      input.preferredPosterUrl,
+    );
+    const backdropSourceUrl = this.normalizeOptionalString(
+      input.preferredBackdropUrl,
+    );
+
+    const [downloadedPosterImagePath, downloadedBackdropImagePath] =
+      await Promise.all([
+        posterSourceUrl
+          ? this.mediaPreviewResolver.downloadPosterThumbnail(
+              posterSourceUrl,
+              resolvedFilePath,
+              input.forceDownload,
+            )
+          : Promise.resolve<string | null>(null),
+        backdropSourceUrl
+          ? this.mediaPreviewResolver.downloadBackdropThumbnail(
+              backdropSourceUrl,
+              resolvedFilePath,
+              input.forceDownload,
+            )
+          : Promise.resolve<string | null>(null),
+      ]);
+
+    const metadataPosterImagePath =
+      downloadedPosterImagePath || posterSourceUrl;
+    const metadataBackdropImagePath =
+      downloadedBackdropImagePath || backdropSourceUrl;
+
+    const previewImagePath =
+      this.mediaPreviewResolver.selectBestPreviewImagePath(
+        sidecarPreviewImagePath,
+        metadataPosterImagePath,
+        chapterThumbnails,
+      );
+    const backdropImagePath =
+      this.mediaPreviewResolver.selectBestBackdropImagePath(
+        metadataBackdropImagePath,
+        chapterThumbnails,
+        sidecarPreviewImagePath,
+      );
+
+    return {
+      previewImagePath: previewImagePath ?? existingPreview,
+      backdropImagePath: backdropImagePath ?? existingBackdrop,
+      chapterThumbnails:
+        chapterThumbnails.length > 0 ? chapterThumbnails : existingChapters,
+    };
+  }
+
+  private normalizeOptionalString(
+    value: string | null | undefined,
+  ): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const cleaned = value.trim();
+    return cleaned ? cleaned : null;
+  }
+
+  private hasPatchKey<K extends keyof MediaMetadataPatch>(
+    patch: MediaMetadataPatch,
+    key: K,
+  ): boolean {
+    return Object.prototype.hasOwnProperty.call(patch, key);
   }
 
   async bulkDeleteMediaPermanently(
@@ -2299,12 +3027,92 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     year: number | null;
     limit?: number;
   }) {
-    const candidates = await this.tmdbMetadataService.searchCandidates({
-      title: input.title,
-      mediaType: input.type,
-      releaseYear: input.year,
-      limit: input.limit,
-    });
+    const normalizeExactTitle = (value: string): string =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+    const requestedLimit = Math.max(1, Math.min(input.limit ?? 8, 20));
+    const providerLimit = Math.max(6, Math.min(requestedLimit * 2, 24));
+    const includeJikan = input.type === 'show' || input.type === 'other';
+
+    const [tmdbCandidates, jikanCandidates] = await Promise.all([
+      this.tmdbMetadataService.searchCandidates({
+        title: input.title,
+        mediaType: input.type,
+        releaseYear: input.year,
+        limit: providerLimit,
+      }),
+      includeJikan
+        ? this.jikanMetadataService.searchCandidates({
+            title: input.title,
+            limit: providerLimit,
+            useCache: true,
+          })
+        : Promise.resolve<JikanRemoteCandidate[]>([]),
+    ]);
+
+    const mappedJikanCandidates = jikanCandidates
+      .filter((candidate) =>
+        input.type === 'other' ? true : candidate.mediaType === input.type,
+      )
+      .map((candidate) => ({
+        title: candidate.title,
+        mediaType: candidate.mediaType,
+        tags: candidate.tags,
+        overview: candidate.overview,
+        releaseYear: candidate.releaseYear,
+        posterUrl: candidate.posterUrl,
+        backdropUrl: candidate.backdropUrl,
+        remoteSource: 'jikan' as const,
+        remoteSourceId: candidate.providerId,
+      }));
+
+    const topJikanCandidate = mappedJikanCandidates[0] ?? null;
+    const inputTitleKey = normalizeExactTitle(input.title);
+    const topJikanIsPerfectMatch =
+      topJikanCandidate !== null &&
+      inputTitleKey.length > 0 &&
+      normalizeExactTitle(topJikanCandidate.title) === inputTitleKey;
+    const curatedJikanCandidates =
+      topJikanIsPerfectMatch && topJikanCandidate
+        ? [topJikanCandidate]
+        : [];
+
+    const orderedCandidates = [...curatedJikanCandidates, ...tmdbCandidates];
+
+    const seen = new Set<string>();
+    const candidates: Array<{
+      title: string;
+      mediaType: 'movie' | 'show' | 'other';
+      tags: string[];
+      overview: string | null;
+      releaseYear: number | null;
+      posterUrl: string | null;
+      backdropUrl: string | null;
+      remoteSource: 'tmdb' | 'jikan';
+      remoteSourceId: string;
+    }> = [];
+
+    for (const candidate of orderedCandidates) {
+      const key = `${candidate.remoteSource}:${candidate.remoteSourceId}`;
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      candidates.push(candidate);
+
+      if (candidates.length >= requestedLimit) {
+        break;
+      }
+    }
+
     return { candidates };
   }
 
@@ -2330,7 +3138,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const requestLimit = Math.max(1, Math.min(input.limit ?? 24, 72));
     const requestPage = Math.max(1, Math.floor(input.page ?? 1));
     const resultOffset = (requestPage - 1) * requestLimit;
-    const isTagExploreMode = cleanedQuery.length === 0 && requestedTags.length > 0;
+    const isTagExploreMode =
+      cleanedQuery.length === 0 && requestedTags.length > 0;
     const searchProbes = this.buildRemoteSearchProbes(
       cleanedQuery,
       requestedTags,
@@ -2350,36 +3159,50 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const localItems = await this.mediaStore.all();
     const localTitleIndex = this.buildLocalTitleIndex(localItems);
     const requiredItemCount = resultOffset + requestLimit;
-    const providerLimit = requestedTags.length > 0
-      ? isTagExploreMode
-        ? requestLimit
-        : Math.min(480, Math.max(requiredItemCount * 2, 48))
-      : Math.min(320, Math.max(requiredItemCount, 28));
+    const providerLimit =
+      requestedTags.length > 0
+        ? isTagExploreMode
+          ? requestLimit
+          : Math.min(480, Math.max(requiredItemCount * 2, 48))
+        : Math.min(320, Math.max(requiredItemCount, 28));
     const browseTags = requestedTags.slice(0, 3);
     const shouldRunProbeSearch = !isTagExploreMode;
 
-    const [tmdbCandidates, jikanCandidates, tmdbTagCandidates, jikanTagCandidates] = await Promise.all([
+    const [
+      tmdbCandidates,
+      jikanCandidates,
+      tmdbTagCandidates,
+      jikanTagCandidates,
+    ] = await Promise.all([
       providers.includes('tmdb') && shouldRunProbeSearch
-        ? this.collectTmdbRemoteCandidates(searchProbes, providerLimit, useCache)
+        ? this.collectTmdbRemoteCandidates(
+            searchProbes,
+            providerLimit,
+            useCache,
+          )
         : Promise.resolve<TmdbRemoteCandidate[]>([]),
       providers.includes('jikan') && shouldRunProbeSearch
-        ? this.collectJikanRemoteCandidates(searchProbes, providerLimit, useCache)
+        ? this.collectJikanRemoteCandidates(
+            searchProbes,
+            providerLimit,
+            useCache,
+          )
         : Promise.resolve<JikanRemoteCandidate[]>([]),
       providers.includes('tmdb') && browseTags.length > 0
         ? this.collectTmdbRemoteTagCandidates(
-          browseTags,
-          providerLimit,
-          useCache,
-          requestPage,
-        )
+            browseTags,
+            providerLimit,
+            useCache,
+            requestPage,
+          )
         : Promise.resolve<TmdbRemoteCandidate[]>([]),
       providers.includes('jikan') && browseTags.length > 0
         ? this.collectJikanRemoteTagCandidates(
-          browseTags,
-          providerLimit,
-          useCache,
-          requestPage,
-        )
+            browseTags,
+            providerLimit,
+            useCache,
+            requestPage,
+          )
         : Promise.resolve<JikanRemoteCandidate[]>([]),
     ]);
 
@@ -2400,7 +3223,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      if (!isTagExploreMode && this.isAlreadyIndexedLocally(candidate, localTitleIndex)) {
+      if (
+        !isTagExploreMode &&
+        this.isAlreadyIndexedLocally(candidate, localTitleIndex)
+      ) {
         continue;
       }
 
@@ -2420,26 +3246,26 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const sortedCandidates = [...deduped.values()]
-      .sort((left, right) => {
-        const scoreDelta =
-          this.remoteCandidateScore(right) -
-          this.remoteCandidateScore(left);
-        if (scoreDelta !== 0) {
-          return scoreDelta;
-        }
+    const sortedCandidates = [...deduped.values()].sort((left, right) => {
+      const scoreDelta =
+        this.remoteCandidateScore(right) - this.remoteCandidateScore(left);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
 
-        return left.title.localeCompare(right.title, undefined, {
-          sensitivity: 'base',
-        });
+      return left.title.localeCompare(right.title, undefined, {
+        sensitivity: 'base',
       });
+    });
 
     const sliceOffset = isTagExploreMode ? 0 : resultOffset;
     const pagedCandidates = sortedCandidates.slice(
       sliceOffset,
       sliceOffset + requestLimit,
     );
-    const items = pagedCandidates.map((candidate) => this.toRemoteMediaItem(candidate));
+    const items = pagedCandidates.map((candidate) =>
+      this.toRemoteMediaItem(candidate),
+    );
     const hasMore = isTagExploreMode
       ? items.length > 0
       : sortedCandidates.length > resultOffset + requestLimit;
@@ -2517,21 +3343,31 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
     const type = input.type ?? 'show';
     const startEpisode =
-      typeof input.startEpisodeNumber === 'number' && input.startEpisodeNumber > 0
+      typeof input.startEpisodeNumber === 'number' &&
+      input.startEpisodeNumber > 0
         ? Math.floor(input.startEpisodeNumber)
         : 1;
     const seasonNumber =
-      typeof input.seasonNumber === 'number' && Number.isFinite(input.seasonNumber)
-        ? Math.max(0, Math.floor(input.seasonNumber))
+      typeof input.seasonNumber === 'number' &&
+      Number.isFinite(input.seasonNumber)
+        ? Math.max(-1, Math.floor(input.seasonNumber))
         : type === 'show'
           ? 1
           : null;
     const releaseYear =
-      typeof input.releaseYear === 'number' && Number.isFinite(input.releaseYear)
+      typeof input.releaseYear === 'number' &&
+      Number.isFinite(input.releaseYear)
         ? Math.floor(input.releaseYear)
         : undefined;
 
     const tags = Array.isArray(input.tags) ? input.tags : undefined;
+    const hasSeriesAssignmentRules = Object.prototype.hasOwnProperty.call(
+      input,
+      'seriesAssignmentRules',
+    );
+    const seriesAssignmentRules = this.normalizeSeriesAssignmentRules(
+      input.seriesAssignmentRules,
+    );
 
     const updates: MediaItem[] = ordered.map((item, index) => {
       const patch: MediaMetadataPatch = {
@@ -2545,6 +3381,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
       if (tags !== undefined) {
         patch.tags = tags;
+      }
+      if (hasSeriesAssignmentRules) {
+        patch.seriesAssignmentRules = seriesAssignmentRules;
       }
       return this.applyPatch(item, patch);
     });
@@ -2649,6 +3488,12 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       next.remoteSourceLabel = this.remoteSourceLabel(next.remoteSource);
     }
 
+    if (hasOwn('seriesAssignmentRules')) {
+      next.seriesAssignmentRules = this.normalizeSeriesAssignmentRules(
+        patch.seriesAssignmentRules,
+      );
+    }
+
     // Shows always need a season; default to 1 if becoming a show and unset
     if (next.type === 'show' && next.seasonNumber === null) {
       next.seasonNumber = 1;
@@ -2661,6 +3506,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       next.episodeTitle = null;
     }
 
+    this.reconcileEpisodeCatalogLink(next, existing, null, false);
+
     next.normalizedTitle = normalizeForKey(next.title);
     next.dedupeKey = this.buildDedupeKey(next);
 
@@ -2668,7 +3515,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       existing.metadataRefreshedAt || existing.updatedAt,
     );
     let nextTimestamp = Date.now();
-    if (Number.isFinite(previousTimestamp) && nextTimestamp <= previousTimestamp) {
+    if (
+      Number.isFinite(previousTimestamp) &&
+      nextTimestamp <= previousTimestamp
+    ) {
       nextTimestamp = previousTimestamp + 1;
     }
 
@@ -2717,6 +3567,193 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private normalizeSeriesAssignmentRules(
+    rules: SeriesAssignmentRules | null | undefined,
+  ): SeriesAssignmentRules | null {
+    if (
+      typeof rules !== 'object' ||
+      rules === null ||
+      Array.isArray(rules)
+    ) {
+      return null;
+    }
+
+    const keywordMappings = this.normalizeSeriesKeywordMappings(
+      rules.keywordMappings,
+    );
+    const patternMappings = this.normalizeSeriesPatternMappings(
+      rules.patternMappings,
+    );
+
+    if (keywordMappings.length === 0 && patternMappings.length === 0) {
+      return null;
+    }
+
+    const normalized: SeriesAssignmentRules = {};
+    if (keywordMappings.length > 0) {
+      normalized.keywordMappings = keywordMappings;
+    }
+    if (patternMappings.length > 0) {
+      normalized.patternMappings = patternMappings;
+    }
+
+    return normalized;
+  }
+
+  private normalizeSeriesKeywordMappings(
+    value: SeriesAssignmentRules['keywordMappings'] | undefined,
+  ): NonNullable<SeriesAssignmentRules['keywordMappings']> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: NonNullable<SeriesAssignmentRules['keywordMappings']> =
+      [];
+
+    for (const rule of value) {
+      if (!rule || typeof rule !== 'object') {
+        continue;
+      }
+
+      const keyword =
+        typeof rule.keyword === 'string' ? rule.keyword.trim() : '';
+      if (!keyword) {
+        continue;
+      }
+
+      const seasonNumber = this.coerceOptionalSeasonInt(rule.seasonNumber);
+      const episodeNumber = this.coerceOptionalNonNegativeInt(
+        rule.episodeNumber,
+      );
+      if (seasonNumber === null && episodeNumber === null) {
+        continue;
+      }
+
+      normalized.push({
+        keyword,
+        seasonNumber,
+        episodeNumber,
+      });
+    }
+
+    return normalized;
+  }
+
+  private normalizeSeriesPatternMappings(
+    value: SeriesAssignmentRules['patternMappings'] | undefined,
+  ): NonNullable<SeriesAssignmentRules['patternMappings']> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: NonNullable<SeriesAssignmentRules['patternMappings']> =
+      [];
+
+    for (const rule of value) {
+      if (!rule || typeof rule !== 'object') {
+        continue;
+      }
+
+      const pattern =
+        typeof rule.pattern === 'string' ? rule.pattern.trim() : '';
+      if (!pattern) {
+        continue;
+      }
+
+      const flags = this.sanitizeRegexFlags(rule.flags);
+      try {
+        RegExp(pattern, flags);
+      } catch {
+        continue;
+      }
+
+      const seasonGroup = this.coerceOptionalPositiveInt(rule.seasonGroup);
+      const episodeGroup = this.coerceOptionalPositiveInt(rule.episodeGroup);
+      const seasonNumber = this.coerceOptionalSeasonInt(rule.seasonNumber);
+      const episodeNumber = this.coerceOptionalNonNegativeInt(
+        rule.episodeNumber,
+      );
+
+      if (
+        seasonGroup === null &&
+        episodeGroup === null &&
+        seasonNumber === null &&
+        episodeNumber === null
+      ) {
+        continue;
+      }
+
+      normalized.push({
+        pattern,
+        flags: flags || undefined,
+        seasonGroup,
+        episodeGroup,
+        seasonNumber,
+        episodeNumber,
+      });
+    }
+
+    return normalized;
+  }
+
+  private sanitizeRegexFlags(value: string | undefined): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+
+    const allowed = new Set(['i', 'm', 's', 'u']);
+    const deduped = new Set<string>();
+
+    for (const char of value.toLowerCase()) {
+      if (allowed.has(char)) {
+        deduped.add(char);
+      }
+    }
+
+    return [...deduped].join('');
+  }
+
+  private coerceOptionalNonNegativeInt(
+    value: number | null | undefined,
+  ): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const floored = Math.floor(value);
+    return floored >= 0 ? floored : null;
+  }
+
+  private coerceOptionalSeasonInt(
+    value: number | null | undefined,
+  ): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const floored = Math.floor(value);
+    return floored >= -1 ? floored : null;
+  }
+
+  private coerceOptionalPositiveInt(
+    value: number | null | undefined,
+  ): number | null {
+    const parsed = this.coerceOptionalNonNegativeInt(value);
+    if (parsed === null || parsed < 1) {
+      return null;
+    }
+
+    return parsed;
+  }
+
   private normalizeImportedMediaItem(
     value: unknown,
     index: number,
@@ -2730,23 +3767,33 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     const title = this.readRequiredString(value, 'title', context);
-    const importedFilePath = this.readRequiredString(value, 'filePath', context);
+    const importedFilePath = this.readRequiredString(
+      value,
+      'filePath',
+      context,
+    );
     const importedRelativePath = this.readRequiredString(
       value,
       'relativePath',
       context,
     );
-    const relativePath = this.normalizeImportedRelativePath(importedRelativePath);
+    const relativePath =
+      this.normalizeImportedRelativePath(importedRelativePath);
     const filePath = this.rebaseImportedFilePath(
       importedFilePath,
       relativePath,
       pathContext,
     );
     const id = this.readOptionalString(value, 'id') ?? randomUUID();
-    const type = this.normalizeImportedType(this.readOptionalString(value, 'type'));
+    const type = this.normalizeImportedType(
+      this.readOptionalString(value, 'type'),
+    );
     const normalizedTitle =
-      this.readOptionalString(value, 'normalizedTitle') ?? normalizeForKey(title);
-    const tags = this.normalizeEditableTags(this.readStringArray(value, 'tags'));
+      this.readOptionalString(value, 'normalizedTitle') ??
+      normalizeForKey(title);
+    const tags = this.normalizeEditableTags(
+      this.readStringArray(value, 'tags'),
+    );
     const releaseYear = this.coerceOptionalInt(
       this.readOptionalNumber(value, 'releaseYear'),
     );
@@ -2769,7 +3816,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     const extension =
-      this.readOptionalString(value, 'extension') || extname(filePath) || '.bin';
+      this.readOptionalString(value, 'extension') ||
+      extname(filePath) ||
+      '.bin';
     const metadataRefreshedAt = this.normalizeImportedTimestamp(
       this.readOptionalString(value, 'metadataRefreshedAt'),
       fallbackTimestamp,
@@ -2782,6 +3831,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       this.readOptionalString(value, 'remoteSource'),
     );
     const remoteSourceId = this.readOptionalString(value, 'remoteSourceId');
+    const episodeCatalogSource = this.normalizeEpisodeCatalogSource(
+      this.readOptionalString(value, 'episodeCatalogSource'),
+    );
+    const episodeCatalogSourceId = this.readOptionalString(
+      value,
+      'episodeCatalogSourceId',
+    );
 
     const item: MediaItem = {
       id,
@@ -2802,7 +3858,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       digitalMediaType: this.normalizeDigitalMediaType(
         this.readOptionalString(value, 'digitalMediaType'),
       ),
-      sizeBytes: this.toNonNegativeInteger(this.readOptionalNumber(value, 'sizeBytes')),
+      sizeBytes: this.toNonNegativeInteger(
+        this.readOptionalNumber(value, 'sizeBytes'),
+      ),
       durationSeconds: this.toNonNegativeNumber(
         this.readOptionalNumber(value, 'durationSeconds'),
       ),
@@ -2830,8 +3888,19 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       updatedAt,
       remoteSource,
       remoteSourceId: remoteSource ? remoteSourceId : null,
-      remoteSourceLabel: remoteSource ? this.remoteSourceLabel(remoteSource) : null,
+      remoteSourceLabel: remoteSource
+        ? this.remoteSourceLabel(remoteSource)
+        : null,
+      episodeCatalogSource,
+      episodeCatalogSourceId: episodeCatalogSource
+        ? episodeCatalogSourceId
+        : null,
+      seriesAssignmentRules: this.normalizeSeriesAssignmentRules(
+        value['seriesAssignmentRules'] as SeriesAssignmentRules | null | undefined,
+      ),
     };
+
+    this.reconcileEpisodeCatalogLink(item, null, null, false);
 
     const importedDedupeKey = this.readOptionalString(value, 'dedupeKey');
     item.dedupeKey = importedDedupeKey || this.buildDedupeKey(item);
@@ -2839,7 +3908,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return item;
   }
 
-  private normalizeImportedType(value: string | null): 'movie' | 'show' | 'other' {
+  private normalizeImportedType(
+    value: string | null,
+  ): 'movie' | 'show' | 'other' {
     if (value === 'movie' || value === 'show' || value === 'other') {
       return value;
     }
@@ -2850,14 +3921,21 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   private normalizeDigitalMediaType(
     value: string | null,
   ): 'video' | 'audio' | 'image' | 'other' {
-    if (value === 'video' || value === 'audio' || value === 'image' || value === 'other') {
+    if (
+      value === 'video' ||
+      value === 'audio' ||
+      value === 'image' ||
+      value === 'other'
+    ) {
       return value;
     }
 
     return 'other';
   }
 
-  private normalizeRemoteSource(value: string | null): 'tmdb' | 'jikan' | undefined {
+  private normalizeRemoteSource(
+    value: string | null,
+  ): 'tmdb' | 'jikan' | undefined {
     if (value === 'tmdb' || value === 'jikan') {
       return value;
     }
@@ -2865,7 +3943,209 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return undefined;
   }
 
-  private normalizeImportedSubtitleDetails(value: unknown): MediaItem['subtitleDetails'] {
+  private normalizeEpisodeCatalogSource(
+    value: string | null,
+  ): 'tmdb' | 'jikan' | null {
+    return value === 'tmdb' || value === 'jikan' ? value : null;
+  }
+
+  private reconcileEpisodeCatalogLink(
+    target: MediaItem,
+    previous: MediaItem | null,
+    remoteCandidate: RemoteMediaCandidate | null,
+    warmCatalog: boolean,
+  ): void {
+    if (target.type !== 'show') {
+      target.episodeCatalogSource = null;
+      target.episodeCatalogSourceId = null;
+      return;
+    }
+
+    let linkedCatalog = this.resolveEpisodeCatalogLink(target);
+
+    if (
+      (remoteCandidate?.provider === 'jikan' ||
+        remoteCandidate?.provider === 'tmdb') &&
+      remoteCandidate.mediaType === 'show'
+    ) {
+      linkedCatalog = {
+        source: remoteCandidate.provider,
+        providerId: remoteCandidate.providerId,
+      };
+    } else if (target.remoteSource === 'jikan' || target.remoteSource === 'tmdb') {
+      const linkedProviderId = this.normalizeOptionalString(target.remoteSourceId);
+      linkedCatalog = linkedProviderId
+        ? {
+            source: target.remoteSource,
+            providerId: linkedProviderId,
+          }
+        : null;
+    } else if (target.remoteSource) {
+      linkedCatalog = null;
+    } else if (!linkedCatalog && previous) {
+      linkedCatalog = this.resolveEpisodeCatalogLink(previous);
+    }
+
+    if (linkedCatalog) {
+      target.episodeCatalogSource = linkedCatalog.source;
+      target.episodeCatalogSourceId = linkedCatalog.providerId;
+
+      if (warmCatalog) {
+        this.warmSeriesEpisodeCatalog(linkedCatalog);
+      }
+      return;
+    }
+
+    target.episodeCatalogSource = null;
+    target.episodeCatalogSourceId = null;
+  }
+
+  private warmSeriesEpisodeCatalog(link: EpisodeCatalogLink): void {
+    if (link.source === 'jikan') {
+      this.jikanMetadataService.warmSeriesEpisodeCatalog(link.providerId);
+      return;
+    }
+
+    this.tmdbMetadataService.warmSeriesEpisodeCatalog(link.providerId);
+  }
+
+  private resolveEpisodeCatalogLink(item: MediaItem): EpisodeCatalogLink | null {
+    const linkedSource = this.normalizeEpisodeCatalogSource(
+      this.normalizeOptionalString(item.episodeCatalogSource),
+    );
+    const linkedId = this.normalizeOptionalString(item.episodeCatalogSourceId);
+
+    if (linkedSource && linkedId) {
+      return {
+        source: linkedSource,
+        providerId: linkedId,
+      };
+    }
+
+    if (item.remoteSource === 'tmdb' || item.remoteSource === 'jikan') {
+      const remoteSourceId = this.normalizeOptionalString(item.remoteSourceId);
+      if (remoteSourceId) {
+        return {
+          source: item.remoteSource,
+          providerId: remoteSourceId,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  private async loadSeriesEpisodeCatalog(
+    link: EpisodeCatalogLink,
+  ): Promise<NormalizedSeriesEpisodeCatalog | null> {
+    try {
+      if (link.source === 'jikan') {
+        const catalog = await this.jikanMetadataService.getSeriesEpisodeCatalog(
+          link.providerId,
+        );
+        if (!catalog || catalog.episodes.length === 0) {
+          return null;
+        }
+
+        return {
+          source: 'jikan',
+          providerId: catalog.providerId,
+          totalEpisodeCount: catalog.totalEpisodeCount,
+          episodes: catalog.episodes.map((episode) => ({
+            seasonNumber: 1,
+            episodeNumber: episode.episodeNumber,
+            title: episode.title,
+            synopsis: episode.synopsis,
+          })),
+          updatedAt: catalog.updatedAt,
+        };
+      }
+
+      const catalog = await this.tmdbMetadataService.getSeriesEpisodeCatalog(
+        link.providerId,
+      );
+      if (!catalog || catalog.episodes.length === 0) {
+        return null;
+      }
+
+      return {
+        source: 'tmdb',
+        providerId: catalog.providerId,
+        totalEpisodeCount: catalog.totalEpisodeCount,
+        episodes: catalog.episodes.map((episode) => ({
+          seasonNumber: episode.seasonNumber,
+          episodeNumber: episode.episodeNumber,
+          title: episode.title,
+          synopsis: episode.synopsis,
+        })),
+        updatedAt: catalog.updatedAt,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Series episode catalog load failed for ${link.source}:${link.providerId}: ${message}`,
+      );
+      return null;
+    }
+  }
+
+  private episodeCatalogLinksEqual(
+    left: EpisodeCatalogLink | null,
+    right: EpisodeCatalogLink | null,
+  ): boolean {
+    if (!left || !right) {
+      return left === right;
+    }
+
+    return left.source === right.source && left.providerId === right.providerId;
+  }
+
+  private collectSeriesItemsForEpisodeTracker(
+    items: MediaItem[],
+    current: MediaItem,
+    catalogLink: EpisodeCatalogLink,
+  ): MediaItem[] {
+    const byLinkedSource = items.filter(
+      (item) =>
+        item.type === 'show' &&
+        this.episodeCatalogLinksEqual(
+          this.resolveEpisodeCatalogLink(item),
+          catalogLink,
+        ),
+    );
+
+    if (byLinkedSource.length > 0) {
+      return byLinkedSource;
+    }
+
+    const normalizedTitle = normalizeForKey(current.title);
+    return items.filter(
+      (item) =>
+        item.type === 'show' && normalizeForKey(item.title) === normalizedTitle,
+    );
+  }
+
+  private coercePositiveEpisodeNumber(value: number | null): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const rounded = Math.floor(value);
+    return rounded > 0 ? rounded : null;
+  }
+
+  private coerceSeasonForTracker(value: number | null): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return 1;
+    }
+
+    const rounded = Math.floor(value);
+    return rounded > 0 ? rounded : 1;
+  }
+
+  private normalizeImportedSubtitleDetails(
+    value: unknown,
+  ): MediaItem['subtitleDetails'] {
     if (!Array.isArray(value)) {
       return [];
     }
@@ -2913,7 +4193,12 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
       const imagePath = this.readOptionalString(entry, 'imagePath') ?? '';
       const second = this.readOptionalNumber(entry, 'second');
-      if (!imagePath || second === null || !Number.isFinite(second) || second < 0) {
+      if (
+        !imagePath ||
+        second === null ||
+        !Number.isFinite(second) ||
+        second < 0
+      ) {
         continue;
       }
 
@@ -2926,7 +4211,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return out;
   }
 
-  private normalizeImportedMediaDetails(value: unknown): MediaItem['mediaDetails'] {
+  private normalizeImportedMediaDetails(
+    value: unknown,
+  ): MediaItem['mediaDetails'] {
     if (!this.isObjectRecord(value)) {
       return {
         formatName: null,
@@ -2939,7 +4226,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return {
       formatName: this.readOptionalString(value, 'formatName'),
       bitRate: this.toNullableNumber(this.readOptionalNumber(value, 'bitRate')),
-      frameRate: this.toNullableNumber(this.readOptionalNumber(value, 'frameRate')),
+      frameRate: this.toNullableNumber(
+        this.readOptionalNumber(value, 'frameRate'),
+      ),
       audioChannels: this.toNullableNumber(
         this.readOptionalNumber(value, 'audioChannels'),
       ),
@@ -3049,7 +4338,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     );
     const segments = fallbackRelative.split('/').filter(Boolean);
 
-    if (segments.length > 1 && context.rootByLabel.has(segments[0].toLowerCase())) {
+    if (
+      segments.length > 1 &&
+      context.rootByLabel.has(segments[0].toLowerCase())
+    ) {
       return segments.slice(1).join('/');
     }
 
@@ -3201,7 +4493,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
     const extension = this.imageExtensionFromMime(asset.mimeType);
     const targetDirectory =
-      variant === 'poster' ? this.posterThumbnailDir : this.backdropThumbnailDir;
+      variant === 'poster'
+        ? this.posterThumbnailDir
+        : this.backdropThumbnailDir;
     const outputPath = join(targetDirectory, `${assetId}${extension}`);
 
     try {
@@ -3296,7 +4590,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const fuzzyResolved = await this.resolveRelativePathFuzzy(relativePath, context);
+    const fuzzyResolved = await this.resolveRelativePathFuzzy(
+      relativePath,
+      context,
+    );
     if (fuzzyResolved) {
       const matchedLocation = this.matchPathToMediaLocation(
         fuzzyResolved,
@@ -3324,9 +4621,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     for (const root of sortedRoots) {
       const relativeToRoot = relative(root, absoluteFilePath);
       if (
-        !relativeToRoot
-        || relativeToRoot.startsWith('..')
-        || isAbsolute(relativeToRoot)
+        !relativeToRoot ||
+        relativeToRoot.startsWith('..') ||
+        isAbsolute(relativeToRoot)
       ) {
         continue;
       }
@@ -3400,9 +4697,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
             continue;
           }
 
-          const operationSummary = await this.summarizeRecycleOperation(
-            operationPath,
-          );
+          const operationSummary =
+            await this.summarizeRecycleOperation(operationPath);
           const driveRoot = parse(resolvedBasePath).root || resolvedBasePath;
 
           entries.push({
@@ -3630,9 +4926,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       const options: string[][] = [segments];
       const rootLabel = basename(root).trim().toLowerCase();
       if (
-        rootLabel
-        && segments.length > 1
-        && segments[0].toLowerCase() === rootLabel
+        rootLabel &&
+        segments.length > 1 &&
+        segments[0].toLowerCase() === rootLabel
       ) {
         options.push(segments.slice(1));
       }
@@ -3755,11 +5051,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   private extractImportedImageAssets(
     value: unknown,
   ): Record<string, MetadataExportImageAsset> | null {
-    if (!this.isObjectRecord(value) || !this.isObjectRecord(value['imageAssets'])) {
+    if (
+      !this.isObjectRecord(value) ||
+      !this.isObjectRecord(value['imageAssets'])
+    ) {
       return null;
     }
 
-    const rawAssets = value['imageAssets'] as Record<string, unknown>;
+    const rawAssets = value['imageAssets'];
     const normalized: Record<string, MetadataExportImageAsset> = {};
 
     for (const [assetId, candidate] of Object.entries(rawAssets)) {
@@ -3827,7 +5126,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return value;
   }
 
-  private readStringArray(source: Record<string, unknown>, key: string): string[] {
+  private readStringArray(
+    source: Record<string, unknown>,
+    key: string,
+  ): string[] {
     const value = source[key];
     if (!Array.isArray(value)) {
       return [];
@@ -3923,13 +5225,16 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const probePath = await this.resolvePlaybackProbePath(canonicalFilePath);
 
     try {
-      const payload = await this.mediaProbeAdapter.probeFile(probePath, ffprobePath);
+      const payload = await this.mediaProbeAdapter.probeFile(
+        probePath,
+        ffprobePath,
+      );
       const streams = Array.isArray(payload.streams) ? payload.streams : [];
       const audioStreams = streams.filter(
         (stream) =>
-          stream.codec_type === 'audio'
-          && Number.isInteger(stream.index)
-          && stream.index >= 0,
+          stream.codec_type === 'audio' &&
+          Number.isInteger(stream.index) &&
+          stream.index >= 0,
       );
 
       if (audioStreams.length === 0) {
@@ -3938,14 +5243,16 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
       const defaultStreamIndex =
         audioStreams.find((stream) => (stream.disposition?.default ?? 0) > 0)
-          ?.index
-        ?? audioStreams[0].index;
+          ?.index ?? audioStreams[0].index;
 
       return audioStreams.map((stream, position) => {
-        const language = this.normalizePlaybackTrackLanguage(stream.tags?.language);
+        const language = this.normalizePlaybackTrackLanguage(
+          stream.tags?.language,
+        );
         const codec = this.normalizePlaybackTrackCodec(stream.codec_name);
         const channels =
-          typeof stream.channels === 'number' && Number.isFinite(stream.channels)
+          typeof stream.channels === 'number' &&
+          Number.isFinite(stream.channels)
             ? Math.max(1, Math.round(stream.channels))
             : null;
         const title = stream.tags?.title?.trim() || '';
@@ -3977,8 +5284,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   async getPlaybackPlan(mediaId: string) {
     const item = await this.getById(mediaId);
     const torrentIndex =
-      (await this.torrentMediaIndexStore.getByMediaId(item.id))
-      ?? (await this.torrentMediaIndexStore.getByRelatedFilePath(item.filePath));
+      (await this.torrentMediaIndexStore.getByMediaId(item.id)) ??
+      (await this.torrentMediaIndexStore.getByRelatedFilePath(item.filePath));
 
     return {
       mediaId: item.id,
@@ -4003,19 +5310,20 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getTorrentDownloadProgressByMediaIds(mediaIds: string[]) {
-    const normalizedMediaIds = [...new Set(
-      mediaIds
-        .map((mediaId) => mediaId.trim())
-        .filter((mediaId) => mediaId.length > 0),
-    )];
+    const normalizedMediaIds = [
+      ...new Set(
+        mediaIds
+          .map((mediaId) => mediaId.trim())
+          .filter((mediaId) => mediaId.length > 0),
+      ),
+    ];
 
     if (normalizedMediaIds.length === 0) {
       return { items: [] as MediaTorrentDownloadProgressItem[] };
     }
 
-    const indexByMediaId = await this.torrentMediaIndexStore.getByMediaIds(
-      normalizedMediaIds,
-    );
+    const indexByMediaId =
+      await this.torrentMediaIndexStore.getByMediaIds(normalizedMediaIds);
 
     if (indexByMediaId.size === 0) {
       return { items: [] as MediaTorrentDownloadProgressItem[] };
@@ -4117,7 +5425,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private async resolvePlaybackProbePath(canonicalFilePath: string): Promise<string> {
+  private async resolvePlaybackProbePath(
+    canonicalFilePath: string,
+  ): Promise<string> {
     if (await this.fileExists(canonicalFilePath)) {
       return canonicalFilePath;
     }
@@ -4130,7 +5440,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return canonicalFilePath;
   }
 
-  private normalizePlaybackTrackLanguage(value: string | undefined): string | null {
+  private normalizePlaybackTrackLanguage(
+    value: string | undefined,
+  ): string | null {
     const normalized = value?.trim();
     if (!normalized) {
       return null;
@@ -4139,7 +5451,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return normalized.toLowerCase();
   }
 
-  private normalizePlaybackTrackCodec(value: string | undefined): string | null {
+  private normalizePlaybackTrackCodec(
+    value: string | undefined,
+  ): string | null {
     const normalized = value?.trim();
     if (!normalized) {
       return null;
@@ -4195,7 +5509,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     await this.streamImageFromPath(previewImagePath, response);
   }
 
-  async streamBackdropImage(mediaId: string, response: Response): Promise<void> {
+  async streamBackdropImage(
+    mediaId: string,
+    response: Response,
+  ): Promise<void> {
     const item = await this.getById(mediaId);
     const backdropImagePath = item.backdropImagePath?.trim() || '';
 
@@ -4311,6 +5628,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
     const deduped = new Set<RemoteMediaProvider>();
     for (const provider of providers) {
+      if (typeof provider !== 'string') {
+        continue;
+      }
+
       if (provider === 'tmdb' || provider === 'jikan') {
         deduped.add(provider);
       }
@@ -4398,12 +5719,13 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const candidates: TmdbRemoteCandidate[] = [];
 
     for (const tag of tags) {
-      const payload = await this.tmdbMetadataService.searchRemoteCandidatesByTag({
-        tag,
-        limit: providerLimit,
-        useCache,
-        page,
-      });
+      const payload =
+        await this.tmdbMetadataService.searchRemoteCandidatesByTag({
+          tag,
+          limit: providerLimit,
+          useCache,
+          page,
+        });
       candidates.push(...payload);
     }
 
@@ -4553,11 +5875,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return `${candidate.mediaType}:${normalizedTitle}:y${year}`;
   }
 
-  private buildLocalTitleIndex(items: MediaItem[]): Map<string, Set<number | null>> {
+  private buildLocalTitleIndex(
+    items: MediaItem[],
+  ): Map<string, Set<number | null>> {
     const index = new Map<string, Set<number | null>>();
 
     for (const item of items) {
-      const mediaType: 'movie' | 'show' = item.type === 'show' ? 'show' : 'movie';
+      const mediaType: 'movie' | 'show' =
+        item.type === 'show' ? 'show' : 'movie';
       const normalizedTitle = this.normalizeRemoteTitleForKey(item.title);
       if (!normalizedTitle) {
         continue;
@@ -4566,7 +5891,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       const key = `${mediaType}:${normalizedTitle}`;
       const years = index.get(key) ?? new Set<number | null>();
       const year =
-        typeof item.releaseYear === 'number' && Number.isFinite(item.releaseYear)
+        typeof item.releaseYear === 'number' &&
+        Number.isFinite(item.releaseYear)
           ? Math.floor(item.releaseYear)
           : null;
 
@@ -4635,7 +5961,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     return score;
   }
 
-  private toNormalizedTagSet(tags: readonly string[] | null | undefined): Set<string> {
+  private toNormalizedTagSet(
+    tags: readonly string[] | null | undefined,
+  ): Set<string> {
     const normalized = new Set<string>();
 
     if (!Array.isArray(tags) || tags.length === 0) {
@@ -4701,11 +6029,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
     for (const targetPath of deletionTargets) {
       try {
-        if (await this.moveFileToRecycleIfExists(targetPath, deleteOperationId)) {
+        if (
+          await this.moveFileToRecycleIfExists(targetPath, deleteOperationId)
+        ) {
           deletedEntries += 1;
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
           `Recycle move failed for ${targetPath}: ${message}. Falling back to permanent delete.`,
         );
@@ -4915,7 +6246,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async removeDirectoryIfExists(directoryPath: string): Promise<boolean> {
+  private async removeDirectoryIfExists(
+    directoryPath: string,
+  ): Promise<boolean> {
     try {
       await rm(directoryPath, { recursive: true, force: false });
       return true;
@@ -4988,7 +6321,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           discoveredFiles += 1;
 
           const filePathKey = this.toFilePathKey(filePath);
-          const existingItem = existingItemByFilePathKey.get(filePathKey) ?? null;
+          const existingItem =
+            existingItemByFilePathKey.get(filePathKey) ?? null;
           if (existingItem && !this.shouldRefreshIndexedItem(existingItem)) {
             skippedIndexedFiles += 1;
             continue;
@@ -5115,7 +6449,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           }
 
           await this.mediaStore.upsert(indexedItem);
-          const stored = await this.mediaStore.findByFilePath(indexedItem.filePath);
+          const stored = await this.mediaStore.findByFilePath(
+            indexedItem.filePath,
+          );
           items.push(stored ?? indexedItem);
 
           if (sourceFile.existingItem) {
@@ -5165,7 +6501,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         deduplicatedItems.length - newlyIndexedCount - refreshedIndexedCount,
       );
       const duplicateMessage =
-        duplicatesRemoved > 0 ? ` (${duplicatesRemoved} duplicates removed).` : '.';
+        duplicatesRemoved > 0
+          ? ` (${duplicatesRemoved} duplicates removed).`
+          : '.';
       const completionMessage =
         newlyIndexedCount === 0 && refreshedIndexedCount === 0
           ? `Scan complete: no new files found across ${sourcePaths.length} locations; retained ${deduplicatedItems.length} indexed items${duplicateMessage}`
@@ -5200,8 +6538,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (
-      !this.hasNonEmptyString(item.previewImagePath)
-      && !this.hasNonEmptyString(item.backdropImagePath)
+      !this.hasNonEmptyString(item.previewImagePath) &&
+      !this.hasNonEmptyString(item.backdropImagePath)
     ) {
       return true;
     }
@@ -5213,7 +6551,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     item: MediaItem,
     minAgeMs: number,
   ): boolean {
-    const refreshedAtMs = Date.parse(item.metadataRefreshedAt || item.updatedAt);
+    const refreshedAtMs = Date.parse(
+      item.metadataRefreshedAt || item.updatedAt,
+    );
     if (!Number.isFinite(refreshedAtMs)) {
       return true;
     }
@@ -5234,7 +6574,9 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   private looksLikeProvisionalTorrentMetadata(item: MediaItem): boolean {
     const extensionContainer = item.extension.replace(/^\./, '').toLowerCase();
     const container = (item.container ?? '').trim().toLowerCase();
-    const formatName = (item.mediaDetails.formatName ?? '').trim().toLowerCase();
+    const formatName = (item.mediaDetails.formatName ?? '')
+      .trim()
+      .toLowerCase();
     const hasStreamDetails =
       (item.width ?? 0) > 0 ||
       (item.height ?? 0) > 0 ||
@@ -5262,59 +6604,109 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     existing: MediaItem,
     scanned: MediaItem,
   ): MediaItem {
-    const overwriteWithScanner = this.looksLikeProvisionalTorrentMetadata(existing);
     const merged: MediaItem = {
       ...scanned,
       id: existing.id,
     };
 
-    if (overwriteWithScanner) {
-      merged.title =
-        this.hasNonEmptyString(scanned.title) ? scanned.title : existing.title;
-      merged.releaseYear = scanned.releaseYear ?? existing.releaseYear;
-      merged.type = scanned.type;
-      merged.seasonNumber = scanned.seasonNumber ?? existing.seasonNumber;
-      merged.episodeNumber = scanned.episodeNumber ?? existing.episodeNumber;
-      merged.episodeTitle = this.hasNonEmptyString(scanned.episodeTitle)
-        ? scanned.episodeTitle
-        : existing.episodeTitle;
-      merged.tags = scanned.tags.length > 0 ? scanned.tags : existing.tags;
-      merged.description = this.hasNonEmptyString(scanned.description)
-        ? scanned.description
-        : existing.description;
-      merged.previewImagePath = this.hasNonEmptyString(scanned.previewImagePath)
-        ? scanned.previewImagePath
-        : existing.previewImagePath;
-      merged.backdropImagePath = this.hasNonEmptyString(scanned.backdropImagePath)
-        ? scanned.backdropImagePath
-        : existing.backdropImagePath;
-    } else {
-      merged.title =
-        this.hasNonEmptyString(existing.title) ? existing.title : scanned.title;
-      merged.releaseYear = existing.releaseYear ?? scanned.releaseYear;
-      merged.type = existing.type;
-      merged.seasonNumber = existing.seasonNumber ?? scanned.seasonNumber;
-      merged.episodeNumber = existing.episodeNumber ?? scanned.episodeNumber;
-      merged.episodeTitle = this.hasNonEmptyString(existing.episodeTitle)
-        ? existing.episodeTitle
-        : scanned.episodeTitle;
-      merged.tags = existing.tags.length > 0 ? existing.tags : scanned.tags;
-      merged.description = this.hasNonEmptyString(existing.description)
-        ? existing.description
-        : scanned.description;
-      merged.previewImagePath = this.hasNonEmptyString(existing.previewImagePath)
-        ? existing.previewImagePath
-        : scanned.previewImagePath;
-      merged.backdropImagePath = this.hasNonEmptyString(existing.backdropImagePath)
-        ? existing.backdropImagePath
-        : scanned.backdropImagePath;
+    // Existing indexed metadata is authoritative. Scanner results should
+    // refresh technical probe fields and fill missing metadata only.
+    merged.title = this.hasNonEmptyString(existing.title)
+      ? existing.title
+      : scanned.title;
+    merged.releaseYear = existing.releaseYear ?? scanned.releaseYear;
+    merged.type = existing.type;
+    merged.seasonNumber = existing.seasonNumber ?? scanned.seasonNumber;
+    merged.episodeNumber = existing.episodeNumber ?? scanned.episodeNumber;
+    merged.episodeTitle = this.hasNonEmptyString(existing.episodeTitle)
+      ? existing.episodeTitle
+      : scanned.episodeTitle;
+    merged.tags = existing.tags.length > 0 ? existing.tags : scanned.tags;
+    merged.description = this.hasNonEmptyString(existing.description)
+      ? existing.description
+      : scanned.description;
+    merged.previewImagePath = this.hasNonEmptyString(existing.previewImagePath)
+      ? existing.previewImagePath
+      : scanned.previewImagePath;
+    merged.backdropImagePath = this.hasNonEmptyString(
+      existing.backdropImagePath,
+    )
+      ? existing.backdropImagePath
+      : scanned.backdropImagePath;
+
+    if (
+      !this.hasNonEmptyString(scanned.container) &&
+      this.hasNonEmptyString(existing.container)
+    ) {
+      merged.container = existing.container;
+    }
+
+    if (scanned.durationSeconds <= 0 && existing.durationSeconds > 0) {
+      merged.durationSeconds = existing.durationSeconds;
+    }
+
+    if ((scanned.width ?? 0) <= 0 && (existing.width ?? 0) > 0) {
+      merged.width = existing.width;
+    }
+
+    if ((scanned.height ?? 0) <= 0 && (existing.height ?? 0) > 0) {
+      merged.height = existing.height;
+    }
+
+    if (
+      !this.hasNonEmptyString(scanned.videoCodec) &&
+      this.hasNonEmptyString(existing.videoCodec)
+    ) {
+      merged.videoCodec = existing.videoCodec;
+    }
+
+    if (
+      !this.hasNonEmptyString(scanned.audioCodec) &&
+      this.hasNonEmptyString(existing.audioCodec)
+    ) {
+      merged.audioCodec = existing.audioCodec;
+    }
+
+    if (
+      (!Array.isArray(scanned.subtitleDetails) ||
+        scanned.subtitleDetails.length === 0) &&
+      Array.isArray(existing.subtitleDetails) &&
+      existing.subtitleDetails.length > 0
+    ) {
+      merged.subtitleDetails = existing.subtitleDetails;
+      merged.subtitleStreams = existing.subtitleStreams;
+    }
+
+    if (
+      (!Array.isArray(scanned.chapterThumbnails) ||
+        scanned.chapterThumbnails.length === 0) &&
+      Array.isArray(existing.chapterThumbnails) &&
+      existing.chapterThumbnails.length > 0
+    ) {
+      merged.chapterThumbnails = existing.chapterThumbnails;
+    }
+
+    merged.mediaDetails = {
+      formatName:
+        scanned.mediaDetails?.formatName ?? existing.mediaDetails.formatName,
+      bitRate: scanned.mediaDetails?.bitRate ?? existing.mediaDetails.bitRate,
+      frameRate:
+        scanned.mediaDetails?.frameRate ?? existing.mediaDetails.frameRate,
+      audioChannels:
+        scanned.mediaDetails?.audioChannels ??
+        existing.mediaDetails.audioChannels,
+    };
+
+    if (scanned.sizeBytes <= 0 && existing.sizeBytes > 0) {
+      merged.sizeBytes = existing.sizeBytes;
     }
 
     if (existing.remoteSource && existing.remoteSourceId) {
       merged.remoteSource = existing.remoteSource;
       merged.remoteSourceId = existing.remoteSourceId;
       merged.remoteSourceLabel =
-        existing.remoteSourceLabel ?? this.remoteSourceLabel(existing.remoteSource);
+        existing.remoteSourceLabel ??
+        this.remoteSourceLabel(existing.remoteSource);
     } else if (merged.remoteSource && merged.remoteSourceId) {
       merged.remoteSourceLabel = this.remoteSourceLabel(merged.remoteSource);
     } else {
@@ -5322,6 +6714,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       merged.remoteSourceId = null;
       merged.remoteSourceLabel = null;
     }
+
+    if (existing.seriesAssignmentRules) {
+      merged.seriesAssignmentRules = existing.seriesAssignmentRules;
+    } else {
+      merged.seriesAssignmentRules = null;
+    }
+
+    this.reconcileEpisodeCatalogLink(merged, existing, null, false);
 
     if (merged.type === 'show' && merged.seasonNumber === null) {
       merged.seasonNumber = 1;
@@ -5354,14 +6754,15 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       );
       const normalizedHint = existing.normalizedTitle?.trim() || '';
       const titleHint = existing.title?.trim() || '';
-      const probeHint: MediaProbeHint | undefined = titleHint || normalizedHint
-        ? {
-            title: titleHint || normalizedHint,
-            normalizedTitle: normalizedHint || titleHint,
-            releaseYear: existing.releaseYear,
-            mediaType: existing.type,
-          }
-        : undefined;
+      const probeHint: MediaProbeHint | undefined =
+        titleHint || normalizedHint
+          ? {
+              title: titleHint || normalizedHint,
+              normalizedTitle: normalizedHint || titleHint,
+              releaseYear: existing.releaseYear,
+              mediaType: existing.type,
+            }
+          : undefined;
 
       const scanned = await this.scanner.probeFile(
         existing.filePath,
@@ -5419,8 +6820,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   private fallbackDedupeKey(item: MediaItem): string {
-    const normalizedTitle =
-      item.normalizedTitle || normalizeForKey(item.title);
+    const normalizedTitle = item.normalizedTitle || normalizeForKey(item.title);
 
     if (item.type === 'show') {
       return `show:${normalizedTitle}:s${item.seasonNumber ?? 0}:e${item.episodeNumber ?? 0}`;

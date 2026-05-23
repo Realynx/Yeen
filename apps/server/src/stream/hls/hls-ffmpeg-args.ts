@@ -69,7 +69,9 @@ export interface SegmentFfmpegArgsInput {
   outputPath: string;
 }
 
-export function buildSegmentFfmpegArgs(input: SegmentFfmpegArgsInput): string[] {
+export function buildSegmentFfmpegArgs(
+  input: SegmentFfmpegArgsInput,
+): string[] {
   const startStr = input.startSeconds.toFixed(3);
 
   return [

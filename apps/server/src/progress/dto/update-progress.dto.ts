@@ -20,6 +20,12 @@ export class UpdateProgressDto {
   durationSeconds!: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  syncTimestampMs?: number;
+
+  @IsOptional()
   @IsBoolean()
   completed?: boolean;
 

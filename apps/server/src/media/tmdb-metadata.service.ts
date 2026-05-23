@@ -24,6 +24,11 @@ interface TmdbDetailsResponse {
   episode_run_time?: unknown;
 }
 
+interface TmdbSeasonDetailsResponse {
+  season_number?: unknown;
+  episodes?: unknown[];
+}
+
 interface TmdbCandidate {
   title: string;
   titlesForMatch: string[];
@@ -41,12 +46,28 @@ interface TmdbLookupInput {
 }
 
 export interface TmdbLookupResult {
+  providerId: string;
   title: string;
   tags: string[];
   overview: string | null;
   releaseYear: number | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+}
+
+export interface TmdbSeriesEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  airedAt: string | null;
+  synopsis: string | null;
+}
+
+export interface TmdbSeriesEpisodeCatalog {
+  providerId: string;
+  totalEpisodeCount: number;
+  episodes: TmdbSeriesEpisode[];
+  updatedAt: string;
 }
 
 export interface TmdbSearchCandidate {
@@ -129,6 +150,10 @@ const TMDB_SHOW_GENRES_BY_ID: Record<number, string> = {
 export class TmdbMetadataService {
   private readonly logger = new Logger(TmdbMetadataService.name);
   private readonly cache = new Map<string, TmdbLookupResult | null>();
+  private readonly seriesCatalogInFlight = new Map<
+    string,
+    Promise<TmdbSeriesEpisodeCatalog | null>
+  >();
   private readonly cacheProvider = 'tmdb.search';
   private readonly posterImageBaseUrl = 'https://image.tmdb.org/t/p/w500';
   private readonly backdropImageBaseUrl = 'https://image.tmdb.org/t/p/w780';
@@ -264,10 +289,7 @@ export class TmdbMetadataService {
 
         candidates.push({
           title: candidate.title,
-          mediaType: this.resolveCandidateMediaType(
-            rawRecord,
-            input.mediaType,
-          ),
+          mediaType: this.resolveCandidateMediaType(rawRecord, input.mediaType),
           tags: candidate.tags,
           overview: candidate.overview,
           releaseYear: candidate.releaseYear,
@@ -285,9 +307,7 @@ export class TmdbMetadataService {
       return candidates;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `TMDB search failed for "${cleanedTitle}": ${message}`,
-      );
+      this.logger.warn(`TMDB search failed for "${cleanedTitle}": ${message}`);
       return [];
     }
   }
@@ -417,8 +437,14 @@ export class TmdbMetadataService {
       return [];
     }
 
-    const movieGenreId = this.resolveGenreId(normalizedTag, TMDB_MOVIE_GENRES_BY_ID);
-    const showGenreId = this.resolveGenreId(normalizedTag, TMDB_SHOW_GENRES_BY_ID);
+    const movieGenreId = this.resolveGenreId(
+      normalizedTag,
+      TMDB_MOVIE_GENRES_BY_ID,
+    );
+    const showGenreId = this.resolveGenreId(
+      normalizedTag,
+      TMDB_SHOW_GENRES_BY_ID,
+    );
 
     if (!movieGenreId && !showGenreId) {
       return [];
@@ -539,6 +565,156 @@ export class TmdbMetadataService {
     }
   }
 
+  async getSeriesEpisodeCatalog(
+    providerId: string,
+    options?: { useCache?: boolean },
+  ): Promise<TmdbSeriesEpisodeCatalog | null> {
+    const resolvedId = this.extractNumericId(providerId);
+    if (!resolvedId) {
+      return null;
+    }
+
+    const settings = await this.systemSettingsService.getSettings();
+    const apiKey = settings.tmdbApiKey.trim();
+    if (!apiKey) {
+      return null;
+    }
+
+    const useCache = options?.useCache !== false;
+    const requestKey = `series-episodes:${resolvedId}:v1`;
+
+    if (useCache) {
+      const cachedCatalog =
+        await this.metadataApiCacheStore.get<TmdbSeriesEpisodeCatalog>(
+          this.cacheProvider,
+          requestKey,
+        );
+      if (cachedCatalog) {
+        const normalized = this.normalizeSeriesEpisodeCatalog(cachedCatalog);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
+    const inFlight = this.seriesCatalogInFlight.get(resolvedId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const loadPromise = this.loadSeriesEpisodeCatalog(
+      resolvedId,
+      apiKey,
+      useCache,
+    ).finally(() => {
+      this.seriesCatalogInFlight.delete(resolvedId);
+    });
+
+    this.seriesCatalogInFlight.set(resolvedId, loadPromise);
+    return loadPromise;
+  }
+
+  warmSeriesEpisodeCatalog(providerId: string): void {
+    void this.getSeriesEpisodeCatalog(providerId).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `TMDB series episode warmup failed for ${providerId}: ${message}`,
+      );
+    });
+  }
+
+  private async loadSeriesEpisodeCatalog(
+    resolvedId: string,
+    apiKey: string,
+    useCache: boolean,
+  ): Promise<TmdbSeriesEpisodeCatalog | null> {
+    const detailsKey = `series-episodes:${resolvedId}:details`;
+    let detailsPayload: TmdbDetailsResponse | undefined;
+
+    if (useCache) {
+      detailsPayload = await this.metadataApiCacheStore.get<TmdbDetailsResponse>(
+        this.cacheProvider,
+        detailsKey,
+      );
+    }
+
+    if (detailsPayload === undefined) {
+      const detailsParams = new URLSearchParams({ api_key: apiKey });
+      const detailsUrl = `https://api.themoviedb.org/3/tv/${resolvedId}?${detailsParams.toString()}`;
+      detailsPayload = (await this.fetchJson(
+        detailsUrl,
+        15000,
+      )) as TmdbDetailsResponse;
+
+      if (useCache) {
+        await this.metadataApiCacheStore.set(
+          this.cacheProvider,
+          detailsKey,
+          detailsPayload,
+        );
+      }
+    }
+
+    const seasonNumbers = this.resolveSeriesSeasonNumbers(detailsPayload);
+    if (seasonNumbers.length === 0) {
+      return null;
+    }
+
+    const episodes: TmdbSeriesEpisode[] = [];
+
+    for (const seasonNumber of seasonNumbers) {
+      const seasonKey = `series-episodes:${resolvedId}:season:${seasonNumber}`;
+      let seasonPayload: TmdbSeasonDetailsResponse | undefined;
+
+      if (useCache) {
+        seasonPayload =
+          await this.metadataApiCacheStore.get<TmdbSeasonDetailsResponse>(
+            this.cacheProvider,
+            seasonKey,
+          );
+      }
+
+      if (seasonPayload === undefined) {
+        const seasonParams = new URLSearchParams({ api_key: apiKey });
+        const seasonUrl = `https://api.themoviedb.org/3/tv/${resolvedId}/season/${seasonNumber}?${seasonParams.toString()}`;
+        seasonPayload = (await this.fetchJson(
+          seasonUrl,
+          15000,
+        )) as TmdbSeasonDetailsResponse;
+
+        if (useCache) {
+          await this.metadataApiCacheStore.set(
+            this.cacheProvider,
+            seasonKey,
+            seasonPayload,
+          );
+        }
+      }
+
+      episodes.push(...this.extractSeasonEpisodes(seasonPayload, seasonNumber));
+    }
+
+    const normalizedEpisodes = this.dedupeSeriesEpisodes(episodes);
+    if (normalizedEpisodes.length === 0) {
+      return null;
+    }
+
+    const catalog: TmdbSeriesEpisodeCatalog = {
+      providerId: resolvedId,
+      totalEpisodeCount: normalizedEpisodes.length,
+      episodes: normalizedEpisodes,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.metadataApiCacheStore.set(
+      this.cacheProvider,
+      `series-episodes:${resolvedId}:v1`,
+      catalog,
+    );
+
+    return catalog;
+  }
+
   private async searchTmdb(
     apiKey: string,
     input: TmdbLookupInput,
@@ -584,8 +760,32 @@ export class TmdbMetadataService {
     const results = Array.isArray(payload.results) ? payload.results : [];
 
     const candidates = results
-      .map((item) => this.toCandidate(item, input.mediaType))
-      .filter((candidate): candidate is TmdbCandidate => candidate !== null);
+      .map((item) => {
+        const candidate = this.toCandidate(item, input.mediaType);
+        if (!candidate) {
+          return null;
+        }
+
+        const source =
+          typeof item === 'object' && item !== null && !Array.isArray(item)
+            ? (item as Record<string, unknown>)
+            : null;
+        const providerId = this.extractNumericId(source?.id);
+        if (!providerId) {
+          return null;
+        }
+
+        return {
+          ...candidate,
+          providerId,
+        };
+      })
+      .filter(
+        (
+          candidate,
+        ): candidate is TmdbCandidate & { providerId: string } =>
+          candidate !== null,
+      );
 
     const exactCandidates = this.filterExactTitleCandidates(candidates, input);
     if (exactCandidates.length === 0) {
@@ -594,6 +794,7 @@ export class TmdbMetadataService {
 
     const picked = this.pickBestCandidate(exactCandidates, input);
     return {
+      providerId: picked.providerId,
       title: picked.title,
       tags: picked.tags,
       overview: picked.overview,
@@ -807,10 +1008,10 @@ export class TmdbMetadataService {
     );
   }
 
-  private filterExactTitleCandidates(
-    candidates: TmdbCandidate[],
+  private filterExactTitleCandidates<T extends TmdbCandidate>(
+    candidates: T[],
     input: TmdbLookupInput,
-  ): TmdbCandidate[] {
+  ): T[] {
     const normalizedInput = this.normalizeForExactMatch(input.title);
     if (!normalizedInput) {
       return [];
@@ -867,10 +1068,10 @@ export class TmdbMetadataService {
     return cleaned || null;
   }
 
-  private pickBestCandidate(
-    candidates: TmdbCandidate[],
+  private pickBestCandidate<T extends TmdbCandidate>(
+    candidates: T[],
     input: TmdbLookupInput,
-  ): TmdbCandidate {
+  ): T {
     let best = candidates[0];
     let bestScore = Number.NEGATIVE_INFINITY;
 
@@ -965,7 +1166,10 @@ export class TmdbMetadataService {
   ): Promise<TmdbRemoteCandidate[]> {
     const results: TmdbRemoteCandidate[] = [];
     const perPage = 20;
-    const maxPages = Math.max(1, Math.min(25, Math.ceil(input.limit / perPage)));
+    const maxPages = Math.max(
+      1,
+      Math.min(25, Math.ceil(input.limit / perPage)),
+    );
     const requestedPage =
       typeof input.page === 'number' && Number.isFinite(input.page)
         ? Math.max(1, Math.floor(input.page))
@@ -1071,8 +1275,8 @@ export class TmdbMetadataService {
       for (const [id, label] of Object.entries(genresById)) {
         const normalizedLabel = this.normalizeGenreLabel(label);
         if (
-          normalizedLabel.includes(candidate)
-          || candidate.includes(normalizedLabel)
+          normalizedLabel.includes(candidate) ||
+          candidate.includes(normalizedLabel)
         ) {
           return Number.parseInt(id, 10);
         }
@@ -1116,6 +1320,229 @@ export class TmdbMetadataService {
     releaseYear: number | null,
   ): string {
     return `${mediaType}:${title.toLowerCase()}:${releaseYear ?? 0}`;
+  }
+
+  private resolveSeriesSeasonNumbers(value: unknown): number[] {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return [];
+    }
+
+    const details = value as Record<string, unknown>;
+    const fromSeasons = new Set<number>();
+
+    if (Array.isArray(details.seasons)) {
+      for (const season of details.seasons) {
+        if (
+          typeof season !== 'object' ||
+          season === null ||
+          Array.isArray(season)
+        ) {
+          continue;
+        }
+
+        const seasonNumber = this.extractPositiveInteger(
+          (season as Record<string, unknown>).season_number,
+        );
+        if (!seasonNumber) {
+          continue;
+        }
+
+        fromSeasons.add(seasonNumber);
+      }
+    }
+
+    if (fromSeasons.size > 0) {
+      return [...fromSeasons].sort((left, right) => left - right);
+    }
+
+    const seasonCount = this.extractPositiveInteger(details.number_of_seasons);
+    if (!seasonCount) {
+      return [];
+    }
+
+    const cappedCount = Math.min(seasonCount, 80);
+    const seasonNumbers: number[] = [];
+    for (let season = 1; season <= cappedCount; season += 1) {
+      seasonNumbers.push(season);
+    }
+
+    return seasonNumbers;
+  }
+
+  private extractSeasonEpisodes(
+    value: unknown,
+    fallbackSeasonNumber: number,
+  ): TmdbSeriesEpisode[] {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return [];
+    }
+
+    const payload = value as Record<string, unknown>;
+    const seasonNumber =
+      this.extractPositiveInteger(payload.season_number) ?? fallbackSeasonNumber;
+    const rawEpisodes = Array.isArray(payload.episodes) ? payload.episodes : [];
+
+    const episodes: TmdbSeriesEpisode[] = [];
+
+    for (const rawEpisode of rawEpisodes) {
+      if (
+        typeof rawEpisode !== 'object' ||
+        rawEpisode === null ||
+        Array.isArray(rawEpisode)
+      ) {
+        continue;
+      }
+
+      const row = rawEpisode as Record<string, unknown>;
+      const episodeNumber = this.extractPositiveInteger(row.episode_number);
+      if (!episodeNumber) {
+        continue;
+      }
+
+      const title =
+        typeof row.name === 'string' && row.name.trim().length > 0
+          ? row.name.trim()
+          : `Episode ${episodeNumber}`;
+      const airedAt =
+        typeof row.air_date === 'string' && row.air_date.trim().length > 0
+          ? row.air_date.trim()
+          : null;
+      const synopsis =
+        typeof row.overview === 'string' && row.overview.trim().length > 0
+          ? row.overview.trim()
+          : null;
+
+      episodes.push({
+        seasonNumber,
+        episodeNumber,
+        title,
+        airedAt,
+        synopsis,
+      });
+    }
+
+    return episodes;
+  }
+
+  private normalizeSeriesEpisodeCatalog(
+    value: unknown,
+  ): TmdbSeriesEpisodeCatalog | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return null;
+    }
+
+    const source = value as Record<string, unknown>;
+    const providerId = this.extractNumericId(source.providerId);
+    if (!providerId) {
+      return null;
+    }
+
+    const rawEpisodes = Array.isArray(source.episodes) ? source.episodes : [];
+    const episodes = rawEpisodes
+      .map((entry) => this.toSeriesEpisode(entry))
+      .filter((entry): entry is TmdbSeriesEpisode => entry !== null);
+    const normalizedEpisodes = this.dedupeSeriesEpisodes(episodes);
+    if (normalizedEpisodes.length === 0) {
+      return null;
+    }
+
+    const totalEpisodeCount =
+      this.extractPositiveInteger(source.totalEpisodeCount) ??
+      normalizedEpisodes.length;
+    const updatedAt =
+      typeof source.updatedAt === 'string' && source.updatedAt.trim().length > 0
+        ? source.updatedAt.trim()
+        : new Date().toISOString();
+
+    return {
+      providerId,
+      totalEpisodeCount,
+      episodes: normalizedEpisodes,
+      updatedAt,
+    };
+  }
+
+  private toSeriesEpisode(value: unknown): TmdbSeriesEpisode | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return null;
+    }
+
+    const row = value as Record<string, unknown>;
+    const seasonNumber = this.extractPositiveInteger(row.seasonNumber);
+    const episodeNumber = this.extractPositiveInteger(row.episodeNumber);
+    if (!seasonNumber || !episodeNumber) {
+      return null;
+    }
+
+    const title =
+      typeof row.title === 'string' && row.title.trim().length > 0
+        ? row.title.trim()
+        : `Episode ${episodeNumber}`;
+    const airedAt =
+      typeof row.airedAt === 'string' && row.airedAt.trim().length > 0
+        ? row.airedAt.trim()
+        : null;
+    const synopsis =
+      typeof row.synopsis === 'string' && row.synopsis.trim().length > 0
+        ? row.synopsis.trim()
+        : null;
+
+    return {
+      seasonNumber,
+      episodeNumber,
+      title,
+      airedAt,
+      synopsis,
+    };
+  }
+
+  private dedupeSeriesEpisodes(
+    episodes: TmdbSeriesEpisode[],
+  ): TmdbSeriesEpisode[] {
+    const deduped = new Map<string, TmdbSeriesEpisode>();
+
+    for (const episode of episodes) {
+      const key = `${episode.seasonNumber}:${episode.episodeNumber}`;
+      const existing = deduped.get(key);
+
+      if (!existing) {
+        deduped.set(key, episode);
+        continue;
+      }
+
+      deduped.set(key, {
+        seasonNumber: existing.seasonNumber,
+        episodeNumber: existing.episodeNumber,
+        title: existing.title || episode.title,
+        airedAt: existing.airedAt ?? episode.airedAt,
+        synopsis: existing.synopsis ?? episode.synopsis,
+      });
+    }
+
+    return [...deduped.values()].sort((left, right) => {
+      if (left.seasonNumber !== right.seasonNumber) {
+        return left.seasonNumber - right.seasonNumber;
+      }
+
+      return left.episodeNumber - right.episodeNumber;
+    });
+  }
+
+  private extractPositiveInteger(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const rounded = Math.trunc(value);
+      return rounded > 0 ? rounded : null;
+    }
+
+    if (typeof value === 'string') {
+      const cleaned = value.trim();
+      if (/^\d+$/.test(cleaned)) {
+        const parsed = Number.parseInt(cleaned, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      }
+    }
+
+    return null;
   }
 
   private async fetchJson(url: string, timeoutMs: number): Promise<unknown> {

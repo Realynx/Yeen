@@ -103,9 +103,8 @@ export class MediaScannerService {
       filePath,
       settings.ffprobePath || 'ffprobe',
     );
-    const { video, audio, subtitleStreams } = this.mediaProbeAdapter.selectStreams(
-      parsed.streams ?? [],
-    );
+    const { video, audio, subtitleStreams } =
+      this.mediaProbeAdapter.selectStreams(parsed.streams ?? []);
     const embeddedSubtitles =
       this.mediaSubtitleResolver.toEmbeddedSubtitleDetails(subtitleStreams);
 
@@ -115,24 +114,45 @@ export class MediaScannerService {
     // the surrounding directory may be momentarily unreadable over SMB or
     // missing companion files entirely; failures there must not abort the
     // probe. Swallow individual rejections and substitute empty defaults.
-    const settle = async <T>(promise: Promise<T>, fallback: T, label: string): Promise<T> => {
+    const settle = async <T>(
+      promise: Promise<T>,
+      fallback: T,
+      label: string,
+    ): Promise<T> => {
       try {
         return await promise;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.debug(
           `Sidecar lookup ${label} failed for ${filePath}: ${message}`,
         );
         return fallback;
       }
     };
-    const [externalSubtitles, sidecarDescription, sidecarPreviewImagePath, nfoMetadata] =
-      await Promise.all([
-        settle(this.mediaSubtitleResolver.findExternalSubtitleDetails(filePath), [], 'external-subtitles'),
-        settle(this.mediaPreviewResolver.readSidecarDescription(filePath), null, 'sidecar-description'),
-        settle(this.mediaPreviewResolver.findPreviewImagePath(filePath), null, 'preview-image'),
-        settle(this.nfoReader.readNfo(filePath), null, 'nfo'),
-      ]);
+    const [
+      externalSubtitles,
+      sidecarDescription,
+      sidecarPreviewImagePath,
+      nfoMetadata,
+    ] = await Promise.all([
+      settle(
+        this.mediaSubtitleResolver.findExternalSubtitleDetails(filePath),
+        [],
+        'external-subtitles',
+      ),
+      settle(
+        this.mediaPreviewResolver.readSidecarDescription(filePath),
+        null,
+        'sidecar-description',
+      ),
+      settle(
+        this.mediaPreviewResolver.findPreviewImagePath(filePath),
+        null,
+        'preview-image',
+      ),
+      settle(this.nfoReader.readNfo(filePath), null, 'nfo'),
+    ]);
 
     const fileName = basename(filePath, extname(filePath));
     const relativePath = relative(libraryRoot, filePath).split(sep).join('/');
@@ -141,7 +161,8 @@ export class MediaScannerService {
       nfoMetadata?.seasonNumber != null || nfoMetadata?.episodeNumber != null
         ? {
             seasonNumber: nfoMetadata.seasonNumber ?? filenameSE.seasonNumber,
-            episodeNumber: nfoMetadata.episodeNumber ?? filenameSE.episodeNumber,
+            episodeNumber:
+              nfoMetadata.episodeNumber ?? filenameSE.episodeNumber,
           }
         : null;
     const seasonEpisode = nfoSeasonEpisode ?? filenameSE;
@@ -155,7 +176,8 @@ export class MediaScannerService {
     const subtitleDetails = [...embeddedSubtitles, ...externalSubtitles];
     const durationSeconds = this.resolveDurationSeconds(parsed, fileStats.size);
     const fallbackTitle = cleanTitle(fileName);
-    const nfoTitle = (nfoMetadata?.showTitle ?? nfoMetadata?.title)?.trim() || null;
+    const nfoTitle =
+      (nfoMetadata?.showTitle ?? nfoMetadata?.title)?.trim() || null;
     const hintTitle = metadataHint?.title?.trim() ?? '';
     const hintNormalizedTitle = metadataHint?.normalizedTitle?.trim() ?? '';
     const hintedTitle =
@@ -192,6 +214,20 @@ export class MediaScannerService {
           })
         : null;
     const metadata = tmdb ?? jikan;
+    const tmdbSeriesCatalogId =
+      mediaType === 'show' && tmdb?.providerId ? tmdb.providerId : null;
+    const jikanSeriesCatalogId =
+      mediaType === 'show' && jikan?.providerId && jikan.mediaType === 'show'
+        ? jikan.providerId
+        : null;
+
+    if (tmdbSeriesCatalogId) {
+      this.tmdbMetadataService.warmSeriesEpisodeCatalog(tmdbSeriesCatalogId);
+    }
+
+    if (jikanSeriesCatalogId) {
+      this.jikanMetadataService.warmSeriesEpisodeCatalog(jikanSeriesCatalogId);
+    }
 
     const title = metadata?.title?.trim() || hintedTitle;
     const normalizedTitle = normalizeForKey(title);
@@ -200,7 +236,7 @@ export class MediaScannerService {
         ? hintTags
         : metadata?.tags?.length
           ? metadata.tags
-          : nfoMetadata?.genres ?? null,
+          : (nfoMetadata?.genres ?? null),
     );
     const releaseYear = parsedReleaseYear ?? metadata?.releaseYear ?? null;
     const episodeTitle =
@@ -215,17 +251,20 @@ export class MediaScannerService {
       mediaType === 'show' ? seasonEpisode.seasonNumber : null;
     const episodeNumber =
       mediaType === 'show' ? seasonEpisode.episodeNumber : null;
-    const chapterThumbnails = await this.mediaPreviewResolver.generateChapterThumbnails(
-      filePath,
-      durationSeconds,
-      fileStats.mtimeMs,
-      settings.ffmpegPath,
-      settings.thumbnailCaptureCount,
-    );
+    const chapterThumbnails =
+      await this.mediaPreviewResolver.generateChapterThumbnails(
+        filePath,
+        durationSeconds,
+        fileStats.mtimeMs,
+        settings.ffmpegPath,
+        settings.thumbnailCaptureCount,
+      );
     const hintPosterUrl = metadataHint?.posterUrl?.trim() || null;
     const hintBackdropUrl = metadataHint?.backdropUrl?.trim() || null;
-    const metadataPosterSourceUrl = hintPosterUrl || metadata?.posterUrl || null;
-    const metadataBackdropSourceUrl = hintBackdropUrl || metadata?.backdropUrl || null;
+    const metadataPosterSourceUrl =
+      hintPosterUrl || metadata?.posterUrl || null;
+    const metadataBackdropSourceUrl =
+      hintBackdropUrl || metadata?.backdropUrl || null;
     const downloadedPosterImagePath = metadataPosterSourceUrl
       ? await this.mediaPreviewResolver.downloadPosterThumbnail(
           metadataPosterSourceUrl,
@@ -238,20 +277,25 @@ export class MediaScannerService {
           filePath,
         )
       : null;
-    const metadataPosterImagePath = downloadedPosterImagePath || metadataPosterSourceUrl;
-    const metadataBackdropImagePath = downloadedBackdropImagePath || metadataBackdropSourceUrl;
-    const previewImagePath = this.mediaPreviewResolver.selectBestPreviewImagePath(
-      sidecarPreviewImagePath,
-      metadataPosterImagePath,
-      chapterThumbnails,
-    );
-    const backdropImagePath = this.mediaPreviewResolver.selectBestBackdropImagePath(
-      metadataBackdropImagePath,
-      chapterThumbnails,
-      sidecarPreviewImagePath,
-    );
+    const metadataPosterImagePath =
+      downloadedPosterImagePath || metadataPosterSourceUrl;
+    const metadataBackdropImagePath =
+      downloadedBackdropImagePath || metadataBackdropSourceUrl;
+    const previewImagePath =
+      this.mediaPreviewResolver.selectBestPreviewImagePath(
+        sidecarPreviewImagePath,
+        metadataPosterImagePath,
+        chapterThumbnails,
+      );
+    const backdropImagePath =
+      this.mediaPreviewResolver.selectBestBackdropImagePath(
+        metadataBackdropImagePath,
+        chapterThumbnails,
+        sidecarPreviewImagePath,
+      );
     const hintDescription = metadataHint?.description?.trim() || null;
-    const description = sidecarDescription ?? hintDescription ?? metadata?.overview ?? null;
+    const description =
+      sidecarDescription ?? hintDescription ?? metadata?.overview ?? null;
     const dedupeKey = this.buildDedupeKey({
       mediaType,
       normalizedTitle,
@@ -298,6 +342,12 @@ export class MediaScannerService {
       },
       metadataRefreshedAt,
       updatedAt: metadataRefreshedAt,
+      episodeCatalogSource: tmdbSeriesCatalogId
+        ? 'tmdb'
+        : jikanSeriesCatalogId
+          ? 'jikan'
+          : null,
+      episodeCatalogSourceId: tmdbSeriesCatalogId ?? jikanSeriesCatalogId,
     };
   }
 
@@ -437,16 +487,16 @@ export class MediaScannerService {
 
     const formatBitRate = this.parseNumber(payload.format?.bit_rate);
     if (
-      formatBitRate
-      && formatBitRate > 0
-      && Number.isFinite(fileSizeBytes)
-      && fileSizeBytes > 0
+      formatBitRate &&
+      formatBitRate > 0 &&
+      Number.isFinite(fileSizeBytes) &&
+      fileSizeBytes > 0
     ) {
       const estimatedSeconds = (fileSizeBytes * 8) / formatBitRate;
       if (
-        Number.isFinite(estimatedSeconds)
-        && estimatedSeconds > 30
-        && estimatedSeconds < 12 * 60 * 60
+        Number.isFinite(estimatedSeconds) &&
+        estimatedSeconds > 30 &&
+        estimatedSeconds < 12 * 60 * 60
       ) {
         return estimatedSeconds;
       }
@@ -487,7 +537,9 @@ export class MediaScannerService {
       return numeric;
     }
 
-    const hhmmssMatch = trimmed.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
+    const hhmmssMatch = trimmed.match(
+      /^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/,
+    );
     if (hhmmssMatch) {
       const hours = Number.parseInt(hhmmssMatch[1], 10);
       const minutes = Number.parseInt(hhmmssMatch[2], 10);
@@ -497,11 +549,16 @@ export class MediaScannerService {
         : 0;
 
       if (
-        Number.isFinite(hours)
-        && Number.isFinite(minutes)
-        && Number.isFinite(seconds)
+        Number.isFinite(hours) &&
+        Number.isFinite(minutes) &&
+        Number.isFinite(seconds)
       ) {
-        return hours * 3600 + minutes * 60 + seconds + (Number.isFinite(fraction) ? fraction : 0);
+        return (
+          hours * 3600 +
+          minutes * 60 +
+          seconds +
+          (Number.isFinite(fraction) ? fraction : 0)
+        );
       }
     }
 
@@ -570,7 +627,9 @@ export class MediaScannerService {
       return false;
     }
 
-    if (/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(cleaned)) {
+    if (
+      /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(cleaned)
+    ) {
       return true;
     }
 
@@ -603,12 +662,18 @@ export class MediaScannerService {
 
   private guessType(
     relativePath: string,
-    seasonEpisode: { seasonNumber: number | null; episodeNumber: number | null },
+    seasonEpisode: {
+      seasonNumber: number | null;
+      episodeNumber: number | null;
+    },
   ): 'movie' | 'show' | 'other' {
     // Any concrete season/episode signal (from the filename OR a season
     // folder like "Show/Season 02/") is the strongest hint that this
     // file is part of a series.
-    if (seasonEpisode.seasonNumber !== null || seasonEpisode.episodeNumber !== null) {
+    if (
+      seasonEpisode.seasonNumber !== null ||
+      seasonEpisode.episodeNumber !== null
+    ) {
       return 'show';
     }
 

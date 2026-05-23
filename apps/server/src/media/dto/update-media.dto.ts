@@ -12,6 +12,69 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+class SeriesAssignmentKeywordRuleDto {
+  @IsString()
+  @MaxLength(120)
+  keyword!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(-1)
+  seasonNumber?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  episodeNumber?: number | null;
+}
+
+class SeriesAssignmentPatternRuleDto {
+  @IsString()
+  @MaxLength(280)
+  pattern!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  flags?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  seasonGroup?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  episodeGroup?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(-1)
+  seasonNumber?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  episodeNumber?: number | null;
+}
+
+class SeriesAssignmentRulesDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(64)
+  @ValidateNested({ each: true })
+  @Type(() => SeriesAssignmentKeywordRuleDto)
+  keywordMappings?: SeriesAssignmentKeywordRuleDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(64)
+  @ValidateNested({ each: true })
+  @Type(() => SeriesAssignmentPatternRuleDto)
+  patternMappings?: SeriesAssignmentPatternRuleDto[];
+}
+
 export class UpdateMediaDto {
   @IsOptional()
   @IsString()
@@ -34,7 +97,7 @@ export class UpdateMediaDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(-1)
   seasonNumber?: number | null;
 
   @IsOptional()
@@ -69,6 +132,11 @@ export class UpdateMediaDto {
   @IsString()
   @MaxLength(64)
   remoteSourceId?: string | null;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SeriesAssignmentRulesDto)
+  seriesAssignmentRules?: SeriesAssignmentRulesDto | null;
 }
 
 export class BulkAssignEpisodesDto {
@@ -86,7 +154,7 @@ export class BulkAssignEpisodesDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(-1)
   seasonNumber?: number | null;
 
   @IsOptional()
@@ -108,6 +176,11 @@ export class BulkAssignEpisodesDto {
   @IsInt()
   @Min(0)
   releaseYear?: number | null;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SeriesAssignmentRulesDto)
+  seriesAssignmentRules?: SeriesAssignmentRulesDto | null;
 }
 
 export class BulkUpdateMediaDto {

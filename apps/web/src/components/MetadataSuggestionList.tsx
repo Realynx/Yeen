@@ -15,7 +15,7 @@ export function MetadataSuggestionList({
 }: MetadataSuggestionListProps) {
   if (loading) {
     return (
-      <p className="metadata-suggestions-status">Searching TMDB…</p>
+      <p className="metadata-suggestions-status">Searching metadata providers…</p>
     );
   }
 
@@ -59,6 +59,9 @@ export function MetadataSuggestionList({
                 {candidate.releaseYear ? (
                   <span className="metadata-suggestion-year"> ({candidate.releaseYear})</span>
                 ) : null}
+              </span>
+              <span className="metadata-suggestion-source">
+                {candidate.remoteSource === 'jikan' ? 'Jikan' : 'TMDB'}
               </span>
               {candidate.overview ? (
                 <span className="metadata-suggestion-overview">

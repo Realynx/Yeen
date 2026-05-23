@@ -26,7 +26,9 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
   ): Promise<ProgressEntry | undefined> {
     await this.ensureLoaded();
     return this.state.find((entry) => {
-      return this.entryAccountId(entry) === accountId && entry.mediaId === mediaId;
+      return (
+        this.entryAccountId(entry) === accountId && entry.mediaId === mediaId
+      );
     });
   }
 
@@ -36,8 +38,10 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
     const nextAccountId = this.entryAccountId(next);
 
     const existingIndex = this.state.findIndex((entry) => {
-      return this.entryAccountId(entry) === nextAccountId
-        && entry.mediaId === next.mediaId;
+      return (
+        this.entryAccountId(entry) === nextAccountId &&
+        entry.mediaId === next.mediaId
+      );
     });
 
     if (existingIndex >= 0) {
@@ -81,8 +85,11 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
         mediaId,
         positionSeconds,
         durationSeconds,
+        syncTimestampMs: this.normalizeTimestampMs(raw.syncTimestampMs),
         completed: typeof raw.completed === 'boolean' ? raw.completed : false,
-        seriesPreferenceKey: this.normalizeNullableText(raw.seriesPreferenceKey),
+        seriesPreferenceKey: this.normalizeNullableText(
+          raw.seriesPreferenceKey,
+        ),
         preferredAudioLanguage: this.normalizeNullableText(
           raw.preferredAudioLanguage,
         ),
@@ -156,6 +163,20 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
 
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
+  }
+
+  private normalizeTimestampMs(value: unknown): number | null {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : Number.NaN;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return Math.floor(parsed);
   }
 
   private normalizeTimestamp(value: unknown): string {

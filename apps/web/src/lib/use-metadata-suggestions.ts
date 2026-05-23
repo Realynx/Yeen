@@ -20,7 +20,7 @@ interface UseMetadataSuggestionsResult {
 }
 
 /**
- * Debounced TMDB suggestion fetcher shared by the edit + bulk-assign
+ * Debounced metadata suggestion fetcher shared by the edit + bulk-assign
  * dialogs. Cancels in-flight requests when the title changes so we
  * don't display stale results, and quietly returns an empty list when
  * the input is too short or the API key isn't configured.

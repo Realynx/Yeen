@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
-type BencodeValue = number | Buffer | BencodeValue[] | Map<string, BencodeValue>;
+type BencodeValue =
+  | number
+  | Buffer
+  | BencodeValue[]
+  | Map<string, BencodeValue>;
 
 interface RootDictionaryParseResult {
   dictionary: Map<string, BencodeValue>;
@@ -18,7 +22,9 @@ export interface ParsedTorrentMetadata {
   files: TorrentMetadataFileHint[];
 }
 
-export function parseTorrentMetadata(buffer: Buffer): ParsedTorrentMetadata | null {
+export function parseTorrentMetadata(
+  buffer: Buffer,
+): ParsedTorrentMetadata | null {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     return null;
   }
@@ -41,7 +47,9 @@ export function parseTorrentMetadata(buffer: Buffer): ParsedTorrentMetadata | nu
 
   const infoHash = parsedRoot.infoRange
     ? createHash('sha1')
-        .update(buffer.subarray(parsedRoot.infoRange.start, parsedRoot.infoRange.end))
+        .update(
+          buffer.subarray(parsedRoot.infoRange.start, parsedRoot.infoRange.end),
+        )
         .digest('hex')
     : null;
 
@@ -97,9 +105,7 @@ function readTorrentFilePath(
   fileDictionary: Map<string, BencodeValue>,
   rootName: string | null,
 ): string | null {
-  const value =
-    fileDictionary.get('path.utf-8')
-    ?? fileDictionary.get('path');
+  const value = fileDictionary.get('path.utf-8') ?? fileDictionary.get('path');
 
   if (!Array.isArray(value)) {
     return null;
@@ -113,7 +119,9 @@ function readTorrentFilePath(
   }
 
   for (const part of value) {
-    const nextSegment = normalizeTorrentPathSegment(readBencodedStringValue(part));
+    const nextSegment = normalizeTorrentPathSegment(
+      readBencodedStringValue(part),
+    );
     if (!nextSegment) {
       continue;
     }
@@ -128,7 +136,9 @@ function readTorrentFilePath(
   return normalizeTorrentRelativePath(segments.join('/'));
 }
 
-function dedupeTorrentFiles(files: TorrentMetadataFileHint[]): TorrentMetadataFileHint[] {
+function dedupeTorrentFiles(
+  files: TorrentMetadataFileHint[],
+): TorrentMetadataFileHint[] {
   const deduped = new Map<string, TorrentMetadataFileHint>();
 
   for (const file of files) {
@@ -204,7 +214,9 @@ function readBencodedString(
   return null;
 }
 
-function readBencodedStringValue(value: BencodeValue | undefined): string | null {
+function readBencodedStringValue(
+  value: BencodeValue | undefined,
+): string | null {
   if (!Buffer.isBuffer(value)) {
     return null;
   }

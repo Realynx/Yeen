@@ -30,7 +30,10 @@ export class TorrentController {
 
   @Post('add')
   @UseInterceptors(FileInterceptor('torrentFile'))
-  addTorrent(@Body() dto: AddTorrentDto, @UploadedFile() torrentFile?: unknown) {
+  addTorrent(
+    @Body() dto: AddTorrentDto,
+    @UploadedFile() torrentFile?: unknown,
+  ) {
     const normalizedFile = this.normalizeUploadedFile(torrentFile);
     return this.torrentService.addTorrent(dto, normalizedFile);
   }

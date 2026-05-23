@@ -312,6 +312,7 @@ export class MediaFsCommitService {
       change.targetPath,
       newRelative,
     );
+    await this.mediaStore.clearSeriesAssignmentRules(change.mediaId);
     operations.push({
       type: 'updateDbPath',
       mediaId: change.mediaId,

@@ -19,6 +19,26 @@ export interface MediaChapterThumbnail {
   second: number;
 }
 
+export interface SeriesAssignmentKeywordRule {
+  keyword: string;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+}
+
+export interface SeriesAssignmentPatternRule {
+  pattern: string;
+  flags?: string;
+  seasonGroup?: number | null;
+  episodeGroup?: number | null;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+}
+
+export interface SeriesAssignmentRules {
+  keywordMappings?: SeriesAssignmentKeywordRule[];
+  patternMappings?: SeriesAssignmentPatternRule[];
+}
+
 export interface MediaItem {
   id: string;
   title: string;
@@ -54,4 +74,7 @@ export interface MediaItem {
   remoteSource?: 'tmdb' | 'jikan';
   remoteSourceId?: string | null;
   remoteSourceLabel?: string | null;
+  episodeCatalogSource?: 'tmdb' | 'jikan' | null;
+  episodeCatalogSourceId?: string | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }

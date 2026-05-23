@@ -24,6 +24,8 @@ import type {
   ProgressEntry,
   PurgeRecycleDeletionsResult,
   RecycleDeletionsListResponse,
+  SeriesEpisodeTrackerResult,
+  SeriesAssignmentRules,
   SubtitleTrack,
   SystemSettings,
   TorrentIntent,
@@ -741,6 +743,14 @@ export async function getMedia(token: string, mediaId: string) {
   return request<MediaItem>(`/media/${mediaId}`, {}, token);
 }
 
+export async function getSeriesEpisodeTracker(token: string, mediaId: string) {
+  return request<SeriesEpisodeTrackerResult>(
+    `/media/${encodeURIComponent(mediaId)}/series-tracker`,
+    {},
+    token,
+  );
+}
+
 export async function getRemoteMedia(token: string, remoteId: string) {
   return request<MediaItem>(
     `/media/remote/${encodeURIComponent(remoteId)}`,
@@ -787,6 +797,7 @@ export interface MediaMetadataPatch {
   backdropUrl?: string | null;
   remoteSource?: 'tmdb' | 'jikan' | null;
   remoteSourceId?: string | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
 
 export interface BulkAssignEpisodesPayload {
@@ -798,6 +809,7 @@ export interface BulkAssignEpisodesPayload {
   episodeOrder?: 'filename-asc' | 'existing-episode' | 'as-provided';
   tags?: string[];
   releaseYear?: number | null;
+  seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
 
 export async function updateMediaMetadata(
@@ -1106,7 +1118,7 @@ export async function extractSubtitle(token: string, mediaId: string, streamInde
 }
 
 export async function listProgress(token: string) {
-  return request<ProgressEntry[]>('/progress', {}, token);
+  return request<ProgressEntry[]>('/progress', { cache: 'no-store' }, token);
 }
 
 export async function listMediaTorrentDownloadProgress(
@@ -1139,16 +1151,22 @@ export async function upsertProgress(
   payload: {
     positionSeconds: number;
     durationSeconds: number;
+    syncTimestampMs?: number;
     completed?: boolean;
     seriesPreferenceKey?: string | null;
     preferredAudioLanguage?: string | null;
     preferredSubtitleLanguage?: string | null;
     subtitlePreferenceEnabled?: boolean | null;
   },
+  options?: {
+    keepalive?: boolean;
+  },
 ) {
   return request<ProgressEntry>(`/progress/${mediaId}`, {
     method: 'PUT',
     body: jsonBody(payload),
+    keepalive: options?.keepalive,
+    cache: 'no-store',
   }, token);
 }
 

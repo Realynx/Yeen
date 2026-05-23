@@ -214,7 +214,10 @@ export function parseReleaseYear(fileName: string): number | null {
   }
 
   // Strip parenthesised junk now that we've extracted any year inside.
-  const flat = cleaned.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  const flat = cleaned
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   const tokens = flat.split(' ');
 
   const yearsBeforeNoise: { value: number; index: number }[] = [];

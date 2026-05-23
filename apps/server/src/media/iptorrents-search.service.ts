@@ -79,7 +79,9 @@ export class IptorrentsSearchService {
     private readonly metadataApiCacheStore: MetadataApiCacheStore,
   ) {}
 
-  async search(input: IptorrentsSearchInput): Promise<IptorrentsSearchResponse> {
+  async search(
+    input: IptorrentsSearchInput,
+  ): Promise<IptorrentsSearchResponse> {
     const cleanedQuery = input.query.trim();
     const normalizedLimit = this.normalizeLimit(input.limit);
     const sourceUrl = this.buildSearchUrl(cleanedQuery);
@@ -108,7 +110,10 @@ export class IptorrentsSearchService {
       payload = await this.fetchAndCacheSearchPayload(searchKey, cleanedQuery);
     }
 
-    const filteredResults = this.filterByMediaType(payload.results, input.mediaType);
+    const filteredResults = this.filterByMediaType(
+      payload.results,
+      input.mediaType,
+    );
 
     return {
       query: cleanedQuery,
@@ -140,10 +145,12 @@ export class IptorrentsSearchService {
       cookieHeader,
     );
 
-    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const contentType =
+      response.headers.get('content-type')?.toLowerCase() ?? '';
     if (!response.ok) {
-      const snippet = (await response.text()).trim().slice(0, 160)
-        || 'No response body returned.';
+      const snippet =
+        (await response.text()).trim().slice(0, 160) ||
+        'No response body returned.';
       throw new BadGatewayException(
         `IPTorrents download failed (${response.status}): ${snippet}`,
       );
@@ -245,10 +252,7 @@ export class IptorrentsSearchService {
   }
 
   private searchCacheKey(query: string): string {
-    return query
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    return query.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private async getConnectionSettings(): Promise<IptConnectionSettings> {
@@ -361,7 +365,10 @@ export class IptorrentsSearchService {
 
       headers.set('User-Agent', CHROME_USER_AGENT);
       if (!headers.has('Accept')) {
-        headers.set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
+        headers.set(
+          'Accept',
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        );
       }
       if (!headers.has('Accept-Language')) {
         headers.set('Accept-Language', 'en-US,en;q=0.9');
@@ -383,9 +390,12 @@ export class IptorrentsSearchService {
         );
       }
 
-      const message = error instanceof Error ? error.message : 'Unknown network error.';
+      const message =
+        error instanceof Error ? error.message : 'Unknown network error.';
       this.logger.warn(`IPTorrents request failed: ${message}`);
-      throw new BadGatewayException(`Failed to connect to IPTorrents: ${message}`);
+      throw new BadGatewayException(
+        `Failed to connect to IPTorrents: ${message}`,
+      );
     } finally {
       clearTimeout(timeoutHandle);
     }
@@ -419,7 +429,8 @@ export class IptorrentsSearchService {
 
       const torrentId = this.extractTorrentId(detailsUrl, index + 1);
       const downloadUrl = this.toAbsoluteUrl(
-        cells.eq(3).find('a[href*="download.php"]').first().attr('href') ?? null,
+        cells.eq(3).find('a[href*="download.php"]').first().attr('href') ??
+          null,
       );
       const subtitleText = this.cleanText(nameCell.find('.sub').first().text());
       const badgeTexts = nameCell
@@ -461,7 +472,9 @@ export class IptorrentsSearchService {
       );
     }
 
-    return items.filter((item) => item.category.trim().toLowerCase().startsWith('tv'));
+    return items.filter((item) =>
+      item.category.trim().toLowerCase().startsWith('tv'),
+    );
   }
 
   private extractCookieHeader(response: Response): string {
@@ -551,8 +564,7 @@ export class IptorrentsSearchService {
   private isIptorrentsHost(hostname: string): boolean {
     const normalized = hostname.trim().toLowerCase();
     return (
-      normalized === 'iptorrents.com' ||
-      normalized.endsWith('.iptorrents.com')
+      normalized === 'iptorrents.com' || normalized.endsWith('.iptorrents.com')
     );
   }
 
@@ -578,10 +590,14 @@ export class IptorrentsSearchService {
       // Fall back to title-derived file names.
     }
 
-    return this.sanitizeTorrentFileName(fallbackFileName || 'iptorrents-download');
+    return this.sanitizeTorrentFileName(
+      fallbackFileName || 'iptorrents-download',
+    );
   }
 
-  private parseFileNameFromContentDisposition(header: string | null): string | null {
+  private parseFileNameFromContentDisposition(
+    header: string | null,
+  ): string | null {
     if (!header) {
       return null;
     }

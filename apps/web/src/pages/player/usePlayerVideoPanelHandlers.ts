@@ -21,7 +21,7 @@ interface UsePlayerVideoPanelHandlersOptions {
   setIsBuffering: Dispatch<SetStateAction<boolean>>;
   setIsControlsVisible: Dispatch<SetStateAction<boolean>>;
   setPlayerError: Dispatch<SetStateAction<string | null>>;
-  syncProgress: (completed?: boolean) => Promise<void>;
+  syncProgress: (completed?: boolean, keepalive?: boolean) => Promise<void>;
   switchingToHls: boolean;
   source: PlaybackSource | null;
   attemptedHlsFallbackRef: MutableRefObject<boolean>;
@@ -85,7 +85,8 @@ export function usePlayerVideoPanelHandlers({
   const handleSeekTouchEnd = useCallback(() => {
     setIsSeeking(false);
     seekTo(seekValue);
-  }, [seekTo, seekValue, setIsSeeking]);
+    void syncProgress(false);
+  }, [seekTo, seekValue, setIsSeeking, syncProgress]);
 
   const handlePlaybackRateChange = useCallback(
     (nextRate: number) => {

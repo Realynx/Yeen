@@ -10,18 +10,22 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { access, mkdir, open, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  open,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { AuthUser } from '../auth/entities/auth-user.entity';
 import { MediaService, type PlaybackAudioTrack } from '../media/media.service';
-import { ProgressService } from '../progress/progress.service';
 import { resolveSafePathFromFileName } from '../shared/safe-path';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
-import {
-  TorrentMediaIndexStore,
-} from '../torrent/torrent-media-index.store';
+import { TorrentMediaIndexStore } from '../torrent/torrent-media-index.store';
 import { TorrentService } from '../torrent/torrent.service';
 import { HlsSession, HlsSessionStore } from './hls-session.store';
 import { RangeStreamService } from './range-stream.service';
@@ -99,7 +103,6 @@ export class StreamService implements OnModuleInit {
     private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
     private readonly hlsSessionStore: HlsSessionStore,
     private readonly rangeStreamService: RangeStreamService,
-    private readonly progressService: ProgressService,
     private readonly manifestService: HlsManifestService,
     private readonly segmentTranscoder: HlsSegmentTranscoder,
     private readonly availability: TorrentDataAvailabilityService,
@@ -152,18 +155,24 @@ export class StreamService implements OnModuleInit {
     };
   }
 
-  async listAudioTracks(mediaId: string): Promise<{ tracks: PlaybackAudioTrack[] }> {
+  async listAudioTracks(
+    mediaId: string,
+  ): Promise<{ tracks: PlaybackAudioTrack[] }> {
     const tracks = await this.mediaService.getPlaybackAudioTracks(mediaId);
     return { tracks };
   }
 
-  async getHlsSessionStats(sessionId: string): Promise<HlsSessionStatsResponse> {
+  async getHlsSessionStats(
+    sessionId: string,
+  ): Promise<HlsSessionStatsResponse> {
     const session = this.hlsSessionStore.get(sessionId);
     if (!session) {
       throw new NotFoundException('HLS session not found.');
     }
 
-    const readySegmentIndices = await this.listReadySegmentIndices(session.outputDir);
+    const readySegmentIndices = await this.listReadySegmentIndices(
+      session.outputDir,
+    );
     const readySegments = readySegmentIndices.length;
     const highestReadySegment =
       readySegmentIndices.length > 0
@@ -180,8 +189,9 @@ export class StreamService implements OnModuleInit {
             session.totalDurationSeconds,
             contiguousReadySegments * session.segmentSeconds,
           );
-    const inflightSegments =
-      this.segmentTranscoder.getInflightSegmentIndices(session.sessionId);
+    const inflightSegments = this.segmentTranscoder.getInflightSegmentIndices(
+      session.sessionId,
+    );
 
     return {
       sessionId: session.sessionId,
@@ -217,7 +227,6 @@ export class StreamService implements OnModuleInit {
     sessionId: string,
     fileName: string,
     response: Response,
-    user: AuthUser,
     accessToken?: string,
   ) {
     const session = this.hlsSessionStore.get(sessionId);
@@ -238,7 +247,7 @@ export class StreamService implements OnModuleInit {
     }
 
     if (fileName.endsWith('.ts')) {
-      await this.serveSegment(session, fileName, fullPath, response, user);
+      await this.serveSegment(session, fileName, fullPath, response);
       return;
     }
 
@@ -285,7 +294,10 @@ export class StreamService implements OnModuleInit {
     // need the canonical lookup. Falling back to the `.!qB` probe only when
     // canonical is genuinely missing avoids a wasted SMB roundtrip per
     // segment request and halves the wait when the share is unreachable.
-    const canonicalProbe = await this.pathExistsWithTimeout(canonicalPath, 5_000);
+    const canonicalProbe = await this.pathExistsWithTimeout(
+      canonicalPath,
+      5_000,
+    );
     if (canonicalProbe === 'exists') {
       return canonicalPath;
     }
@@ -294,7 +306,10 @@ export class StreamService implements OnModuleInit {
     }
 
     const inProgressPath = canonicalPath + '.!qB';
-    const inProgressProbe = await this.pathExistsWithTimeout(inProgressPath, 5_000);
+    const inProgressProbe = await this.pathExistsWithTimeout(
+      inProgressPath,
+      5_000,
+    );
     if (inProgressProbe === 'exists') {
       this.logger.debug(
         `Using in-progress source path for stream read: ${inProgressPath} (canonical missing)`,
@@ -340,7 +355,8 @@ export class StreamService implements OnModuleInit {
     selectedAudioStreamIndex: number | null,
   ): Promise<HlsSession> {
     const media = await this.mediaService.getById(mediaId);
-    const torrentIndex = await this.torrentMediaIndexStore.getByMediaId(mediaId);
+    const torrentIndex =
+      await this.torrentMediaIndexStore.getByMediaId(mediaId);
     const resolvedSourceFilePath = await this.mediaService
       .resolveMediaFilePath(media.filePath, media.relativePath)
       .catch(() => media.filePath);
@@ -413,7 +429,9 @@ export class StreamService implements OnModuleInit {
     };
   }
 
-  private normalizeAudioStreamIndex(value: number | null | undefined): number | null {
+  private normalizeAudioStreamIndex(
+    value: number | null | undefined,
+  ): number | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -435,8 +453,8 @@ export class StreamService implements OnModuleInit {
 
     if (requestedAudioStreamIndex === null) {
       return (
-        audioTracks.find((track) => track.isDefault)?.streamIndex
-        ?? audioTracks[0].streamIndex
+        audioTracks.find((track) => track.isDefault)?.streamIndex ??
+        audioTracks[0].streamIndex
       );
     }
 
@@ -483,7 +501,10 @@ export class StreamService implements OnModuleInit {
     if (accessToken) {
       const manifestContent = readFileSync(fullPath, 'utf8');
       response.send(
-        this.manifestService.rewriteWithAccessToken(manifestContent, accessToken),
+        this.manifestService.rewriteWithAccessToken(
+          manifestContent,
+          accessToken,
+        ),
       );
       return;
     }
@@ -496,7 +517,6 @@ export class StreamService implements OnModuleInit {
     fileName: string,
     fullPath: string,
     response: Response,
-    user: AuthUser,
   ) {
     const segmentIndex = parseSegmentIndex(fileName);
     if (
@@ -514,6 +534,10 @@ export class StreamService implements OnModuleInit {
       session.totalSegments,
     );
 
+    // Segment delivery is not a reliable resume signal because the client may
+    // prefetch ahead of the actual playhead. Resume state is persisted only
+    // from explicit player progress updates on /api/progress.
+
     // Re-assert sequential/first-last mode while HLS is actively requesting
     // early segments. This recovers torrents that drifted into random-piece
     // scheduling and leaves already-correct torrents unchanged.
@@ -528,14 +552,10 @@ export class StreamService implements OnModuleInit {
     // seamlessly across the rename.
     let sourceFilePath: string;
     try {
-      sourceFilePath = await this.resolveActualFilePath(
-        session.sourceFilePath,
-      );
+      sourceFilePath = await this.resolveActualFilePath(session.sourceFilePath);
     } catch (error) {
       if (error instanceof SourceUnreachableError) {
-        this.logger.warn(
-          `Segment ${segmentIndex} blocked: ${error.message}`,
-        );
+        this.logger.warn(`Segment ${segmentIndex} blocked: ${error.message}`);
         response.setHeader('Cache-Control', 'no-store');
         throw new HttpException(
           'Media source is unreachable; check that the storage share is online.',
@@ -594,8 +614,7 @@ export class StreamService implements OnModuleInit {
         audioArgs: session.audioArgs,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       if (this.isRecoverableTranscodeInputError(message)) {
         let startupSelfHealApplied = false;
 
@@ -610,7 +629,10 @@ export class StreamService implements OnModuleInit {
 
           if (!recoveredFromProxy) {
             startupSelfHealApplied =
-              await this.recordStartSegmentRecoverableFailure(session, fullPath);
+              await this.recordStartSegmentRecoverableFailure(
+                session,
+                fullPath,
+              );
           }
         }
 
@@ -618,7 +640,6 @@ export class StreamService implements OnModuleInit {
           if (segmentIndex === 0) {
             this.clearStartSegmentFailureState(session);
           }
-          this.recordChunkProgress(session, segmentIndex, timing, user);
           response.setHeader('Content-Type', 'video/mp2t');
           response.setHeader(
             'Cache-Control',
@@ -658,30 +679,9 @@ export class StreamService implements OnModuleInit {
       throw new NotFoundException('Segment unavailable.');
     }
 
-    this.recordChunkProgress(session, segmentIndex, timing, user);
     response.setHeader('Content-Type', 'video/mp2t');
     response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     createReadStream(fullPath).pipe(response);
-  }
-
-  private recordChunkProgress(
-    session: HlsSession,
-    segmentIndex: number,
-    timing: { startSeconds: number; durationSeconds: number },
-    user: AuthUser,
-  ): void {
-    void this.progressService
-      .upsertFromHlsSegment(user, session.mediaId, {
-        segmentStartSeconds: timing.startSeconds,
-        segmentDurationSeconds: timing.durationSeconds,
-        totalDurationSeconds: session.totalDurationSeconds,
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `Failed to persist chunk progress for session ${session.sessionId} segment ${segmentIndex}: ${message}`,
-        );
-      });
   }
 
   // Catch-all for any auxiliary file that may live alongside the manifest
@@ -763,15 +763,18 @@ export class StreamService implements OnModuleInit {
 
     const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
     if (
-      uncached !== null
-      && uncached.length > 0
-      && !uncached.every((byte) => byte === 0)
+      uncached !== null &&
+      uncached.length > 0 &&
+      !uncached.every((byte) => byte === 0)
     ) {
       return uncached;
     }
 
     if (process.platform === 'win32') {
-      const unbuffered = await this.readFileHeaderUnbuffered(filePath, byteCount);
+      const unbuffered = await this.readFileHeaderUnbuffered(
+        filePath,
+        byteCount,
+      );
       if (unbuffered !== null) {
         return unbuffered;
       }
@@ -808,24 +811,24 @@ export class StreamService implements OnModuleInit {
     const alignedBytes = Math.max(512, Math.ceil(byteCount / 512) * 512);
     const escapedPath = filePath.replace(/'/g, "''");
     const script =
-      "$ErrorActionPreference='Stop';"
-      + `$p='${escapedPath}';`
-      + `$s=${alignedBytes};`
-      + 'try{'
-      + '$fs=New-Object System.IO.FileStream('
-      + '$p,'
-      + '[System.IO.FileMode]::Open,'
-      + '[System.IO.FileAccess]::Read,'
-      + '[System.IO.FileShare]::ReadWrite,'
-      + '4096,'
-      + '([System.IO.FileOptions][int]0x20000000));'
-      + '$b=New-Object byte[] $s;'
-      + '$n=$fs.Read($b,0,$s);'
-      + '$fs.Close();'
-      + 'if($n -le 0){exit 2}'
-      + '[Console]::OpenStandardOutput().Write($b,0,$n);'
-      + 'exit 0'
-      + '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
+      "$ErrorActionPreference='Stop';" +
+      `$p='${escapedPath}';` +
+      `$s=${alignedBytes};` +
+      'try{' +
+      '$fs=New-Object System.IO.FileStream(' +
+      '$p,' +
+      '[System.IO.FileMode]::Open,' +
+      '[System.IO.FileAccess]::Read,' +
+      '[System.IO.FileShare]::ReadWrite,' +
+      '4096,' +
+      '([System.IO.FileOptions][int]0x20000000));' +
+      '$b=New-Object byte[] $s;' +
+      '$n=$fs.Read($b,0,$s);' +
+      '$fs.Close();' +
+      'if($n -le 0){exit 2}' +
+      '[Console]::OpenStandardOutput().Write($b,0,$n);' +
+      'exit 0' +
+      '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
 
     return await new Promise<Buffer | null>((resolvePromise) => {
       let settled = false;
@@ -931,9 +934,7 @@ export class StreamService implements OnModuleInit {
         return true;
       } catch (proxyError) {
         const proxyMessage =
-          proxyError instanceof Error
-            ? proxyError.message
-            : String(proxyError);
+          proxyError instanceof Error ? proxyError.message : String(proxyError);
         const label = attempt.forceRefresh ? 'refreshed proxy' : 'proxy';
         this.logger.warn(
           `Segment 0 ${label} transcode still not ready for session ${session.sessionId}: ${proxyMessage}`,
@@ -953,7 +954,8 @@ export class StreamService implements OnModuleInit {
     segmentPath: string,
   ): Promise<boolean> {
     const now = Date.now();
-    const windowStartedAt = session.startSegmentRecoverableWindowStartedAtMs ?? 0;
+    const windowStartedAt =
+      session.startSegmentRecoverableWindowStartedAtMs ?? 0;
 
     if (now - windowStartedAt > this.startSegmentRecoverableWindowMs) {
       session.startSegmentRecoverableWindowStartedAtMs = now;
@@ -1027,9 +1029,9 @@ export class StreamService implements OnModuleInit {
 
     const proxyBytes = await this.readProxyHeadBytes(sourceFilePath, maxBytes);
     if (
-      !proxyBytes
-      || proxyBytes.length === 0
-      || proxyBytes.every((byte) => byte === 0)
+      !proxyBytes ||
+      proxyBytes.length === 0 ||
+      proxyBytes.every((byte) => byte === 0)
     ) {
       return null;
     }
@@ -1047,19 +1049,22 @@ export class StreamService implements OnModuleInit {
   ): Promise<Buffer | null> {
     const uncached = await this.readFileHeaderCached(filePath, byteCount, 'rs');
     if (
-      uncached !== null
-      && uncached.length > 0
-      && !uncached.every((byte) => byte === 0)
+      uncached !== null &&
+      uncached.length > 0 &&
+      !uncached.every((byte) => byte === 0)
     ) {
       return uncached;
     }
 
     if (process.platform === 'win32') {
-      const unbuffered = await this.readFileHeaderUnbuffered(filePath, byteCount);
+      const unbuffered = await this.readFileHeaderUnbuffered(
+        filePath,
+        byteCount,
+      );
       if (
-        unbuffered !== null
-        && unbuffered.length > 0
-        && !unbuffered.every((byte) => byte === 0)
+        unbuffered !== null &&
+        unbuffered.length > 0 &&
+        !unbuffered.every((byte) => byte === 0)
       ) {
         return unbuffered;
       }
@@ -1067,9 +1072,9 @@ export class StreamService implements OnModuleInit {
 
     const cached = await this.readFileHeaderCached(filePath, byteCount, 'r');
     if (
-      cached !== null
-      && cached.length > 0
-      && !cached.every((byte) => byte === 0)
+      cached !== null &&
+      cached.length > 0 &&
+      !cached.every((byte) => byte === 0)
     ) {
       return cached;
     }
@@ -1084,31 +1089,31 @@ export class StreamService implements OnModuleInit {
 
     // EBML/Matroska header
     if (
-      header[0] === 0x1a
-      && header[1] === 0x45
-      && header[2] === 0xdf
-      && header[3] === 0xa3
+      header[0] === 0x1a &&
+      header[1] === 0x45 &&
+      header[2] === 0xdf &&
+      header[3] === 0xa3
     ) {
       return 100;
     }
 
     // MP4/MOV ('ftyp' at bytes 4..7)
     if (
-      header.length >= 8
-      && header[4] === 0x66
-      && header[5] === 0x74
-      && header[6] === 0x79
-      && header[7] === 0x70
+      header.length >= 8 &&
+      header[4] === 0x66 &&
+      header[5] === 0x74 &&
+      header[6] === 0x79 &&
+      header[7] === 0x70
     ) {
       return 100;
     }
 
     // RIFF
     if (
-      header[0] === 0x52
-      && header[1] === 0x49
-      && header[2] === 0x46
-      && header[3] === 0x46
+      header[0] === 0x52 &&
+      header[1] === 0x49 &&
+      header[2] === 0x46 &&
+      header[3] === 0x46
     ) {
       return 100;
     }
@@ -1123,11 +1128,11 @@ export class StreamService implements OnModuleInit {
   private isRecoverableTranscodeInputError(message: string): boolean {
     const normalized = message.toLowerCase();
     return (
-      normalized.includes('invalid data found when processing input')
-      || normalized.includes('ebml header parsing failed')
-      || normalized.includes('invalid as first byte of an ebml number')
-      || normalized.includes('error opening input file')
-      || normalized.includes('end of file')
+      normalized.includes('invalid data found when processing input') ||
+      normalized.includes('ebml header parsing failed') ||
+      normalized.includes('invalid as first byte of an ebml number') ||
+      normalized.includes('error opening input file') ||
+      normalized.includes('end of file')
     );
   }
 
@@ -1145,7 +1150,9 @@ export class StreamService implements OnModuleInit {
 
       await Promise.all(
         entries
-          .filter((entry) => entry.isDirectory() && !knownSessionIds.has(entry.name))
+          .filter(
+            (entry) => entry.isDirectory() && !knownSessionIds.has(entry.name),
+          )
           .map(async (entry) => {
             const dirPath = join(this.hlsRoot, entry.name);
             try {

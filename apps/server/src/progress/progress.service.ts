@@ -52,6 +52,20 @@ export class ProgressService {
       : normalized;
   }
 
+  private normalizeSyncTimestampMs(
+    value: number | null | undefined,
+  ): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.floor(value);
+  }
+
   private shouldMarkCompleted(
     positionSeconds: number,
     durationSeconds: number,
@@ -75,20 +89,22 @@ export class ProgressService {
     next: Omit<ProgressEntry, 'updatedAt'>,
   ): Promise<ProgressEntry> {
     if (
-      existing
-      && (existing.accountId ?? existing.userId ?? '') === next.accountId
-      && (existing.userId ?? next.accountId) === next.userId
-      && existing.mediaId === next.mediaId
-      && existing.positionSeconds === next.positionSeconds
-      && existing.durationSeconds === next.durationSeconds
-      && existing.completed === next.completed
-      && (existing.seriesPreferenceKey ?? null) === (next.seriesPreferenceKey ?? null)
-      && (existing.preferredAudioLanguage ?? null)
-        === (next.preferredAudioLanguage ?? null)
-      && (existing.preferredSubtitleLanguage ?? null)
-        === (next.preferredSubtitleLanguage ?? null)
-      && (existing.subtitlePreferenceEnabled ?? null)
-        === (next.subtitlePreferenceEnabled ?? null)
+      existing &&
+      (existing.accountId ?? existing.userId ?? '') === next.accountId &&
+      (existing.userId ?? next.accountId) === next.userId &&
+      existing.mediaId === next.mediaId &&
+      existing.positionSeconds === next.positionSeconds &&
+      existing.durationSeconds === next.durationSeconds &&
+      (existing.syncTimestampMs ?? null) === (next.syncTimestampMs ?? null) &&
+      existing.completed === next.completed &&
+      (existing.seriesPreferenceKey ?? null) ===
+        (next.seriesPreferenceKey ?? null) &&
+      (existing.preferredAudioLanguage ?? null) ===
+        (next.preferredAudioLanguage ?? null) &&
+      (existing.preferredSubtitleLanguage ?? null) ===
+        (next.preferredSubtitleLanguage ?? null) &&
+      (existing.subtitlePreferenceEnabled ?? null) ===
+        (next.subtitlePreferenceEnabled ?? null)
     ) {
       return existing;
     }
@@ -110,6 +126,22 @@ export class ProgressService {
   async upsert(user: AuthUser, mediaId: string, dto: UpdateProgressDto) {
     const accountId = this.resolveAccountId(user);
     const existing = await this.progressStore.get(accountId, mediaId);
+    const nextSyncTimestampMs = this.normalizeSyncTimestampMs(
+      dto.syncTimestampMs,
+    );
+    const existingSyncTimestampMs = this.normalizeSyncTimestampMs(
+      existing?.syncTimestampMs ?? null,
+    );
+
+    if (
+      existing &&
+      nextSyncTimestampMs !== null &&
+      existingSyncTimestampMs !== null &&
+      nextSyncTimestampMs < existingSyncTimestampMs
+    ) {
+      return existing;
+    }
+
     const existingDurationSeconds = this.normalizeSeconds(
       existing?.durationSeconds ?? 0,
     );
@@ -147,81 +179,24 @@ export class ProgressService {
       mediaId,
       positionSeconds: persistedPositionSeconds,
       durationSeconds,
+      syncTimestampMs: nextSyncTimestampMs ?? existingSyncTimestampMs,
       completed,
       seriesPreferenceKey:
         nextSeriesPreferenceKey === undefined
-          ? existing?.seriesPreferenceKey ?? null
+          ? (existing?.seriesPreferenceKey ?? null)
           : nextSeriesPreferenceKey,
       preferredAudioLanguage:
         nextPreferredAudioLanguage === undefined
-          ? existing?.preferredAudioLanguage ?? null
+          ? (existing?.preferredAudioLanguage ?? null)
           : nextPreferredAudioLanguage,
       preferredSubtitleLanguage:
         nextPreferredSubtitleLanguage === undefined
-          ? existing?.preferredSubtitleLanguage ?? null
+          ? (existing?.preferredSubtitleLanguage ?? null)
           : nextPreferredSubtitleLanguage,
       subtitlePreferenceEnabled:
         dto.subtitlePreferenceEnabled === undefined
-          ? existing?.subtitlePreferenceEnabled ?? null
+          ? (existing?.subtitlePreferenceEnabled ?? null)
           : dto.subtitlePreferenceEnabled,
-    });
-  }
-
-  async upsertFromHlsSegment(
-    user: AuthUser,
-    mediaId: string,
-    payload: {
-      segmentStartSeconds: number;
-      segmentDurationSeconds: number;
-      totalDurationSeconds: number;
-    },
-  ) {
-    const accountId = this.resolveAccountId(user);
-    const existing = await this.progressStore.get(accountId, mediaId);
-
-    const existingDurationSeconds = this.normalizeSeconds(
-      existing?.durationSeconds ?? 0,
-    );
-    const durationSeconds = Math.max(
-      this.normalizeSeconds(payload.totalDurationSeconds),
-      existingDurationSeconds,
-    );
-
-    const existingPositionSeconds = this.normalizePositionSeconds(
-      existing?.positionSeconds ?? 0,
-      durationSeconds,
-    );
-    const segmentEndSeconds =
-      payload.segmentStartSeconds + payload.segmentDurationSeconds;
-    const trackedPositionSeconds = this.normalizePositionSeconds(
-      segmentEndSeconds,
-      durationSeconds,
-    );
-    const positionSeconds = Math.max(
-      existingPositionSeconds,
-      trackedPositionSeconds,
-    );
-
-    const completed = this.shouldMarkCompleted(
-      positionSeconds,
-      durationSeconds,
-      false,
-      existing?.completed ?? false,
-    );
-    const persistedPositionSeconds =
-      completed && durationSeconds > 0 ? durationSeconds : positionSeconds;
-
-    return this.persistProgress(existing, {
-      accountId,
-      userId: accountId,
-      mediaId,
-      positionSeconds: persistedPositionSeconds,
-      durationSeconds,
-      completed,
-      seriesPreferenceKey: existing?.seriesPreferenceKey ?? null,
-      preferredAudioLanguage: existing?.preferredAudioLanguage ?? null,
-      preferredSubtitleLanguage: existing?.preferredSubtitleLanguage ?? null,
-      subtitlePreferenceEnabled: existing?.subtitlePreferenceEnabled ?? null,
     });
   }
 }

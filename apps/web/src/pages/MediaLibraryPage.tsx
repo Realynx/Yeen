@@ -26,7 +26,7 @@ import {
   artworkUrlForMedia,
   normalizeTags,
   sortMediaItems,
-  toLibraryItems,
+  toLibraryItemGroups,
   toLibraryType,
   toProgressMap,
   toProgressPercent,
@@ -78,6 +78,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   const [remoteItems, setRemoteItems] = useState<MediaItem[]>([]);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [manageActionError, setManageActionError] = useState<string | null>(null);
 
   const openDetails = useCallback((mediaId: string) => {
     navigate(`/details/${mediaId}`);
@@ -122,6 +123,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
         clearSelection();
         setShowAssignDialog(false);
         setShowDeleteDialog(false);
+        setManageActionError(null);
       }
       return !value;
     });
@@ -145,10 +147,23 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     [clearSelection, refresh, setError],
   );
 
-  const libraryItems = useMemo(
-    () => (manageMode ? mediaItems : toLibraryItems(mediaItems)),
-    [manageMode, mediaItems],
+  const libraryItemGroups = useMemo(
+    () => toLibraryItemGroups(mediaItems),
+    [mediaItems],
   );
+
+  const libraryItems = useMemo(
+    () => libraryItemGroups.map((group) => group.item),
+    [libraryItemGroups],
+  );
+
+  const libraryGroupById = useMemo(() => {
+    const byId = new Map<string, (typeof libraryItemGroups)[number]>();
+    for (const group of libraryItemGroups) {
+      byId.set(group.item.id, group);
+    }
+    return byId;
+  }, [libraryItemGroups]);
 
   const typeCounts = useMemo(() => {
     let movie = 0;
@@ -277,9 +292,87 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   }, [activeSearch, tagFilter]);
 
   const selectedMediaItems = useMemo(
-    () => mediaItems.filter((item) => selectedIds.has(item.id)),
-    [mediaItems, selectedIds],
+    () => {
+      const expanded: MediaItem[] = [];
+      const seen = new Set<string>();
+
+      for (const selectedId of selectedIds) {
+        const group = libraryGroupById.get(selectedId);
+        if (!group) {
+          continue;
+        }
+
+        for (const item of group.sourceItems) {
+          if (seen.has(item.id)) {
+            continue;
+          }
+
+          seen.add(item.id);
+          expanded.push(item);
+        }
+      }
+
+      return expanded;
+    },
+    [libraryGroupById, selectedIds],
   );
+
+  const selectedSeriesListingCount = useMemo(() => {
+    let total = 0;
+
+    for (const selectedId of selectedIds) {
+      const group = libraryGroupById.get(selectedId);
+      if (!group) {
+        continue;
+      }
+
+      if (group.item.type !== 'show') {
+        continue;
+      }
+
+      const hasPersistedSeriesRules = group.sourceItems.some((item) => {
+        const rules = item.seriesAssignmentRules;
+        if (!rules) {
+          return false;
+        }
+
+        const keywordCount = Array.isArray(rules.keywordMappings)
+          ? rules.keywordMappings.length
+          : 0;
+        const patternCount = Array.isArray(rules.patternMappings)
+          ? rules.patternMappings.length
+          : 0;
+
+        return keywordCount > 0 || patternCount > 0;
+      });
+
+      if (group.sourceItems.length > 1 || hasPersistedSeriesRules) {
+        total += 1;
+      }
+    }
+
+    return total;
+  }, [libraryGroupById, selectedIds]);
+
+  const hasSeriesAssignmentConflict = selectedSeriesListingCount > 1;
+
+  useEffect(() => {
+    if (!hasSeriesAssignmentConflict) {
+      setManageActionError(null);
+    }
+  }, [hasSeriesAssignmentConflict]);
+
+  const openAssignDialog = useCallback(() => {
+    if (hasSeriesAssignmentConflict) {
+      setManageActionError(
+        'Assign to Series can only target one existing series at a time. Deselect until one series listing remains selected.',
+      );
+      return;
+    }
+
+    setManageActionError(null);
+    setShowAssignDialog(true);
+  }, [hasSeriesAssignmentConflict]);
 
   const useCompactRemoteGrid = remoteItems.length > 0 && remoteItems.length < 6;
   const hideLocalSearchEmptyState =
@@ -430,12 +523,15 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
           onSelectAllVisible={selectAllVisible}
           onEditSingle={setEditingMedia}
           mediaItems={mediaItems}
-          onAssign={() => setShowAssignDialog(true)}
+          onAssign={openAssignDialog}
           onDelete={() => setShowDeleteDialog(true)}
         />
       ) : null}
 
       {error ? <p className="error-text library-feedback">{error}</p> : null}
+      {manageActionError ? (
+        <p className="error-text library-feedback">{manageActionError}</p>
+      ) : null}
       {loading ? <p className="muted library-feedback">Loading media library...</p> : null}
 
       {!hideLocalSearchEmptyState ? (

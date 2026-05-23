@@ -20,10 +20,11 @@ interface UsePlayerPageEffectsOptions {
   activeSubtitleUrl: string | null;
   setIsFullscreen: (value: boolean) => void;
   setIsPictureInPicture: (value: boolean) => void;
-  syncProgress: (completed?: boolean) => Promise<void>;
+  syncProgress: (completed?: boolean, keepalive?: boolean) => Promise<void>;
 }
 
 const DEFAULT_SUBTITLE_LINE_PERCENT = 87;
+const PROGRESS_SYNC_INTERVAL_MS = 5000;
 const ASS_ALIGNMENT_PATTERN = /\\an([1-9])/g;
 const BRACE_ALIGNMENT_PATTERN = /\{=\s*(\d+)\s*\}/g;
 const ASS_OVERRIDE_BLOCK_PATTERN = /\{[^{}]*\\[^{}]*\}/g;
@@ -263,6 +264,20 @@ export function usePlayerPageEffects({
   syncProgress,
 }: UsePlayerPageEffectsOptions): void {
   useEffect(() => {
+    if (!isPlaying || isSeeking) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void syncProgress(false);
+    }, PROGRESS_SYNC_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isPlaying, isSeeking, syncProgress]);
+
+  useEffect(() => {
     clearControlsTimer();
 
     if (isPlaying && !isSeeking) {
@@ -470,19 +485,30 @@ export function usePlayerPageEffects({
   }, [setIsFullscreen, setIsPictureInPicture]);
 
   useEffect(() => {
-    const handlePageHide = () => {
-      void syncProgress(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') {
+        return;
+      }
+
+      void syncProgress(false, true);
     };
 
+    const handlePageHide = () => {
+      void syncProgress(false, true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
     };
   }, [syncProgress]);
 
   useEffect(() => {
     return () => {
-      void syncProgress(false);
+      void syncProgress(false, true);
     };
   }, [syncProgress]);
 }

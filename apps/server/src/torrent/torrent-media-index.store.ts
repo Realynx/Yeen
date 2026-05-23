@@ -30,7 +30,9 @@ export class TorrentMediaIndexStore extends JsonFileStore<StoreState> {
     }
 
     const result: StoreState = {};
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, entry] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       if (!entry || typeof entry !== 'object') continue;
       const raw = entry as Record<string, unknown>;
       const hash = typeof raw.hash === 'string' ? raw.hash : key;
@@ -43,7 +45,8 @@ export class TorrentMediaIndexStore extends JsonFileStore<StoreState> {
         mediaId,
         filePath,
         indexedAtMs:
-          typeof raw.indexedAtMs === 'number' && Number.isFinite(raw.indexedAtMs)
+          typeof raw.indexedAtMs === 'number' &&
+          Number.isFinite(raw.indexedAtMs)
             ? raw.indexedAtMs
             : Date.now(),
       };
@@ -71,7 +74,9 @@ export class TorrentMediaIndexStore extends JsonFileStore<StoreState> {
     return null;
   }
 
-  async getByMediaIds(mediaIds: readonly string[]): Promise<Map<string, TorrentIndexEntry>> {
+  async getByMediaIds(
+    mediaIds: readonly string[],
+  ): Promise<Map<string, TorrentIndexEntry>> {
     await this.ensureLoaded();
 
     const requestedIds = new Set(
@@ -99,7 +104,9 @@ export class TorrentMediaIndexStore extends JsonFileStore<StoreState> {
     return matches;
   }
 
-  async getByRelatedFilePath(filePath: string): Promise<TorrentIndexEntry | null> {
+  async getByRelatedFilePath(
+    filePath: string,
+  ): Promise<TorrentIndexEntry | null> {
     await this.ensureLoaded();
     const target = this.normalizePath(filePath);
     const targetDir = dirname(target);
@@ -117,7 +124,8 @@ export class TorrentMediaIndexStore extends JsonFileStore<StoreState> {
       } else if (indexedDir === targetDir) {
         score = 2;
       } else if (
-        target.startsWith(`${indexedDir}/`) || indexedPath.startsWith(`${targetDir}/`)
+        target.startsWith(`${indexedDir}/`) ||
+        indexedPath.startsWith(`${targetDir}/`)
       ) {
         score = 1;
       }

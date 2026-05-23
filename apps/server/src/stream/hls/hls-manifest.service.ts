@@ -24,7 +24,10 @@ export interface ManifestWriterInput {
 export class HlsManifestService {
   async writeVodManifest(input: ManifestWriterInput): Promise<number> {
     const { manifestPath, segmentSeconds, totalDurationSeconds } = input;
-    const totalSegments = totalSegmentCount(totalDurationSeconds, segmentSeconds);
+    const totalSegments = totalSegmentCount(
+      totalDurationSeconds,
+      segmentSeconds,
+    );
     const targetDuration = Math.max(1, Math.ceil(segmentSeconds));
 
     const lines: string[] = [

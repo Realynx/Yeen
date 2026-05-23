@@ -7,6 +7,7 @@ import {
   MediaChapterThumbnail,
   MediaDetails,
   MediaItem,
+  SeriesAssignmentRules,
   MediaSubtitleDetail,
 } from './entities/media-item.entity';
 
@@ -39,6 +40,9 @@ interface MediaRow {
   backdrop_image_path: string | null;
   chapter_thumbnails_json: string;
   media_details_json: string;
+  series_assignment_rules_json: string | null;
+  episode_catalog_source: 'tmdb' | 'jikan' | null;
+  episode_catalog_source_id: string | null;
   metadata_refreshed_at: string;
   updated_at: string;
 }
@@ -72,6 +76,9 @@ const MEDIA_METADATA_COLUMNS = [
   'backdrop_image_path',
   'chapter_thumbnails_json',
   'media_details_json',
+  'series_assignment_rules_json',
+  'episode_catalog_source',
+  'episode_catalog_source_id',
   'metadata_refreshed_at',
   'updated_at',
 ] as const;
@@ -244,6 +251,19 @@ export class MediaStore implements OnModuleDestroy {
     ).run(newFilePath, newRelativePath, now, mediaId);
   }
 
+  async clearSeriesAssignmentRules(mediaId: string): Promise<void> {
+    const db = await this.getDb();
+    const now = new Date().toISOString();
+    db.prepare(
+      `
+      UPDATE media_metadata
+      SET series_assignment_rules_json = NULL,
+          updated_at = ?
+      WHERE id = ?
+      `,
+    ).run(now, mediaId);
+  }
+
   onModuleDestroy(): void {
     this.closeDb();
   }
@@ -300,6 +320,9 @@ export class MediaStore implements OnModuleDestroy {
         backdrop_image_path TEXT,
         chapter_thumbnails_json TEXT NOT NULL DEFAULT '[]',
         media_details_json TEXT NOT NULL DEFAULT '{}',
+        series_assignment_rules_json TEXT,
+        episode_catalog_source TEXT,
+        episode_catalog_source_id TEXT,
         metadata_refreshed_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -354,6 +377,9 @@ export class MediaStore implements OnModuleDestroy {
       "TEXT NOT NULL DEFAULT '[]'",
     );
     this.ensureColumn(db, existingColumns, 'backdrop_image_path', 'TEXT');
+    this.ensureColumn(db, existingColumns, 'series_assignment_rules_json', 'TEXT');
+    this.ensureColumn(db, existingColumns, 'episode_catalog_source', 'TEXT');
+    this.ensureColumn(db, existingColumns, 'episode_catalog_source_id', 'TEXT');
   }
 
   private getExistingColumns(
@@ -431,6 +457,17 @@ export class MediaStore implements OnModuleDestroy {
         null,
       chapterThumbnails,
       mediaDetails: this.parseMediaDetails(row.media_details_json),
+      seriesAssignmentRules: this.parseSeriesAssignmentRules(
+        row.series_assignment_rules_json,
+      ),
+      episodeCatalogSource:
+        (row.episode_catalog_source === 'tmdb' ||
+          row.episode_catalog_source === 'jikan')
+          ? row.episode_catalog_source
+          : null,
+      episodeCatalogSourceId: this.toNullableString(
+        row.episode_catalog_source_id,
+      ),
       metadataRefreshedAt: row.metadata_refreshed_at || row.updated_at,
       updatedAt: row.updated_at,
     };
@@ -476,7 +513,9 @@ export class MediaStore implements OnModuleDestroy {
         return [];
       }
 
-      const tags = parsed.filter((entry): entry is string => typeof entry === 'string');
+      const tags = parsed.filter(
+        (entry): entry is string => typeof entry === 'string',
+      );
       return this.normalizeTags(tags);
     } catch {
       return [];
@@ -549,6 +588,141 @@ export class MediaStore implements OnModuleDestroy {
     }
   }
 
+  private parseSeriesAssignmentRules(
+    raw: string | null,
+  ): SeriesAssignmentRules | null {
+    if (typeof raw !== 'string' || raw.trim().length === 0) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        return null;
+      }
+
+      const source = parsed as Record<string, unknown>;
+      const keywordMappings = this.parseSeriesKeywordMappings(
+        source.keywordMappings,
+      );
+      const patternMappings = this.parseSeriesPatternMappings(
+        source.patternMappings,
+      );
+
+      if (keywordMappings.length === 0 && patternMappings.length === 0) {
+        return null;
+      }
+
+      const rules: SeriesAssignmentRules = {};
+      if (keywordMappings.length > 0) {
+        rules.keywordMappings = keywordMappings;
+      }
+      if (patternMappings.length > 0) {
+        rules.patternMappings = patternMappings;
+      }
+
+      return rules;
+    } catch {
+      return null;
+    }
+  }
+
+  private parseSeriesKeywordMappings(
+    value: unknown,
+  ): NonNullable<SeriesAssignmentRules['keywordMappings']> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const rules: NonNullable<SeriesAssignmentRules['keywordMappings']> = [];
+
+    for (const entry of value) {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        Array.isArray(entry)
+      ) {
+        continue;
+      }
+
+      const row = entry as Record<string, unknown>;
+      const keyword = typeof row.keyword === 'string' ? row.keyword.trim() : '';
+      if (!keyword) {
+        continue;
+      }
+
+      const seasonNumber = this.toFiniteInteger(row.seasonNumber);
+      const episodeNumber = this.toFiniteInteger(row.episodeNumber);
+
+      if (seasonNumber === null && episodeNumber === null) {
+        continue;
+      }
+
+      rules.push({
+        keyword,
+        seasonNumber,
+        episodeNumber,
+      });
+    }
+
+    return rules;
+  }
+
+  private parseSeriesPatternMappings(
+    value: unknown,
+  ): NonNullable<SeriesAssignmentRules['patternMappings']> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const rules: NonNullable<SeriesAssignmentRules['patternMappings']> = [];
+
+    for (const entry of value) {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        Array.isArray(entry)
+      ) {
+        continue;
+      }
+
+      const row = entry as Record<string, unknown>;
+      const pattern = typeof row.pattern === 'string' ? row.pattern.trim() : '';
+      if (!pattern) {
+        continue;
+      }
+
+      const seasonGroup = this.toFiniteInteger(row.seasonGroup);
+      const episodeGroup = this.toFiniteInteger(row.episodeGroup);
+      const seasonNumber = this.toFiniteInteger(row.seasonNumber);
+      const episodeNumber = this.toFiniteInteger(row.episodeNumber);
+
+      if (
+        seasonGroup === null &&
+        episodeGroup === null &&
+        seasonNumber === null &&
+        episodeNumber === null
+      ) {
+        continue;
+      }
+
+      rules.push({
+        pattern,
+        flags: typeof row.flags === 'string' ? row.flags : undefined,
+        seasonGroup,
+        episodeGroup,
+        seasonNumber,
+        episodeNumber,
+      });
+    }
+
+    return rules;
+  }
+
   private defaultMediaDetails(): MediaDetails {
     return {
       formatName: null,
@@ -589,6 +763,17 @@ export class MediaStore implements OnModuleDestroy {
       chapter_thumbnails_json: JSON.stringify(item.chapterThumbnails ?? []),
       media_details_json: JSON.stringify(
         item.mediaDetails ?? this.defaultMediaDetails(),
+      ),
+      series_assignment_rules_json: item.seriesAssignmentRules
+        ? JSON.stringify(item.seriesAssignmentRules)
+        : null,
+      episode_catalog_source:
+        (item.episodeCatalogSource === 'tmdb' ||
+          item.episodeCatalogSource === 'jikan')
+          ? item.episodeCatalogSource
+          : null,
+      episode_catalog_source_id: this.toNullableString(
+        item.episodeCatalogSourceId,
       ),
       metadata_refreshed_at: item.metadataRefreshedAt ?? item.updatedAt,
       updated_at: item.updatedAt,

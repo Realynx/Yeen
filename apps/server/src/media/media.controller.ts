@@ -318,6 +318,11 @@ export class MediaController {
     return this.mediaService.detectFilenameMetadata(mediaId);
   }
 
+  @Get(':mediaId/series-tracker')
+  getSeriesEpisodeTracker(@Param('mediaId') mediaId: string) {
+    return this.mediaService.getSeriesEpisodeTracker(mediaId);
+  }
+
   @Get('metadata/search')
   @UseGuards(AdminGuard)
   searchMetadata(
@@ -364,10 +369,7 @@ export class MediaController {
 
   @Patch(':mediaId')
   @UseGuards(AdminGuard)
-  updateMedia(
-    @Param('mediaId') mediaId: string,
-    @Body() dto: UpdateMediaDto,
-  ) {
+  updateMedia(@Param('mediaId') mediaId: string, @Body() dto: UpdateMediaDto) {
     return this.mediaService.updateMedia(mediaId, dto);
   }
 
@@ -496,7 +498,12 @@ export class MediaController {
     }
 
     const cleaned = first.trim().toLowerCase();
-    return cleaned === '1' || cleaned === 'true' || cleaned === 'yes' || cleaned === 'on';
+    return (
+      cleaned === '1' ||
+      cleaned === 'true' ||
+      cleaned === 'yes' ||
+      cleaned === 'on'
+    );
   }
 
   private parseStringArrayBody(raw: unknown): string[] {
