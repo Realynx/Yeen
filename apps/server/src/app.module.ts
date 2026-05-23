@@ -5,6 +5,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { InvitePageController } from './invite-page.controller';
 import { MediaModule } from './media/media.module';
 import { ProgressModule } from './progress/progress.module';
 import { StreamModule } from './stream/stream.module';
@@ -19,7 +20,7 @@ import { TorrentModule } from './torrent/torrent.module';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '../../web/dist'),
-      exclude: ['/api{/*path}'],
+      exclude: ['/api{/*path}', '/invite{/*path}'],
     }),
     AuthModule,
     MediaModule,
@@ -29,7 +30,7 @@ import { TorrentModule } from './torrent/torrent.module';
     ProgressModule,
     TorrentModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, InvitePageController],
   providers: [AppService],
 })
 export class AppModule {}

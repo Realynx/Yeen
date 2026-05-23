@@ -62,6 +62,11 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
     navigate('/admin/system');
   }
 
+  function goToAccountsAccess() {
+    setOpen(false);
+    navigate('/admin/accounts');
+  }
+
   function goToDownloadControl() {
     setOpen(false);
     navigate('/admin/downloads');
@@ -106,6 +111,12 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
           {isAdmin ? (
             <button className="profile-dropdown-item" type="button" onClick={goToSystemSettings}>
               System Settings
+            </button>
+          ) : null}
+
+          {isAdmin ? (
+            <button className="profile-dropdown-item" type="button" onClick={goToAccountsAccess}>
+              Accounts & Access
             </button>
           ) : null}
 

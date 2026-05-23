@@ -14,7 +14,9 @@ import { access, mkdir, open, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { AuthUser } from '../auth/entities/auth-user.entity';
 import { MediaService, type PlaybackAudioTrack } from '../media/media.service';
+import { ProgressService } from '../progress/progress.service';
 import { resolveSafePathFromFileName } from '../shared/safe-path';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import {
@@ -97,6 +99,7 @@ export class StreamService implements OnModuleInit {
     private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
     private readonly hlsSessionStore: HlsSessionStore,
     private readonly rangeStreamService: RangeStreamService,
+    private readonly progressService: ProgressService,
     private readonly manifestService: HlsManifestService,
     private readonly segmentTranscoder: HlsSegmentTranscoder,
     private readonly availability: TorrentDataAvailabilityService,
@@ -214,6 +217,7 @@ export class StreamService implements OnModuleInit {
     sessionId: string,
     fileName: string,
     response: Response,
+    user: AuthUser,
     accessToken?: string,
   ) {
     const session = this.hlsSessionStore.get(sessionId);
@@ -234,7 +238,7 @@ export class StreamService implements OnModuleInit {
     }
 
     if (fileName.endsWith('.ts')) {
-      await this.serveSegment(session, fileName, fullPath, response);
+      await this.serveSegment(session, fileName, fullPath, response, user);
       return;
     }
 
@@ -492,6 +496,7 @@ export class StreamService implements OnModuleInit {
     fileName: string,
     fullPath: string,
     response: Response,
+    user: AuthUser,
   ) {
     const segmentIndex = parseSegmentIndex(fileName);
     if (
@@ -613,6 +618,7 @@ export class StreamService implements OnModuleInit {
           if (segmentIndex === 0) {
             this.clearStartSegmentFailureState(session);
           }
+          this.recordChunkProgress(session, segmentIndex, timing, user);
           response.setHeader('Content-Type', 'video/mp2t');
           response.setHeader(
             'Cache-Control',
@@ -652,9 +658,30 @@ export class StreamService implements OnModuleInit {
       throw new NotFoundException('Segment unavailable.');
     }
 
+    this.recordChunkProgress(session, segmentIndex, timing, user);
     response.setHeader('Content-Type', 'video/mp2t');
     response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     createReadStream(fullPath).pipe(response);
+  }
+
+  private recordChunkProgress(
+    session: HlsSession,
+    segmentIndex: number,
+    timing: { startSeconds: number; durationSeconds: number },
+    user: AuthUser,
+  ): void {
+    void this.progressService
+      .upsertFromHlsSegment(user, session.mediaId, {
+        segmentStartSeconds: timing.startSeconds,
+        segmentDurationSeconds: timing.durationSeconds,
+        totalDurationSeconds: session.totalDurationSeconds,
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Failed to persist chunk progress for session ${session.sessionId} segment ${segmentIndex}: ${message}`,
+        );
+      });
   }
 
   // Catch-all for any auxiliary file that may live alongside the manifest

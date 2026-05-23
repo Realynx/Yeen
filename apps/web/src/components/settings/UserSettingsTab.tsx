@@ -366,17 +366,23 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   return (
     <section className="settings-content-grid">
       <article className="settings-surface settings-surface-full settings-surface-categorized">
-        <header className="settings-surface-header">
-          <div>
+        <header className="settings-surface-header user-settings-title-panel">
+          <div className="user-settings-title-copy">
             <p className="settings-section-kicker">Account</p>
             <h2>Profile</h2>
           </div>
-          <span className="settings-pill">{roleLabel}</span>
+          <span className="settings-pill user-settings-title-pill">{roleLabel}</span>
         </header>
 
-        <p className="muted">
+        <p className="muted user-settings-title-description">
           Manage your own profile details, password, and account picture. System-wide
           runtime and library settings remain in the admin System Settings page.
+        </p>
+
+        <p className="settings-inline-meta user-settings-title-meta">
+          {isAdmin
+            ? 'Admin account: user profile settings are shown here; system controls stay in System Settings.'
+            : 'Personal account controls: profile, invites, avatar, and password.'}
         </p>
 
         <div className="settings-categories user-settings-categories">

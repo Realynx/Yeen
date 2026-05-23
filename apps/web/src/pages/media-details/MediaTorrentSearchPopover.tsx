@@ -14,7 +14,7 @@ import {
 import type { IptorrentsFlowState } from './useIptorrentsFlow';
 import type { NyaaFlowState } from './useNyaaFlow';
 
-interface MediaTorrentSearchPopoverProps {
+export interface MediaTorrentSearchPopoverProps {
   open: boolean;
   title: string;
   trackerDescription: string;
@@ -240,15 +240,6 @@ export function MediaTorrentSearchPopover({
                   >
                     Refresh Nyaa Search
                   </button>
-
-                  <a
-                    href={nyaaSearchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ghost-button small"
-                  >
-                    Open Nyaa
-                  </a>
                 </div>
               </div>
 

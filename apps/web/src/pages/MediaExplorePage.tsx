@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { LibrarySearchForm } from '../components/LibrarySearchForm';
 import { ProfileMenu } from '../components/ProfileMenu';
 import { searchRemoteMedia, toApiErrorMessage } from '../lib/api';
 import type { MediaItem, User } from '../lib/types';
+import { pickRandomItem, toLibrarySearchPath } from './librarySearchUtils';
 import { MediaExploreControls } from './media-explore/MediaExploreControls';
 import { MediaExploreResults } from './media-explore/MediaExploreResults';
 import {
@@ -35,6 +38,7 @@ const REMOTE_PAGE_SIZE = 20;
 
 export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProps) {
   const navigate = useNavigate();
+  const [query, setQuery] = useState('');
 
   const restoredSessionState = useMemo(() => readExploreSessionState(), []);
   const initialCatalogMode = restoredSessionState?.catalogMode ?? 'non-anime';
@@ -462,6 +466,11 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     return getFilteredExploreItems(remoteItems, typeFilter);
   }, [remoteItems, typeFilter]);
 
+  const randomDetailsCandidates = useMemo(
+    () => filteredItems,
+    [filteredItems],
+  );
+
   const useCompactResultsGrid = shouldUseCompactExploreGrid(filteredItems);
 
   const virtualizedRange = useMemo(() => {
@@ -532,6 +541,20 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     resetExploreForTag(nextTag);
   }
 
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    navigate(toLibrarySearchPath(query));
+  }
+
+  const openRandomDetails = useCallback(() => {
+    const randomCandidate = pickRandomItem(randomDetailsCandidates);
+    if (!randomCandidate) {
+      return;
+    }
+
+    openDetails(randomCandidate.id);
+  }, [openDetails, randomDetailsCandidates]);
+
   return (
     <main className="browse-page media-library-page media-explore-page">
       <header className="top-nav">
@@ -567,6 +590,14 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
         </div>
 
         <div className="top-nav-right">
+          <LibrarySearchForm
+            query={query}
+            onQueryChange={setQuery}
+            onSearchSubmit={handleSearch}
+            placeholder="Search titles and paths"
+            onOpenRandomDetails={openRandomDetails}
+            randomDisabled={randomDetailsCandidates.length === 0}
+          />
           <ProfileMenu user={user} onLogout={onLogout} />
         </div>
       </header>

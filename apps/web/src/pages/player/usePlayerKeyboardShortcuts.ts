@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { SKIP_SECONDS } from './playerUtils';
 
 interface UsePlayerKeyboardShortcutsOptions {
+  enabled?: boolean;
   applyVolume: (nextVolume: number) => void;
   revealControls: () => void;
   skipBy: (deltaSeconds: number) => void;
@@ -15,6 +16,7 @@ interface UsePlayerKeyboardShortcutsOptions {
 }
 
 export function usePlayerKeyboardShortcuts({
+  enabled = true,
   applyVolume,
   revealControls,
   skipBy,
@@ -27,6 +29,10 @@ export function usePlayerKeyboardShortcuts({
   volume,
 }: UsePlayerKeyboardShortcutsOptions): void {
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     function handleKeyboardShortcuts(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName ?? '';
@@ -102,6 +108,7 @@ export function usePlayerKeyboardShortcuts({
       window.removeEventListener('keydown', handleKeyboardShortcuts);
     };
   }, [
+    enabled,
     adjustPlaybackRate,
     applyVolume,
     revealControls,

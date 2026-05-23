@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../components/AssignToShowDialog';
 import { EditMetadataDialog } from '../components/EditMetadataDialog';
@@ -31,19 +31,41 @@ import { useNyaaFlow } from './media-details/useNyaaFlow';
 import { useMediaTorrentProgress } from './media-details/useMediaTorrentProgress';
 import { MediaDetailsHero } from './media-details/MediaDetailsHero';
 import { MediaTorrentSearchPopover } from './media-details/MediaTorrentSearchPopover';
+import { MediaTorrentSearchPopoverPhone } from './media-details/MediaTorrentSearchPopoverPhone';
 import { useMediaDetailsTorrentSearch } from './media-details/useMediaDetailsTorrentSearch';
 
 interface MediaDetailsPageProps {
   token: string;
   user: User;
   onLogout: () => void;
+  hideTopNav?: boolean;
+  headerContent?: ReactNode;
+  usePhoneTorrentPopover?: boolean;
 }
 
-export function MediaDetailsPage({ token, user, onLogout }: MediaDetailsPageProps) {
+export function MediaDetailsPage({
+  token,
+  user,
+  onLogout,
+  hideTopNav = false,
+  headerContent = null,
+  usePhoneTorrentPopover = false,
+}: MediaDetailsPageProps) {
   const { mediaId = '' } = useParams();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const hasTorrentAccess = canAccessTorrentTools(user.role);
+
+  const fallbackClassName = hideTopNav
+    ? 'media-details-page phone-details-page'
+    : 'media-details-page';
+
+  const renderFallback = (content: ReactNode) => (
+    <main className={fallbackClassName}>
+      {headerContent}
+      {content}
+    </main>
+  );
 
   const handleBackNavigation = () => {
     if (window.history.length > 1) {
@@ -121,32 +143,28 @@ export function MediaDetailsPage({ token, user, onLogout }: MediaDetailsPageProp
   }, [navigate, randomDetailsCandidates, token]);
 
   if (loading) {
-    return (
-      <main className="media-details-page">
-        <p className="muted">Loading details...</p>
-      </main>
-    );
+    return renderFallback(<p className="muted">Loading details...</p>);
   }
 
   if (error) {
-    return (
-      <main className="media-details-page">
+    return renderFallback(
+      <>
         <p className="error-text">{error}</p>
         <button type="button" className="ghost-button" onClick={() => navigate('/')}>
           Back To Library
         </button>
-      </main>
+      </>,
     );
   }
 
   if (!current) {
-    return (
-      <main className="media-details-page">
+    return renderFallback(
+      <>
         <p className="error-text">Media item not found.</p>
         <button type="button" className="ghost-button" onClick={() => navigate('/')}>
           Back To Library
         </button>
-      </main>
+      </>,
     );
   }
 
@@ -154,40 +172,50 @@ export function MediaDetailsPage({ token, user, onLogout }: MediaDetailsPageProp
   const isRemoteItem = Boolean(current.isRemote);
   const isAdmin = isAdminRole(user.role);
   const canEditMetadata = isAdmin && !isRemoteItem;
+  const detailsPageClassName = hideTopNav
+    ? 'media-details-page details-page-v2 phone-details-page'
+    : 'media-details-page details-page-v2';
+  const TorrentSearchPopoverComponent = usePhoneTorrentPopover
+    ? MediaTorrentSearchPopoverPhone
+    : MediaTorrentSearchPopover;
 
   return (
     <main
-      className="media-details-page details-page-v2"
+      className={detailsPageClassName}
       style={heroBackdropImageUrl ? ({ ['--details-backdrop' as string]: `url("${heroBackdropImageUrl}")` }) : undefined}
     >
       <div className="details-backdrop" aria-hidden="true" />
 
-      <header className="top-nav">
-        <div className="top-nav-left">
-          <button
-            type="button"
-            className="nav-back-button"
-            aria-label="Go back"
-            title="Go back"
-            onClick={handleBackNavigation}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <p className="brand-mark">YEEN</p>
-          <p className="page-nav-title" title={current.title}>{current.title}</p>
-        </div>
+      {headerContent}
 
-        <div className="top-nav-right">
-          <LibrarySearchForm
-            query={query}
-            onQueryChange={setQuery}
-            onSearchSubmit={handleSearch}
-            placeholder="Search titles and paths"
-            onOpenRandomDetails={openRandomDetails}
-          />
-          <ProfileMenu user={user} onLogout={onLogout} />
-        </div>
-      </header>
+      {!hideTopNav ? (
+        <header className="top-nav">
+          <div className="top-nav-left">
+            <button
+              type="button"
+              className="nav-back-button"
+              aria-label="Go back"
+              title="Go back"
+              onClick={handleBackNavigation}
+            >
+              <span aria-hidden="true">←</span>
+            </button>
+            <p className="brand-mark">YEEN</p>
+            <p className="page-nav-title" title={current.title}>{current.title}</p>
+          </div>
+
+          <div className="top-nav-right">
+            <LibrarySearchForm
+              query={query}
+              onQueryChange={setQuery}
+              onSearchSubmit={handleSearch}
+              placeholder="Search titles and paths"
+              onOpenRandomDetails={openRandomDetails}
+            />
+            <ProfileMenu user={user} onLogout={onLogout} />
+          </div>
+        </header>
+      ) : null}
 
       <MediaDetailsHero
         current={current}
@@ -256,7 +284,7 @@ export function MediaDetailsPage({ token, user, onLogout }: MediaDetailsPageProp
         <TechnicalDetailsSection current={current} />
       ) : null}
 
-      <MediaTorrentSearchPopover
+      <TorrentSearchPopoverComponent
         open={torrentSearch.showPopover}
         title={current.title}
         trackerDescription={torrentSearch.trackerDescription}

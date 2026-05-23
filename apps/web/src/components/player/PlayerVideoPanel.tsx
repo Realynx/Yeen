@@ -78,6 +78,7 @@ interface PlayerVideoPanelProps {
   playbackRate: number;
   subtitleFontPreset: SubtitleFontPreset;
   theaterMode: boolean;
+  isPhoneMode?: boolean;
   currentTime: number;
   totalDuration: number;
   safeDuration: number;
@@ -228,6 +229,7 @@ export function PlayerVideoPanel({
   playbackRate,
   subtitleFontPreset,
   theaterMode,
+  isPhoneMode = false,
   currentTime,
   totalDuration,
   safeDuration,
@@ -439,14 +441,16 @@ export function PlayerVideoPanel({
             {muted ? 'Unmute' : 'Mute'}
           </button>
 
-          <button
-            type="button"
-            role="menuitem"
-            className="player-context-menu-item"
-            onClick={() => runContextAction(onToggleTheaterMode)}
-          >
-            {theaterMode ? 'Exit theater mode' : 'Enter theater mode'}
-          </button>
+          {!isPhoneMode ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="player-context-menu-item"
+              onClick={() => runContextAction(onToggleTheaterMode)}
+            >
+              {theaterMode ? 'Exit theater mode' : 'Enter theater mode'}
+            </button>
+          ) : null}
 
           {canUsePictureInPicture ? (
             <button
@@ -711,33 +715,39 @@ export function PlayerVideoPanel({
             <div className="player-controls-left">
               <button
                 type="button"
-                className="player-icon-button player-icon-button-primary"
+                className={`player-icon-button player-icon-button-primary ${isPhoneMode ? 'is-phone-mode' : ''}`}
                 onClick={onTogglePlay}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
-                title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                title={isPhoneMode
+                  ? (isPlaying ? 'Pause' : 'Play')
+                  : (isPlaying ? 'Pause (Space)' : 'Play (Space)')}
               >
                 {isPlaying ? <PauseIcon /> : <PlayIcon />}
               </button>
 
-              <button
-                type="button"
-                className="player-icon-button"
-                onClick={() => onSkipBy(-SKIP_SECONDS)}
-                aria-label="Back 10 seconds"
-                title="Back 10s (J)"
-              >
-                <SkipBackIcon />
-              </button>
+              {!isPhoneMode ? (
+                <button
+                  type="button"
+                  className="player-icon-button"
+                  onClick={() => onSkipBy(-SKIP_SECONDS)}
+                  aria-label="Back 10 seconds"
+                  title="Back 10s (J)"
+                >
+                  <SkipBackIcon />
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                className="player-icon-button"
-                onClick={() => onSkipBy(SKIP_SECONDS)}
-                aria-label="Forward 10 seconds"
-                title="Forward 10s (L)"
-              >
-                <SkipForwardIcon />
-              </button>
+              {!isPhoneMode ? (
+                <button
+                  type="button"
+                  className="player-icon-button"
+                  onClick={() => onSkipBy(SKIP_SECONDS)}
+                  aria-label="Forward 10 seconds"
+                  title="Forward 10s (L)"
+                >
+                  <SkipForwardIcon />
+                </button>
+              ) : null}
 
               <div className="player-volume-control">
                 <button
@@ -745,7 +755,9 @@ export function PlayerVideoPanel({
                   className="player-icon-button"
                   onClick={onToggleMute}
                   aria-label={muted ? 'Unmute' : 'Mute'}
-                  title={muted ? 'Unmute (M)' : 'Mute (M)'}
+                  title={isPhoneMode
+                    ? (muted ? 'Unmute' : 'Mute')
+                    : (muted ? 'Unmute (M)' : 'Mute (M)')}
                 >
                   <VolumeIcon muted={muted} volume={volume} />
                 </button>
@@ -832,7 +844,7 @@ export function PlayerVideoPanel({
                   onClick={() => toggleMenu('subs')}
                   aria-label="Subtitles"
                   aria-expanded={openMenu === 'subs'}
-                  title="Subtitles (C)"
+                  title={isPhoneMode ? 'Subtitles' : 'Subtitles (C)'}
                 >
                   <CaptionsIcon />
                 </button>
@@ -998,15 +1010,17 @@ export function PlayerVideoPanel({
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                className={`player-icon-button ${theaterMode ? 'is-active' : ''}`}
-                onClick={onToggleTheaterMode}
-                aria-label={theaterMode ? 'Disable theater mode' : 'Enable theater mode'}
-                title="Theater mode"
-              >
-                <TheaterIcon />
-              </button>
+              {!isPhoneMode ? (
+                <button
+                  type="button"
+                  className={`player-icon-button ${theaterMode ? 'is-active' : ''}`}
+                  onClick={onToggleTheaterMode}
+                  aria-label={theaterMode ? 'Disable theater mode' : 'Enable theater mode'}
+                  title="Theater mode"
+                >
+                  <TheaterIcon />
+                </button>
+              ) : null}
 
               {canUsePictureInPicture ? (
                 <button
@@ -1014,7 +1028,7 @@ export function PlayerVideoPanel({
                   className={`player-icon-button ${isPictureInPicture ? 'is-active' : ''}`}
                   onClick={onTogglePictureInPicture}
                   aria-label={isPictureInPicture ? 'Exit picture-in-picture' : 'Enter picture-in-picture'}
-                  title="Picture-in-picture (P)"
+                  title={isPhoneMode ? 'Picture-in-picture' : 'Picture-in-picture (P)'}
                 >
                   <PipIcon />
                 </button>
@@ -1025,7 +1039,7 @@ export function PlayerVideoPanel({
                 className={`player-icon-button ${isFullscreen ? 'is-active' : ''}`}
                 onClick={onToggleFullscreen}
                 aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                title="Fullscreen (F)"
+                title={isPhoneMode ? 'Fullscreen' : 'Fullscreen (F)'}
               >
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
               </button>
