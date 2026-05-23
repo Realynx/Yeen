@@ -57,6 +57,7 @@ export function MediaTorrentSearchPopoverPhone({
     };
   }, [onClose, open]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       return;
@@ -67,6 +68,7 @@ export function MediaTorrentSearchPopoverPhone({
     setSheetDragOffset(0);
     setSheetDragActive(false);
   }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!open) {
     return null;

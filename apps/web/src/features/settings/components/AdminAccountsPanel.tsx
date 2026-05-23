@@ -33,6 +33,7 @@ export function AdminAccountsPanel({
     'all' | 'admin' | 'sailer' | 'user'
   >('all');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setInviteDrafts((previous) => {
       const next: Record<string, string> = {};
@@ -49,6 +50,7 @@ export function AdminAccountsPanel({
       return next;
     });
   }, [accounts]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const adminCount = useMemo(
     () => accounts.filter((account) => account.role === 'admin').length,

@@ -1,0 +1,84 @@
+@media (max-width: 980px) {
+  .player-episode-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .player-details {
+    grid-template-columns: 1fr;
+  }
+
+  .player-details-shortcuts {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid rgba(186, 213, 247, 0.16);
+    padding-top: 0.8rem;
+  }
+
+  .player-controls-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .player-controls-right {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .player-episode-link {
+    min-height: 118px;
+    padding: 0.78rem 0.86rem;
+  }
+
+  .player-controls-panel {
+    padding: 0.72rem;
+  }
+
+  .player-controls-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .player-inline-badges {
+    justify-content: flex-start;
+  }
+
+  .player-controls-left,
+  .player-controls-right {
+    width: 100%;
+  }
+
+  .player-controls-right {
+    justify-content: flex-start;
+  }
+
+  .player-volume-wrap {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .player-volume-wrap input[type='range'] {
+    width: min(220px, 100%);
+  }
+
+  .player-seekbar-wrap {
+    margin-top: 0.2rem;
+  }
+
+  .player-chapter-jump {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .player-chapter-time {
+    display: none;
+  }
+
+  .video-shell video {
+    min-height: 220px;
+  }
+
+  .player-download-progress-meta {
+    gap: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}

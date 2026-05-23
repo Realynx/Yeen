@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { MediaDetailsPage } from './MediaDetailsPage';
 import { toLibrarySearchPath } from '../../library/services/librarySearchUtils';
 import type { User } from '../../shared/services/types';
-import '../../media-management/metadataStyles';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 

@@ -3,7 +3,6 @@ import { AdminNav } from '../../navigation/components/AdminNav';
 import { AdminAccountsPanel } from '../components/AdminAccountsPanel';
 import type { User } from '../../shared/services/types';
 import { useAdminAccounts } from '../services/useAdminAccounts';
-import './settingsStyles';
 
 interface AccountAccessPageProps {
   token: string;

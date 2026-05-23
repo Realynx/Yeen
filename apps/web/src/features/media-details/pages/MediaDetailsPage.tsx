@@ -3,7 +3,6 @@ import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../../media-management/components/AssignToShowDialog';
 import { EditMetadataDialog } from '../../media-management/components/EditMetadataDialog';
-import '../../media-management/metadataStyles';
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import {

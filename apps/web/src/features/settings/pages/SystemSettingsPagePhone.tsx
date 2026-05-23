@@ -15,7 +15,6 @@ import { useMediaLocations } from '../services/useMediaLocations';
 import { useSystemSettings } from '../services/useSystemSettings';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
-import './settingsStyles';
 
 interface SystemSettingsPagePhoneProps {
 	token: string;

@@ -1,0 +1,6 @@
+@media (prefers-reduced-motion: reduce) {
+  .media-torrent-phone-sheet {
+    animation: none;
+  }
+}
+

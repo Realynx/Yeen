@@ -20,7 +20,6 @@ import { useMediaLibrary } from '../services/useMediaLibrary';
 import { useMediaLibraryFilters } from '../services/useMediaLibraryFilters';
 import { useRemoteLibrarySearch } from '../services/useRemoteLibrarySearch';
 import { SORT_OPTIONS, type MediaSortOrder } from '../services/mediaLibraryUtils';
-import '../../media-management/metadataStyles';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 

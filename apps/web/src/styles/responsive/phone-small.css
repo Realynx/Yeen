@@ -1,0 +1,215 @@
+@media (max-width: 480px) {
+  .phone-page-header {
+    margin-inline: -0.22rem;
+    border-radius: 0.78rem;
+    padding: 0.35rem 0.45rem;
+  }
+
+  .phone-page-header-controls {
+    gap: 0.4rem;
+  }
+
+  .phone-page-header .profile-avatar-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .phone-page-header .profile-avatar {
+    width: 25px;
+    height: 25px;
+    font-size: 0.63rem;
+  }
+
+  .phone-details-back-button {
+    min-height: 1.78rem;
+    padding: 0.22rem 0.5rem;
+    gap: 0.26rem;
+    font-size: 0.65rem;
+  }
+
+  .phone-details-back-button > span {
+    font-size: 0.72rem;
+  }
+
+  .phone-page-search .search-row button[type='submit'] {
+    min-width: 62px;
+    padding-inline: 0.52rem;
+  }
+
+  .phone-featured-content {
+    padding: 0.85rem 0.78rem;
+  }
+
+  .phone-home-scroll-row {
+    gap: 0.5rem;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0) 0,
+      rgba(0, 0, 0, 1) 0.64rem,
+      rgba(0, 0, 0, 1) calc(100% - 0.64rem),
+      rgba(0, 0, 0, 0) 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0) 0,
+      rgba(0, 0, 0, 1) 0.64rem,
+      rgba(0, 0, 0, 1) calc(100% - 0.64rem),
+      rgba(0, 0, 0, 0) 100%
+    );
+  }
+
+  .phone-home-scroll-item {
+    flex-basis: clamp(6.6rem, 39vw, 7.8rem);
+  }
+
+  .phone-library-toolbar,
+  .phone-explore-toolbar {
+    padding: 0.56rem 0.58rem;
+    gap: 0.54rem;
+  }
+
+  .phone-library-toolbar .library-filters,
+  .phone-explore-toolbar .library-filters {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .phone-explore-toolbar .phone-explore-type-group .library-chip-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phone-library-toolbar .library-filter-group:first-child,
+  .phone-explore-toolbar .library-filter-group:first-child,
+  .phone-explore-toolbar .library-filter-group:last-child {
+    grid-column: auto;
+  }
+
+  .phone-library-toolbar .library-stat-block,
+  .phone-explore-toolbar .library-stat-block {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0.38rem;
+  }
+
+  .phone-library-toolbar .phone-library-stat-actions,
+  .phone-explore-toolbar .phone-explore-stat-actions {
+    justify-content: flex-start;
+  }
+
+  .phone-page-shell .phone-library-page .library-grid,
+  .phone-page-shell .phone-library-page .library-grid.is-compact {
+    grid-template-columns: repeat(auto-fill, minmax(clamp(6.4rem, 35vw, 7.4rem), 1fr));
+    gap: 0.5rem;
+  }
+
+  .phone-system-settings-page .settings-surface {
+    padding: 0.74rem 0.68rem;
+  }
+
+  .phone-settings-page .settings-surface {
+    padding: 0.74rem 0.68rem;
+  }
+
+  .phone-settings-page .user-settings-title-panel {
+    padding: 0.52rem 0.56rem;
+    gap: 0.42rem;
+  }
+
+  .phone-settings-page .user-settings-title-description {
+    font-size: 0.78rem;
+  }
+
+  .phone-settings-page .user-settings-title-meta {
+    font-size: 0.71rem;
+    padding: 0.42rem 0.5rem;
+  }
+
+  .phone-system-settings-page .system-settings-title-panel {
+    padding: 0.52rem 0.56rem;
+    gap: 0.42rem;
+  }
+
+  .phone-system-settings-page .system-settings-title-description {
+    font-size: 0.78rem;
+  }
+
+  .phone-system-settings-page .system-settings-title-meta {
+    font-size: 0.71rem;
+    padding: 0.42rem 0.5rem;
+  }
+
+  .phone-system-settings-page .system-settings-nav.system-settings-nav-floating-bar {
+    top: calc(env(safe-area-inset-top, 0px) + 3.08rem);
+    margin-inline: -0.16rem;
+    padding: 0.34rem 0.36rem;
+  }
+
+  .phone-system-settings-page .system-settings-nav-floating-bar .system-settings-nav-list {
+    gap: 0.28rem;
+  }
+
+  .phone-system-settings-page .system-settings-nav-floating-bar .system-settings-nav-button {
+    min-height: 1.9rem;
+    padding: 0.3rem 0.46rem;
+  }
+
+  .phone-system-settings-page .system-settings-nav-floating-bar .system-settings-nav-label {
+    font-size: 0.68rem;
+  }
+
+  .phone-system-settings-page .system-settings-sections .settings-category {
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 7.2rem);
+  }
+
+  .phone-account-access-page .settings-surface {
+    padding: 0.74rem 0.68rem;
+  }
+
+  .phone-account-access-page .admin-accounts-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .phone-account-access-page .admin-accounts-summary-card {
+    padding: 0.52rem 0.56rem;
+  }
+
+  .phone-account-access-page .admin-accounts-section-copy {
+    font-size: 0.78rem;
+  }
+
+  .phone-account-access-page .settings-account-item {
+    padding: 0.56rem 0.58rem;
+  }
+
+  .phone-download-control-page .settings-surface {
+    padding: 0.74rem 0.68rem;
+  }
+
+  .phone-download-control-page .torrent-control-title-panel {
+    padding: 0.52rem 0.56rem;
+    gap: 0.42rem;
+  }
+
+  .phone-download-control-page .torrent-control-title-description {
+    font-size: 0.78rem;
+  }
+
+  .phone-download-control-page .torrent-control-title-meta {
+    font-size: 0.71rem;
+    padding: 0.42rem 0.5rem;
+  }
+
+  .phone-bottom-nav-link {
+    min-height: 2.62rem;
+    border-radius: 0.58rem;
+  }
+
+  .phone-bottom-nav-icon {
+    width: 0.96rem;
+    height: 0.96rem;
+  }
+
+  .phone-bottom-nav-label {
+    font-size: 0.56rem;
+  }
+}

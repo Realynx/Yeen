@@ -114,6 +114,7 @@ export function useMediaTorrentProgress(
     };
   }, [current, mediaId, token]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!trackedHash) {
       setTorrent(null);
@@ -171,6 +172,7 @@ export function useMediaTorrentProgress(
       window.clearInterval(pollIntervalId);
     };
   }, [token, trackedHash]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     torrent,

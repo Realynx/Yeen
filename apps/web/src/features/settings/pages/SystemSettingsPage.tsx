@@ -4,7 +4,6 @@ import { SystemSettingsTab } from '../components/SystemSettingsTab';
 import type { User } from '../../shared/services/types';
 import { useMediaLocations } from '../services/useMediaLocations';
 import { useSystemSettings } from '../services/useSystemSettings';
-import './settingsStyles';
 
 interface SystemSettingsPageProps {
   token: string;

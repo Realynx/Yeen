@@ -1,0 +1,86 @@
+.phone-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transform: none;
+  width: 100%;
+  margin-bottom: 0;
+  padding: 0.08rem 0 calc(env(safe-area-inset-bottom, 0px) + 0.08rem);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.06rem;
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(229, 9, 20, 0.15) 0%, rgba(229, 9, 20, 0) 64%),
+    linear-gradient(180deg, rgba(18, 20, 25, 0.95), rgba(11, 12, 16, 0.97));
+  box-shadow: 0 -9px 22px rgba(0, 0, 0, 0.33);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  z-index: 160;
+}
+
+.phone-bottom-nav-link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.12rem;
+  min-height: 2.78rem;
+  margin-top: 0.02rem;
+  border-radius: 0.7rem;
+  color: rgba(225, 232, 244, 0.76);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.phone-bottom-nav-link:hover,
+.phone-bottom-nav-link:focus-visible {
+  color: rgba(255, 255, 255, 0.99);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phone-bottom-nav-link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.32);
+  outline-offset: -1px;
+}
+
+.phone-bottom-nav-link.is-active {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.08);
+  transform: none;
+}
+
+.phone-bottom-nav-link.is-active::before {
+  content: '';
+  position: absolute;
+  top: 0.2rem;
+  left: 50%;
+  width: 1.48rem;
+  height: 2px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #ff616b 0%, #e50914 66%, #9f0610 100%);
+}
+
+.phone-bottom-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+}
+
+.phone-bottom-nav-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.phone-bottom-nav-label {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+

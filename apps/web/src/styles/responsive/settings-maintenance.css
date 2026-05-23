@@ -1,0 +1,14 @@
+@media (max-width: 760px) {
+  .recycle-deletion-toolbar > button {
+    flex: 1 1 calc(50% - 0.55rem);
+  }
+
+  .recycle-deletion-days-input {
+    flex: 1 1 100%;
+  }
+
+  .recycle-deletion-days-input input {
+    width: 100%;
+  }
+}
+

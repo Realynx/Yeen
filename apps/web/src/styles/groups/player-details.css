@@ -1,0 +1,9 @@
+/* Player details styles are split into focused partials. */
+@import '../player/player-details.base.css';
+@import '../player/player-video-shell.css';
+@import '../player/player-overlays.css';
+@import '../player/player-controls.css';
+@import '../player/player-menus.css';
+@import '../player/player-nerd-stats.css';
+@import '../player/player-episode-nav.css';
+@import '../player/player-responsive.css';

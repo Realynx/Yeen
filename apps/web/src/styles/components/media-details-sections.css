@@ -1,0 +1,285 @@
+/* Section heading with right-aligned controls (season tabs) */
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.section-heading-row .section-title {
+  margin: 0;
+}
+
+.season-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(149, 181, 230, 0.16);
+  border-radius: 999px;
+}
+
+.season-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: #b8c6dd;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.season-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.season-tab.is-active {
+  background: #ffffff;
+  color: #0a0d14;
+  font-weight: 600;
+}
+
+.season-tab-count {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  opacity: 0.85;
+}
+
+.season-tab.is-active .season-tab-count {
+  background: rgba(10, 13, 20, 0.12);
+}
+
+/* Episode cards */
+.episode-card-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.episode-card {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1rem;
+  text-align: left;
+  border: 1px solid rgba(149, 181, 230, 0.18);
+  background: rgba(10, 14, 22, 0.72);
+  border-radius: 14px;
+  padding: 0.7rem;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  color: inherit;
+}
+
+.episode-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 138, 31, 0.55);
+  background: rgba(16, 21, 32, 0.85);
+}
+
+.episode-card.is-watched {
+  opacity: 0.78;
+}
+
+.episode-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    linear-gradient(122deg, rgba(255, 95, 31, 0.45), rgba(47, 163, 255, 0.4)),
+    #182232;
+  display: grid;
+  place-items: center;
+}
+
+.episode-card-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.episode-thumb-fallback {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  color: #ffffff;
+  letter-spacing: 0.06em;
+  position: relative;
+  z-index: 1;
+}
+
+.episode-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.55) 100%);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.episode-card:hover .episode-play-overlay {
+  opacity: 1;
+}
+
+.episode-watched-badge {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  background: rgba(42, 210, 125, 0.85);
+  color: #03130b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  z-index: 2;
+}
+
+.episode-progress {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  z-index: 2;
+}
+
+.episode-progress div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), #ffb482);
+}
+
+.episode-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.episode-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.episode-edit-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  background: rgba(255, 138, 31, 0.12);
+  border: 1px solid rgba(255, 138, 31, 0.3);
+  color: #ffb482;
+  border-radius: 6px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: opacity 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.episode-card:hover .episode-edit-btn,
+.episode-card:focus-within .episode-edit-btn {
+  opacity: 1;
+}
+
+.episode-edit-btn:hover {
+  background: rgba(255, 138, 31, 0.28);
+  border-color: rgba(255, 138, 31, 0.65);
+}
+
+.episode-info .episode-code {
+  color: #ffb482;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.episode-info .episode-runtime {
+  color: #8295b1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.episode-info .episode-title {
+  margin: 0.2rem 0 0;
+  color: #ffffff;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.episode-description {
+  margin: 0.45rem 0 0;
+  color: #b3c0d6;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .episode-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Series collection card tweaks */
+.series-card {
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.series-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 138, 31, 0.55);
+}
+
+.series-card.is-current {
+  border-color: rgba(255, 138, 31, 0.75);
+  box-shadow: 0 0 0 1px rgba(255, 138, 31, 0.35);
+}
+
+.series-card-edit-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  opacity: 0;
+  background: rgba(255, 138, 31, 0.1);
+  border: 1px solid rgba(255, 138, 31, 0.28);
+  color: #ffb482;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: opacity 140ms ease, background 140ms ease;
+}
+
+.series-card:hover .series-card-edit-btn,
+.series-card:focus-within .series-card-edit-btn {
+  opacity: 1;
+}
+
+.series-card-edit-btn:hover {
+  background: rgba(255, 138, 31, 0.26);
+  border-color: rgba(255, 138, 31, 0.6);
+}
+

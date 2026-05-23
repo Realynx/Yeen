@@ -66,7 +66,7 @@ export function useShowEpisodes(
     return () => {
       cancelled = true;
     };
-  }, [media?.id, media?.type, media?.normalizedTitle, media?.title, token]);
+  }, [media, token]);
 
   const currentEpisodeIndex = useMemo(() => {
     if (!media || media.type !== 'show') {

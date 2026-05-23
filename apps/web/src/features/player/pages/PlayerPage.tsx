@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import '../../../styles/player/player-details.css';
 import { PlayerDetails } from '../components/PlayerDetails';
 import { PlayerVideoPanel } from '../components/PlayerVideoPanel';
 import { listMedia, upsertProgress } from '../../shared/services/api';

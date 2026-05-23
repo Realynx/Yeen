@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #06070a;
+  --bg-card: rgba(14, 18, 28, 0.82);
+  --bg-card-soft: rgba(12, 15, 24, 0.68);
+  --text-main: #f7faff;
+  --text-muted: #98a8c4;
+  --line: rgba(145, 178, 235, 0.22);
+  --orange: #ff8a1f;
+  --orange-deep: #ff5f1f;
+  --blue: #2fa3ff;
+  --blue-deep: #1d4ff2;
+  --ok: #2ad27d;
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --shadow-main: 0 24px 70px rgba(5, 12, 30, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+  background: #141414;
+  overflow-x: hidden;
+}
+
+.browse-page {
+  background: #141414;
+}
+
+.browse-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(40, 40, 50, 0.55), transparent 55%),
+    linear-gradient(180deg, rgba(20, 20, 20, 0) 60%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.auth-page,
+.settings-page {
+  min-height: 100vh;
+  padding: 2.2rem clamp(1rem, 3vw, 3rem) 2.8rem;
+  animation: rise-in 540ms ease;
+}
+
+.browse-page,
+.player-page,
+.media-details-page {
+  min-height: 100vh;
+  padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
+  animation: rise-in 540ms ease;
+}
+
+.prepare-stream-page {
+  min-height: 100vh;
+  padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
+  animation: rise-in 540ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.prepare-stream-panel {
+  max-width: 720px;
+  margin: 2rem auto;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.prepare-stream-title {
+  margin: 0;
+  font-size: 1.65rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.prepare-stream-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.prepare-stream-progress-bar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.prepare-stream-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5e9bff, #8a6bff);
+  transition: width 400ms ease;
+}
+
+.prepare-stream-progress-text {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+}
+
+.prepare-stream-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+
+.prepare-stream-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.prepare-stream-stats dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.prepare-stream-stats dd {
+  margin: 0;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.prepare-stream-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-page {
+  display: grid;
+  place-items: center;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% -4%, rgba(229, 9, 20, 0.24), transparent 46%),
+    radial-gradient(circle at 88% 8%, rgba(229, 9, 20, 0.12), transparent 44%),
+    linear-gradient(180deg, #151515 0%, #0f0f10 100%);
+}
+
+.auth-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(229, 9, 20, 0.1) 0%, rgba(20, 20, 20, 0) 32%),
+    linear-gradient(180deg, rgba(20, 20, 20, 0) 60%, rgba(0, 0, 0, 0.56) 100%);
+}
+
+.auth-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-panel {
+  width: min(540px, 100%);
+  padding: clamp(1.3rem, 3.5vw, 2.3rem);
+  border: 1px solid rgba(229, 9, 20, 0.38);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(158deg, rgba(229, 9, 20, 0.24), rgba(229, 9, 20, 0.04) 44%, transparent 62%),
+    linear-gradient(180deg, rgba(22, 22, 24, 0.94), rgba(10, 10, 12, 0.92));
+  box-shadow:
+    0 26px 72px rgba(0, 0, 0, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(229, 9, 20, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.auth-panel .eyebrow {
+  color: #f56f75;
+}
+
+.auth-panel .subline {
+  color: rgba(239, 239, 242, 0.74);
+}
+
+.auth-page .auth-form label {
+  color: #f1f1f3;
+}
+
+.auth-page .auth-form input {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(14, 14, 16, 0.86);
+}
+
+.auth-page .auth-form input:focus {
+  border-color: rgba(229, 9, 20, 0.76);
+  background: rgba(16, 16, 18, 0.94);
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2);
+}
+
+.auth-page .auth-form button {
+  border: 1px solid rgba(255, 140, 146, 0.42);
+  background: linear-gradient(118deg, #ff4d58 0%, #e50914 56%, #8f0710 100%);
+  box-shadow: 0 10px 24px rgba(229, 9, 20, 0.3);
+}
+
+.auth-page .auth-form button:hover,
+.auth-page .auth-form button:focus-visible {
+  filter: brightness(1.07);
+}
+
+.auth-page .ghost-button {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.auth-page .ghost-button:hover,
+.auth-page .ghost-button:focus-visible {
+  background: rgba(255, 255, 255, 0.17);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.auth-page .error-text {
+  color: #ffc0ba;
+}
+

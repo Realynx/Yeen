@@ -1,0 +1,92 @@
+.player-overlay-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(4, 7, 14, 0.62) 0%, rgba(4, 7, 14, 0) 28%),
+    linear-gradient(0deg, rgba(4, 7, 14, 0.86) 0%, rgba(4, 7, 14, 0) 38%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.video-shell.controls-visible .player-overlay-scrim {
+  opacity: 1;
+}
+
+.player-buffering-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.player-spinner-ring-gradient {
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 0deg,
+    #ff8a1f 0deg,
+    #ff3f8f 86deg,
+    #7a9dff 184deg,
+    #28e3ff 276deg,
+    #ffbe5a 360deg
+  );
+  opacity: 0.72;
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 8px),
+    #000 calc(100% - 6px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 8px),
+    #000 calc(100% - 6px)
+  );
+  filter:
+    drop-shadow(0 0 10px rgba(255, 104, 150, 0.28))
+    drop-shadow(0 0 18px rgba(35, 227, 255, 0.2));
+  animation:
+    player-ring-spin 1.05s linear infinite,
+    player-ring-glow 1.7s ease-in-out infinite;
+}
+
+@keyframes player-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes player-ring-glow {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 0.82;
+  }
+}
+
+.player-center-toggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 7;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  min-width: 88px;
+  height: 42px;
+  border: 1px solid rgba(188, 214, 247, 0.42);
+  background: rgba(11, 18, 29, 0.84);
+  backdrop-filter: blur(4px);
+}
+
+.player-center-toggle.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}

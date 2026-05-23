@@ -4,7 +4,6 @@ import { TorrentControlPanel } from '../components/TorrentControlPanel';
 import type { User } from '../../shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
 import { useSystemSettings } from '../services/useSystemSettings';
-import './settingsStyles';
 
 interface DownloadControlPageProps {
   token: string;
