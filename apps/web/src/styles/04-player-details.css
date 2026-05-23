@@ -1,95 +1,3 @@
-/* Details section under the player */
-.player-details {
-  margin-top: 1rem;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  align-items: start;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid rgba(149, 181, 231, 0.2);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-main);
-}
-
-.player-details-main {
-  min-width: 0;
-}
-
-.player-details-title {
-  margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
-  color: #f5faff;
-}
-
-.player-details-badges {
-  margin-top: 0.55rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.player-details-badges span {
-  border: 1px solid rgba(186, 213, 247, 0.28);
-  border-radius: 999px;
-  background: rgba(8, 12, 21, 0.5);
-  padding: 0.2rem 0.6rem;
-  font-size: 0.75rem;
-  color: #e5efff;
-  letter-spacing: 0.02em;
-}
-
-.player-details-description {
-  margin: 0.8rem 0 0;
-  color: rgba(220, 233, 252, 0.88);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
-
-.player-details-shortcuts {
-  border-left: 1px solid rgba(186, 213, 247, 0.16);
-  padding-left: 1rem;
-}
-
-.player-details-shortcuts h3 {
-  margin: 0 0 0.55rem;
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(200, 218, 244, 0.78);
-}
-
-.player-details-shortcuts dl {
-  margin: 0;
-  display: grid;
-  gap: 0.32rem;
-}
-
-.player-details-shortcuts dl > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  font-size: 0.78rem;
-}
-
-.player-details-shortcuts dt {
-  color: #f1f7ff;
-  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
-  font-size: 0.74rem;
-  background: rgba(7, 10, 18, 0.8);
-  border: 1px solid rgba(167, 197, 237, 0.22);
-  border-radius: 6px;
-  padding: 0.1rem 0.42rem;
-  white-space: nowrap;
-}
-
-.player-details-shortcuts dd {
-  margin: 0;
-  color: rgba(208, 224, 247, 0.85);
-  text-align: right;
-}
-
 @keyframes settings-rise {
   from {
     opacity: 0;
@@ -183,30 +91,6 @@
 }
 
 @media (max-width: 980px) {
-  .player-episode-nav {
-    grid-template-columns: 1fr;
-  }
-
-  .player-details {
-    grid-template-columns: 1fr;
-  }
-
-  .player-details-shortcuts {
-    border-left: 0;
-    padding-left: 0;
-    border-top: 1px solid rgba(186, 213, 247, 0.16);
-    padding-top: 0.8rem;
-  }
-
-  .player-controls-bottom {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .player-controls-right {
-    justify-content: flex-start;
-  }
-
   .browse-page .top-nav-left {
     width: 100%;
   }
@@ -237,54 +121,6 @@
 }
 
 @media (max-width: 680px) {
-  .player-episode-link {
-    min-height: 118px;
-    padding: 0.78rem 0.86rem;
-  }
-
-  .player-controls-panel {
-    padding: 0.72rem;
-  }
-
-  .player-controls-top {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .player-inline-badges {
-    justify-content: flex-start;
-  }
-
-  .player-controls-left,
-  .player-controls-right {
-    width: 100%;
-  }
-
-  .player-controls-right {
-    justify-content: flex-start;
-  }
-
-  .player-volume-wrap {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .player-volume-wrap input[type='range'] {
-    width: min(220px, 100%);
-  }
-
-  .player-seekbar-wrap {
-    margin-top: 0.2rem;
-  }
-
-  .player-chapter-jump {
-    grid-template-columns: 72px minmax(0, 1fr);
-  }
-
-  .player-chapter-time {
-    display: none;
-  }
-
   .top-nav {
     padding: 0.55rem 0.9rem;
     flex-wrap: wrap;
@@ -340,6 +176,7 @@
   }
 
   .library-grid .media-hover-description {
+    line-clamp: 1;
     -webkit-line-clamp: 1;
   }
 
@@ -383,9 +220,7 @@
     display: none;
   }
 
-  .top-nav-right,
-  .player-header-right,
-  .settings-header-actions {
+  .top-nav-right {
     width: 100%;
     justify-content: flex-end;
   }
@@ -396,14 +231,6 @@
     flex-wrap: wrap;
   }
 
-  .video-shell video {
-    min-height: 220px;
-  }
-
-  .player-download-progress-meta {
-    gap: 0.35rem 0.75rem;
-    font-size: 0.8rem;
-  }
 }
 
 

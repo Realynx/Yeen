@@ -22,6 +22,7 @@ Focused media server baseline built with NestJS + React + TypeScript.
 
 - apps/server: NestJS API
 - apps/web: React app (Netflix-inspired UI)
+- packages/shared-contracts: shared TypeScript contracts for frontend/backend
 
 ## Prerequisites
 
@@ -105,6 +106,16 @@ That means Cloudflared only needs one local origin, for example http://localhost
 - npm run build builds server + web.
 - npm run build:deploy creates a slim deploy/ folder for production.
 - npm run build:zip creates artifacts/yeen-deploy.zip.
+
+## Line Budget Guardrail
+
+- npm run line-budget reports files above 400 lines (soft warning mode).
+- npm run line-budget:hard fails if over-budget files are not in `.line-budget-allowlist.json`.
+- Scope includes source and test files under:
+  - apps/server/src
+  - apps/server/test
+  - apps/web/src
+  - apps/web/test
 
 build:zip excludes node_modules and does not copy local apps/server/data state.
 Install production dependencies on the server after extraction.

@@ -1,29 +1,90 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { AuthPanel } from './components/AuthPanel';
-import { InviteSignupPanel } from './components/InviteSignupPanel';
-import { TOKEN_STORAGE_KEY, me } from './lib/api';
-import { useClientExperience } from './lib/ui/clientExperience';
-import type { AuthResponse, User } from './lib/types';
-import { canAccessTorrentTools, isAdminRole } from './lib/roles';
-import { HomePage } from './pages/HomePage';
-import { MediaExplorePage } from './pages/MediaExplorePage';
-import { MediaLibraryPage } from './pages/MediaLibraryPage';
-import { MediaDetailsPage } from './pages/MediaDetailsPage';
-import { PlayerPage } from './pages/PlayerPage';
-import { DownloadControlPage } from './pages/DownloadControlPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { SystemSettingsPage } from './pages/SystemSettingsPage';
-import { AccountAccessPage } from './pages/AccountAccessPage';
-import { HomePagePhone } from './pages/phone/HomePagePhone';
-import { MediaExplorePagePhone } from './pages/phone/MediaExplorePagePhone';
-import { MediaLibraryPagePhone } from './pages/phone/MediaLibraryPagePhone';
-import { MediaDetailsPagePhone } from './pages/phone/MediaDetailsPagePhone';
-import { PlayerPagePhone } from './pages/phone/PlayerPagePhone';
-import { DownloadControlPagePhone } from './pages/phone/DownloadControlPagePhone';
-import { SettingsPagePhone } from './pages/phone/SettingsPagePhone';
-import { SystemSettingsPagePhone } from './pages/phone/SystemSettingsPagePhone';
-import { AccountAccessPagePhone } from './pages/phone/AccountAccessPagePhone';
+import { AuthPanel } from './features/auth/components/AuthPanel';
+import { InviteSignupPanel } from './features/auth/components/InviteSignupPanel';
+import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
+import { useClientExperience } from './features/navigation/services/clientExperience';
+import type { AuthResponse, User } from './features/shared/services/types';
+import { canAccessTorrentTools, isAdminRole } from './features/auth/services/roles';
+import { HomePage } from './features/home/pages/HomePage';
+import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePage';
+import { HomePagePhone } from './features/home/pages/HomePagePhone';
+import { MediaExplorePagePhone } from './features/media-explore/pages/MediaExplorePagePhone';
+
+const MediaLibraryPage = lazy(async () => ({
+  default: (await import('./features/library/pages/MediaLibraryPage')).MediaLibraryPage,
+}));
+
+const MediaLibraryPagePhone = lazy(async () => ({
+  default: (await import('./features/library/pages/MediaLibraryPagePhone')).MediaLibraryPagePhone,
+}));
+
+const MediaDetailsPage = lazy(async () => ({
+  default: (await import('./features/media-details/pages/MediaDetailsPage')).MediaDetailsPage,
+}));
+
+const MediaDetailsPagePhone = lazy(async () => ({
+  default: (await import('./features/media-details/pages/MediaDetailsPagePhone')).MediaDetailsPagePhone,
+}));
+
+const SettingsPage = lazy(async () => ({
+  default: (await import('./features/settings/pages/SettingsPage')).SettingsPage,
+}));
+
+const SettingsPagePhone = lazy(async () => ({
+  default: (await import('./features/settings/pages/SettingsPagePhone')).SettingsPagePhone,
+}));
+
+const SystemSettingsPage = lazy(async () => ({
+  default: (await import('./features/settings/pages/SystemSettingsPage')).SystemSettingsPage,
+}));
+
+const SystemSettingsPagePhone = lazy(async () => ({
+  default: (await import('./features/settings/pages/SystemSettingsPagePhone')).SystemSettingsPagePhone,
+}));
+
+const AccountAccessPage = lazy(async () => ({
+  default: (await import('./features/settings/pages/AccountAccessPage')).AccountAccessPage,
+}));
+
+const AccountAccessPagePhone = lazy(async () => ({
+  default: (await import('./features/settings/pages/AccountAccessPagePhone')).AccountAccessPagePhone,
+}));
+
+const DownloadControlPage = lazy(async () => ({
+  default: (await import('./features/settings/pages/DownloadControlPage')).DownloadControlPage,
+}));
+
+const DownloadControlPagePhone = lazy(async () => ({
+  default: (await import('./features/settings/pages/DownloadControlPagePhone')).DownloadControlPagePhone,
+}));
+
+const PlayerPage = lazy(async () => ({
+  default: (await import('./features/player/pages/PlayerPage')).PlayerPage,
+}));
+
+const PlayerPagePhone = lazy(async () => ({
+  default: (await import('./features/player/pages/PlayerPagePhone')).PlayerPagePhone,
+}));
+
+interface ExperienceRouteDefinition {
+  path: string;
+  desktop: ReactElement;
+  phone: ReactElement;
+}
+
+interface GuardedExperienceRouteDefinition extends ExperienceRouteDefinition {
+  allowed: boolean;
+  redirectTo: string;
+}
+
+function routeElementForExperience(
+  isPhoneExperience: boolean,
+  route: ExperienceRouteDefinition,
+): ReactElement {
+  return isPhoneExperience ? route.phone : route.desktop;
+}
 
 function titleForPath(pathname: string): string {
   if (pathname === '/') {
@@ -86,6 +147,17 @@ function RouteTitleManager() {
   }, [pathname]);
 
   return null;
+}
+
+function RouteLoadingFallback() {
+  return (
+    <main className="auth-page">
+      <section className="auth-panel">
+        <p className="eyebrow">Yeen Streaming</p>
+        <h1>Loading page...</h1>
+      </section>
+    </main>
+  );
 }
 
 function App() {
@@ -171,132 +243,113 @@ function App() {
 
   const isPhoneExperience = experience === 'phone';
 
+  const commonPageProps = {
+    token,
+    user,
+    onLogout: handleLogout,
+  };
+
+  const experienceRoutes: ExperienceRouteDefinition[] = [
+    {
+      path: '/',
+      desktop: <HomePage {...commonPageProps} />,
+      phone: <HomePagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/settings',
+      desktop: (
+        <SettingsPage
+          {...commonPageProps}
+          onUserUpdated={setUser}
+        />
+      ),
+      phone: (
+        <SettingsPagePhone
+          {...commonPageProps}
+          onUserUpdated={setUser}
+        />
+      ),
+    },
+    {
+      path: '/library',
+      desktop: <MediaLibraryPage {...commonPageProps} />,
+      phone: <MediaLibraryPagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/explore',
+      desktop: <MediaExplorePage {...commonPageProps} />,
+      phone: <MediaExplorePagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/details/:mediaId',
+      desktop: <MediaDetailsPage {...commonPageProps} />,
+      phone: <MediaDetailsPagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/player/:mediaId',
+      desktop: <PlayerPage {...commonPageProps} />,
+      phone: <PlayerPagePhone {...commonPageProps} />,
+    },
+  ];
+
+  const guardedExperienceRoutes: GuardedExperienceRouteDefinition[] = [
+    {
+      path: '/admin/system',
+      allowed: isAdminRole(user.role),
+      redirectTo: '/settings',
+      desktop: <SystemSettingsPage {...commonPageProps} />,
+      phone: <SystemSettingsPagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/admin/accounts',
+      allowed: isAdminRole(user.role),
+      redirectTo: '/settings',
+      desktop: <AccountAccessPage {...commonPageProps} />,
+      phone: <AccountAccessPagePhone {...commonPageProps} />,
+    },
+    {
+      path: '/admin/downloads',
+      allowed: canAccessTorrentTools(user.role),
+      redirectTo: '/',
+      desktop: <DownloadControlPage {...commonPageProps} />,
+      phone: <DownloadControlPagePhone {...commonPageProps} />,
+    },
+  ];
+
   return (
     <BrowserRouter>
       <RouteTitleManager />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            isPhoneExperience ? (
-              <HomePagePhone token={token} user={user} onLogout={handleLogout} />
-            ) : (
-              <HomePage token={token} user={user} onLogout={handleLogout} />
-            )
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            isPhoneExperience ? (
-              <SettingsPagePhone
-                token={token}
-                user={user}
-                onUserUpdated={setUser}
-                onLogout={handleLogout}
-              />
-            ) : (
-              <SettingsPage
-                token={token}
-                user={user}
-                onUserUpdated={setUser}
-                onLogout={handleLogout}
-              />
-            )
-          }
-        />
-        <Route
-          path="/library"
-          element={
-            isPhoneExperience ? (
-              <MediaLibraryPagePhone token={token} user={user} onLogout={handleLogout} />
-            ) : (
-              <MediaLibraryPage token={token} user={user} onLogout={handleLogout} />
-            )
-          }
-        />
-        <Route
-          path="/explore"
-          element={
-            isPhoneExperience ? (
-              <MediaExplorePagePhone token={token} user={user} onLogout={handleLogout} />
-            ) : (
-              <MediaExplorePage token={token} user={user} onLogout={handleLogout} />
-            )
-          }
-        />
-        <Route
-          path="/details/:mediaId"
-          element={
-            isPhoneExperience ? (
-              <MediaDetailsPagePhone token={token} user={user} onLogout={handleLogout} />
-            ) : (
-              <MediaDetailsPage token={token} user={user} onLogout={handleLogout} />
-            )
-          }
-        />
-        <Route
-          path="/player/:mediaId"
-          element={
-            isPhoneExperience ? (
-              <PlayerPagePhone token={token} user={user} onLogout={handleLogout} />
-            ) : (
-              <PlayerPage token={token} user={user} onLogout={handleLogout} />
-            )
-          }
-        />
-        <Route
-          path="/admin/system"
-          element={
-            isAdminRole(user.role) ? (
-              isPhoneExperience ? (
-                <SystemSettingsPagePhone token={token} user={user} onLogout={handleLogout} />
-              ) : (
-                <SystemSettingsPage token={token} user={user} onLogout={handleLogout} />
-              )
-            ) : (
-              <Navigate to="/settings" replace />
-            )
-          }
-        />
-        <Route
-          path="/admin/accounts"
-          element={
-            isAdminRole(user.role) ? (
-              isPhoneExperience ? (
-                <AccountAccessPagePhone token={token} user={user} onLogout={handleLogout} />
-              ) : (
-                <AccountAccessPage token={token} user={user} onLogout={handleLogout} />
-              )
-            ) : (
-              <Navigate to="/settings" replace />
-            )
-          }
-        />
-        <Route
-          path="/admin/downloads"
-          element={
-            canAccessTorrentTools(user.role) ? (
-              isPhoneExperience ? (
-                <DownloadControlPagePhone token={token} user={user} onLogout={handleLogout} />
-              ) : (
-                <DownloadControlPage token={token} user={user} onLogout={handleLogout} />
-              )
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/admin/download-control"
-          element={<Navigate to="/admin/downloads" replace />}
-        />
-        <Route
-          path="/admin/metadata"
-          element={<Navigate to="/admin/system#system-metadata" replace />}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Routes>
+          {experienceRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={routeElementForExperience(isPhoneExperience, route)}
+            />
+          ))}
+
+          {guardedExperienceRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.allowed
+                ? routeElementForExperience(isPhoneExperience, route)
+                : <Navigate to={route.redirectTo} replace />}
+            />
+          ))}
+
+          <Route
+            path="/admin/download-control"
+            element={<Navigate to="/admin/downloads" replace />}
+          />
+          <Route
+            path="/admin/metadata"
+            element={<Navigate to="/admin/system#system-metadata" replace />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

@@ -9,7 +9,9 @@
     "build": "npm --prefix apps/server run build && npm --prefix apps/web run build",
     "build:deploy": "npm run build && node ./scripts/prepare-deploy.mjs",
     "build:zip": "npm run build:deploy && node ./scripts/create-zip.mjs",
-    "lint": "npm --prefix apps/server run lint && npm --prefix apps/web run lint"
+    "lint": "npm --prefix apps/server run lint && npm --prefix apps/web run lint",
+    "line-budget": "node ./scripts/check-line-budget.mjs",
+    "line-budget:hard": "node ./scripts/check-line-budget.mjs --hard"
   },
   "devDependencies": {
     "archiver": "^8.0.0",
