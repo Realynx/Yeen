@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { dirname } from 'node:path';
 import { MediaService } from '../../../media/application/services/media.service';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
-import { SubtitleTrack } from '../../domain/entities/subtitle-track.entity.ts/subtitle-track.entity';
+import { SubtitleTrack } from '../../domain/entities/subtitle-track.entity';
 import { SubtitleTracksService } from './subtitle-tracks.service';
 
 @Injectable()
@@ -150,3 +150,4 @@ export class SubtitleListingService {
     return sanitized;
   }
 }
+

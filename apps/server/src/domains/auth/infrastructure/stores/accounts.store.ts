@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
-import { AccountRecord } from '../../domain/entities/account-record.entity.ts/account-record.entity';
+import { AccountRecord } from '../../domain/entities/account-record.entity';
 
 interface CreateAccountInput {
   email: string;
@@ -224,3 +224,4 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

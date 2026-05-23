@@ -13,6 +13,10 @@
   min-width: 0;
 }
 
+.browse-page > .top-nav {
+  z-index: 180;
+}
+
 .home-page {
   --home-glow-red: rgba(229, 9, 20, 0.24);
   --home-glow-cyan: rgba(57, 142, 255, 0.18);

@@ -13,9 +13,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
 import { TorrentAccessGuard } from '../../../auth/presentation/guards/torrent-access.guard';
-import { AddTorrentDto } from '../../application/dto/add-torrent.dto.ts/add-torrent.dto';
-import { DeleteTorrentDto } from '../../application/dto/delete-torrent.dto.ts/delete-torrent.dto';
-import { SetTorrentOrderModeDto } from '../../application/dto/set-torrent-order-mode.dto.ts/set-torrent-order-mode.dto';
+import { AddTorrentDto } from '../../application/dto/add-torrent.dto';
+import { DeleteTorrentDto } from '../../application/dto/delete-torrent.dto';
+import { SetTorrentOrderModeDto } from '../../application/dto/set-torrent-order-mode.dto';
 import { TorrentService } from '../../application/services/torrent.service';
 
 @UseGuards(JwtAuthGuard, TorrentAccessGuard)
@@ -93,3 +93,4 @@ export class TorrentController {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

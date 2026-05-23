@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   createIdleMediaScanProgress,
   MediaScanProgress,
-} from '../../domain/entities/media-scan-progress.entity.ts/media-scan-progress.entity';
+} from '../../domain/entities/media-scan-progress.entity';
 
 @Injectable()
 export class MediaScanStore {
@@ -99,3 +99,4 @@ export class MediaScanStore {
     };
   }
 }
+

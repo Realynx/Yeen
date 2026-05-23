@@ -9,7 +9,7 @@ import {
   MediaItem,
   SeriesAssignmentRules,
   MediaSubtitleDetail,
-} from '../../domain/entities/media-item.entity.ts/media-item.entity';
+} from '../../domain/entities/media-item.entity';
 
 interface MediaRow {
   id: string;
@@ -887,3 +887,4 @@ export class MediaStore implements OnModuleDestroy {
     });
   }
 }
+

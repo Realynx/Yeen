@@ -1,5 +1,5 @@
-import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity.ts/auth-user.entity';
-import type { ProgressEntry } from '../../domain/entities/progress-entry.entity.ts/progress-entry.entity';
+import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity';
+import type { ProgressEntry } from '../../domain/entities/progress-entry.entity';
 import { ProgressService } from '../../application/services/progress.service';
 import type { ProgressStore } from '../stores/progress.store';
 
@@ -77,3 +77,4 @@ describe('ProgressService', () => {
     expect(stored?.syncTimestampMs).toBe(4000);
   });
 });
+

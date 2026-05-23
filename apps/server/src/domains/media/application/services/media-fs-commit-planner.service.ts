@@ -9,7 +9,7 @@ import {
   resolve,
   sep,
 } from 'node:path';
-import { MediaItem } from '../../domain/entities/media-item.entity.ts/media-item.entity';
+import { MediaItem } from '../../domain/entities/media-item.entity';
 import { MediaLocationsStore } from '../../infrastructure/stores/media-locations.store';
 import { CommitPlan, PlannedMediaChange } from '../types/media-fs-commit.types';
 
@@ -318,3 +318,4 @@ export class MediaFsCommitPlannerService {
     return best;
   }
 }
+

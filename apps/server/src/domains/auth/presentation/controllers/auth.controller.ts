@@ -14,14 +14,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AdminGuard } from '../guards/admin.guard';
 import { AuthService } from '../../application/services/auth.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
-import { ChangePasswordDto } from '../../application/dto/change-password.dto.ts/change-password.dto';
-import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto.ts/create-admin-account.dto';
-import { LoginDto } from '../../application/dto/login.dto.ts/login.dto';
-import { RegisterDto } from '../../application/dto/register.dto.ts/register.dto';
-import { UpdateAccountInvitesDto } from '../../application/dto/update-account-invites.dto.ts/update-account-invites.dto';
-import { UpdateAccountRoleDto } from '../../application/dto/update-account-role.dto.ts/update-account-role.dto';
-import { UpdateProfileDto } from '../../application/dto/update-profile.dto.ts/update-profile.dto';
-import type { AuthUser } from '../../domain/entities/auth-user.entity.ts/auth-user.entity';
+import { ChangePasswordDto } from '../../application/dto/change-password.dto';
+import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto';
+import { LoginDto } from '../../application/dto/login.dto';
+import { RegisterDto } from '../../application/dto/register.dto';
+import { UpdateAccountInvitesDto } from '../../application/dto/update-account-invites.dto';
+import { UpdateAccountRoleDto } from '../../application/dto/update-account-role.dto';
+import { UpdateProfileDto } from '../../application/dto/update-profile.dto';
+import type { AuthUser } from '../../domain/entities/auth-user.entity';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -142,3 +142,4 @@ export class AuthController {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

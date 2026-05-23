@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'node:path';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
-import { ProgressEntry } from '../../domain/entities/progress-entry.entity.ts/progress-entry.entity';
+import { ProgressEntry } from '../../domain/entities/progress-entry.entity';
 
 @Injectable()
 export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
@@ -195,3 +195,4 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
       : new Date().toISOString();
   }
 }
+

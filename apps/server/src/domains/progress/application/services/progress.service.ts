@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { AuthUser } from '../../../auth/domain/entities/auth-user.entity.ts/auth-user.entity';
-import { UpdateProgressDto } from '../dto/update-progress.dto.ts/update-progress.dto';
-import { ProgressEntry } from '../../domain/entities/progress-entry.entity.ts/progress-entry.entity';
+import { AuthUser } from '../../../auth/domain/entities/auth-user.entity';
+import { UpdateProgressDto } from '../dto/update-progress.dto';
+import { ProgressEntry } from '../../domain/entities/progress-entry.entity';
 import { ProgressStore } from '../../infrastructure/stores/progress.store';
 
 @Injectable()
@@ -200,3 +200,4 @@ export class ProgressService {
     });
   }
 }
+

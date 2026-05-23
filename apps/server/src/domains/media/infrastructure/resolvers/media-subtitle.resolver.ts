@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { readdir } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
-import { MediaSubtitleDetail } from '../../domain/entities/media-item.entity.ts/media-item.entity';
+import { MediaSubtitleDetail } from '../../domain/entities/media-item.entity';
 import { FfprobeStream } from '../adapters/media-probe.adapter';
 
 @Injectable()
@@ -96,3 +96,4 @@ export class MediaSubtitleResolver {
     return /^[a-z]{2,3}$/.test(token) ? token : null;
   }
 }
+

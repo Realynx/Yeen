@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { basename, extname } from 'node:path';
-import { SystemSettings } from '../../../system-settings/domain/entities/system-settings.entity.ts/system-settings.entity';
+import { SystemSettings } from '../../../system-settings/domain/entities/system-settings.entity';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
-import { cleanTitle } from '../../infrastructure/support/title-normalizer';
+import { cleanTitle } from '../../infrastructure/helpers/title-normalizer';
 
 @Injectable()
 export class MediaAiMetadataService {
@@ -607,3 +607,5 @@ export class MediaAiMetadataService {
     return error.message.toLowerCase().includes('timed out');
   }
 }
+
+

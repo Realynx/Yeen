@@ -18,3 +18,23 @@ export interface TorrentMediaHint {
   remoteSource: 'tmdb' | 'jikan' | null;
   remoteSourceId: string | null;
 }
+
+export interface TorrentListItem {
+  hash: string;
+  name: string;
+  state: string;
+  progress: number;
+  etaSeconds: number;
+  downloadRate: number;
+  uploadRate: number;
+  sizeBytes: number;
+  completedBytes: number;
+  savePath: string | null;
+  sequentialDownload: boolean | null;
+  firstLastPiecePriority: boolean | null;
+}
+
+export interface TorrentPaths {
+  savePath: string | null;
+  contentPath: string | null;
+}

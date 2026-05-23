@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
-import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity.ts/account-invite-record.entity';
+import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity';
 
 interface CreateInviteInput {
   token: string;
@@ -135,3 +135,4 @@ export class InviteTokensStore extends JsonFileStore<AccountInviteRecord[]> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

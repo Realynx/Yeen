@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../../../auth/presentation/guards/admin.guard';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
-import { UpdateSystemSettingsDto } from '../../application/dto/update-system-settings.dto.ts/update-system-settings.dto';
+import { UpdateSystemSettingsDto } from '../../application/dto/update-system-settings.dto';
 import { SystemSettingsService } from '../../application/services/system-settings.service';
 
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -19,3 +19,4 @@ export class SystemSettingsController {
     return this.systemSettingsService.updateSettings(dto);
   }
 }
+
