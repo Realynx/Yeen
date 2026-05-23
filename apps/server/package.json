@@ -27,6 +27,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/serve-static": "^5.0.5",
+    "@yeen/shared-contracts": "file:../../packages/shared-contracts",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.10.0",
     "cheerio": "^1.2.0",
@@ -75,13 +76,13 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "testRegex": "(src|test)/.*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

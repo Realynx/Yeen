@@ -2,16 +2,16 @@ import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { InvitePageController } from './invite-page.controller';
-import { MediaModule } from './media/media.module';
-import { ProgressModule } from './progress/progress.module';
-import { StreamModule } from './stream/stream.module';
-import { SubtitleModule } from './subtitle/subtitle.module';
-import { SystemSettingsModule } from './system-settings/system-settings.module';
-import { TorrentModule } from './torrent/torrent.module';
+import { AppService } from './domains/core/application/services/app.service';
+import { AppController } from './domains/core/presentation/controllers/app.controller';
+import { AuthModule } from './domains/auth/auth.module';
+import { InvitePageController } from './domains/core/presentation/controllers/invite-page.controller';
+import { MediaModule } from './domains/media/media.module';
+import { ProgressModule } from './domains/progress/progress.module';
+import { StreamModule } from './domains/stream/stream.module';
+import { SubtitleModule } from './domains/subtitle/subtitle.module';
+import { SystemSettingsModule } from './domains/system-settings/system-settings.module';
+import { TorrentModule } from './domains/torrent/torrent.module';
 
 @Module({
   imports: [
