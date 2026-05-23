@@ -1,0 +1,35 @@
+@import './foundation/base.css';
+@import './global/primitives.css';
+@import './components/top-nav-and-search.css';
+@import './layouts/browse-home-library.css';
+@import './components/media-cards.css';
+@import './layouts/details-legacy.css';
+
+@import './layouts/media-details-hero.css';
+@import './components/media-details-sections.css';
+@import './components/media-details-torrent-and-tech.css';
+@import './layouts/settings-shell.css';
+
+@import './foundation/shared-keyframes.css';
+@import './responsive/shared-motion.css';
+@import './responsive/shared-breakpoints.css';
+
+@import './layouts/phone-shell-details.css';
+@import './responsive/phone-motion.css';
+@import './layouts/phone-player.css';
+@import './components/phone-home-library.css';
+@import './layouts/phone-shared-overrides.css';
+@import './layouts/phone-settings-pages.css';
+@import './components/phone-bottom-nav.css';
+@import './responsive/phone-small.css';
+
+@import './layouts/settings-admin-core.css';
+@import './responsive/settings-admin-core.css';
+@import './components/settings-maintenance.css';
+@import './responsive/settings-maintenance.css';
+@import './themes/settings-light-overrides.css';
+
+@import './components/admin-metadata-editor.css';
+@import './layouts/admin-settings-shell.css';
+
+@import './groups/player-details.css';

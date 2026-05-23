@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { MediaLocationsState } from '../services/useMediaLocations';
 import type { SystemSettingsState } from '../services/useSystemSettings';
@@ -235,13 +235,13 @@ export function SystemSettingsTab({
     }
   }
 
-  function scrollFloatingQuickJumpToSection(
+  const scrollFloatingQuickJumpToSection = useCallback((
     sectionId: string,
     options: {
       behavior: ScrollBehavior;
       center: boolean;
     },
-  ) {
+  ) => {
     if (!phoneFloatingQuickJumpBar) {
       return;
     }
@@ -287,7 +287,7 @@ export function SystemSettingsTab({
       left: nextLeft,
       behavior: options.behavior,
     });
-  }
+  }, [phoneFloatingQuickJumpBar]);
 
   useEffect(() => {
     if (!phoneFloatingQuickJumpBar) {
@@ -298,7 +298,11 @@ export function SystemSettingsTab({
       behavior: 'auto',
       center: false,
     });
-  }, [activeSectionId, phoneFloatingQuickJumpBar]);
+  }, [
+    activeSectionId,
+    phoneFloatingQuickJumpBar,
+    scrollFloatingQuickJumpToSection,
+  ]);
 
   function renderQuickJumpNav(additionalClassName?: string, compactLabels = false) {
     const navClassName = additionalClassName
@@ -330,6 +334,7 @@ export function SystemSettingsTab({
                   onClick={() => {
                     scrollToSection(item.id);
                     if (useFloatingBarMarkup) {
+                      // eslint-disable-next-line react-hooks/refs
                       scrollFloatingQuickJumpToSection(item.id, {
                         behavior: 'smooth',
                         center: true,

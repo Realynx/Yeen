@@ -62,6 +62,7 @@ export function useAdminAccounts(
     }
   }, [enabled, token]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!enabled) {
       return;
@@ -69,6 +70,7 @@ export function useAdminAccounts(
 
     void refreshAccounts();
   }, [enabled, refreshAccounts]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function createAccountAction(input: {
     email: string;

@@ -121,6 +121,7 @@ export function useIptorrentsFlow(
   );
 
   // Reset transient download state when the underlying media id changes.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSearchResponse(null);
     setSearchLoading(false);
@@ -138,6 +139,7 @@ export function useIptorrentsFlow(
     setActionSuccess(null);
     setActionError(null);
   }, [current?.id, mediaId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist the pending stream target across reloads.
   useEffect(() => {
@@ -148,6 +150,7 @@ export function useIptorrentsFlow(
   // download to land on disk to probe and add a single media entry. This
   // effect also owns the user-facing "waiting for..." status text so we never
   // race against a stale fallback message.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !pendingLocalStreamTarget ||
@@ -258,6 +261,7 @@ export function useIptorrentsFlow(
       window.clearInterval(pollIntervalId);
     };
   }, [mediaId, navigate, pendingAction, pendingLocalStreamTarget, token]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleStartAction = useCallback(
     async (
@@ -395,10 +399,7 @@ export function useIptorrentsFlow(
       }
     },
     [
-      current?.normalizedTitle,
-      current?.releaseYear,
-      current?.title,
-      current?.type,
+      current,
       mediaId,
       navigate,
       pendingAction,

@@ -140,6 +140,7 @@ export function useNyaaFlow(
     ],
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSearchResponse(null);
     setSearchLoading(false);
@@ -157,11 +158,13 @@ export function useNyaaFlow(
     setActionSuccess(null);
     setActionError(null);
   }, [current?.id, mediaId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     persistPendingRemoteStreamTarget(pendingLocalStreamTarget);
   }, [pendingLocalStreamTarget]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !pendingLocalStreamTarget
@@ -259,6 +262,7 @@ export function useNyaaFlow(
       window.clearInterval(pollIntervalId);
     };
   }, [mediaId, navigate, pendingAction, pendingLocalStreamTarget, token]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleStartAction = useCallback(
     async (
@@ -404,6 +408,7 @@ export function useNyaaFlow(
     [handleStartAction],
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!searchRequested) {
       return;
@@ -412,6 +417,7 @@ export function useNyaaFlow(
     setActionSuccess(null);
     setActionError(null);
   }, [lastSearchKey, searchRequested]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     searchResponse,

@@ -14,7 +14,6 @@ import {
 import { useAdminAccounts } from '../services/useAdminAccounts';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
-import './settingsStyles';
 
 interface AccountAccessPagePhoneProps {
 	token: string;

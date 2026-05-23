@@ -13,7 +13,6 @@ import {
 } from '../../library/services/librarySearchUtils';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
-import './settingsStyles';
 
 interface SettingsPagePhoneProps {
 	token: string;

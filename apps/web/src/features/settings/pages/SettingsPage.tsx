@@ -1,7 +1,6 @@
 import type { User } from '../../shared/services/types';
 import { AdminNav } from '../../navigation/components/AdminNav';
 import { UserSettingsTab } from '../components/UserSettingsTab';
-import './settingsStyles';
 
 interface SettingsPageProps {
   token: string;

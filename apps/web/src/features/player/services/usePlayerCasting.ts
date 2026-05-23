@@ -501,6 +501,7 @@ export function usePlayerCasting({
     };
   }, [sourceUrl, videoRef]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!window.isSecureContext) {
       setGoogleCastSupported(false);
@@ -568,6 +569,7 @@ export function usePlayerCasting({
       detachStateListener?.();
     };
   }, [configureGoogleCastOptions]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const openGoogleCastPicker = useCallback(async (): Promise<OpenGoogleCastPickerResult> => {
     if (!sourceUrl || !window.isSecureContext) {
@@ -767,6 +769,7 @@ export function usePlayerCasting({
 
     setPlayerError('Casting is not supported in this browser.');
   }, [
+    googleCastSupported,
     openGoogleCastPicker,
     remoteAvailable,
     setPlayerError,

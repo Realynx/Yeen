@@ -1,0 +1,25 @@
+@media (prefers-reduced-motion: reduce) {
+  .settings-hero-card::after,
+  .settings-hero-stat,
+  .settings-tab-pill,
+  .settings-surface {
+    animation: none;
+  }
+
+  .settings-hero-stat,
+  .settings-tab-pill,
+  .settings-surface,
+  .settings-sidebar-note,
+  .theme-toggle-button {
+    transition: none;
+  }
+
+  .hero-content-transition {
+    animation: none;
+  }
+
+  .hero-switch-dot {
+    transition: none;
+  }
+}
+

@@ -1,0 +1,243 @@
+.media-details-page {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
+.details-hero {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(149, 181, 230, 0.22);
+  background:
+    linear-gradient(125deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0) 44%),
+    linear-gradient(295deg, rgba(47, 163, 255, 0.24), rgba(47, 163, 255, 0) 48%),
+    rgba(9, 13, 22, 0.84);
+  padding: 1rem;
+}
+
+.details-poster-shell {
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 260px;
+  background: rgba(9, 14, 24, 0.7);
+  border: 1px solid rgba(149, 181, 230, 0.22);
+}
+
+.details-poster,
+.details-poster-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.details-poster {
+  object-fit: cover;
+}
+
+.details-poster-fallback {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 5rem;
+  letter-spacing: 0.06em;
+  background:
+    linear-gradient(122deg, rgba(255, 95, 31, 0.75), rgba(47, 163, 255, 0.65)),
+    #1a2437;
+}
+
+.details-copy h2 {
+  margin-top: 0.45rem;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.details-copy .muted {
+  margin-top: 0.7rem;
+  max-width: 70ch;
+}
+
+.details-meta-strip {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.details-meta-strip span {
+  border: 1px solid rgba(149, 181, 230, 0.24);
+  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  background: rgba(7, 11, 19, 0.58);
+  font-size: 0.82rem;
+  color: #d8e6fb;
+}
+
+.chapter-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.chapter-thumb {
+  border-radius: 12px;
+  border: 1px solid rgba(149, 181, 230, 0.22);
+  background: rgba(8, 13, 22, 0.72);
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+}
+
+.chapter-thumb img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+
+.chapter-thumb span {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  color: #cde0fc;
+  font-size: 0.82rem;
+}
+
+.season-stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.season-block {
+  border-radius: 12px;
+  border: 1px solid rgba(149, 181, 230, 0.22);
+  background: rgba(8, 13, 22, 0.65);
+  padding: 0.8rem;
+}
+
+.season-block h4 {
+  margin: 0;
+  color: #dce9fc;
+}
+
+.episode-list {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.episode-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  text-align: left;
+  border: 1px solid rgba(149, 181, 230, 0.2);
+  border-radius: 10px;
+  background: rgba(10, 15, 24, 0.72);
+  padding: 0.5rem 0.62rem;
+}
+
+.episode-code {
+  color: #ffca98;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.episode-title {
+  color: #ebf3ff;
+}
+
+.episode-runtime {
+  color: #95abc9;
+  font-size: 0.82rem;
+}
+
+.series-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.series-card {
+  border-radius: 12px;
+  border: 1px solid rgba(149, 181, 230, 0.22);
+  background: rgba(10, 15, 24, 0.72);
+  overflow: hidden;
+  text-align: left;
+  padding: 0;
+}
+
+.series-card-thumb {
+  height: 130px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(122deg, rgba(255, 95, 31, 0.65), rgba(47, 163, 255, 0.55)),
+    #1a2437;
+}
+
+.series-card-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.series-card h4 {
+  margin: 0;
+  padding: 0.62rem 0.7rem 0;
+  font-size: 0.95rem;
+}
+
+.series-card p {
+  margin: 0;
+  padding: 0.32rem 0.7rem 0.72rem;
+  color: #9cb0cb;
+  font-size: 0.82rem;
+}
+
+.movie-details-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.movie-details-grid article {
+  border-radius: 12px;
+  border: 1px solid rgba(149, 181, 230, 0.22);
+  background: rgba(8, 13, 22, 0.65);
+  padding: 0.72rem 0.8rem;
+}
+
+.movie-details-grid h4 {
+  margin: 0;
+  color: #dce9fc;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.movie-details-grid p {
+  margin-top: 0.42rem;
+  color: #b8c9e2;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .details-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .details-poster-shell {
+    min-height: 220px;
+  }
+
+  .episode-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+}
+

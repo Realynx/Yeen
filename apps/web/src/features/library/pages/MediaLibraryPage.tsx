@@ -8,7 +8,6 @@ import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm
 import { LibraryManageBar } from '../components/LibraryManageBar';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import { StorageUsageMeter } from '../components/StorageUsageMeter';
-import '../../media-management/metadataStyles';
 import {
   type BulkDeleteMediaResult,
 } from '../../shared/services/api';

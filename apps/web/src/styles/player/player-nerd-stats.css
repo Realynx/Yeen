@@ -1,0 +1,157 @@
+.player-nerd-stats {
+  position: absolute;
+  top: 0.78rem;
+  right: 0.78rem;
+  z-index: 8;
+  width: min(420px, calc(100% - 1.56rem));
+  max-height: min(72vh, 480px);
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(173, 205, 243, 0.34);
+  background: rgba(6, 10, 19, 0.92);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 0.62rem;
+  color: #edf5ff;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 138, 31, 0.72) rgba(7, 10, 18, 0.8);
+}
+
+.player-nerd-stats::-webkit-scrollbar {
+  width: 10px;
+}
+
+.player-nerd-stats::-webkit-scrollbar-track {
+  background: rgba(7, 10, 18, 0.86);
+  border-radius: 999px;
+}
+
+.player-nerd-stats::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 138, 31, 0.88), rgba(255, 107, 160, 0.78));
+  border-radius: 999px;
+  border: 2px solid rgba(7, 10, 18, 0.86);
+}
+
+.player-nerd-stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.56rem;
+}
+
+.player-nerd-stats-header strong {
+  font-size: 0.79rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d6e8ff;
+}
+
+.player-nerd-close {
+  border: 1px solid rgba(181, 210, 246, 0.32);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9f2ff;
+  font-size: 0.72rem;
+  padding: 0.22rem 0.55rem;
+  cursor: pointer;
+}
+
+.player-nerd-close:hover,
+.player-nerd-close:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.player-nerd-section {
+  border: 1px solid rgba(164, 195, 236, 0.22);
+  border-radius: 10px;
+  background: rgba(9, 14, 24, 0.72);
+  padding: 0.48rem 0.52rem;
+}
+
+.player-nerd-section + .player-nerd-section {
+  margin-top: 0.48rem;
+}
+
+.player-nerd-section h3 {
+  margin: 0 0 0.34rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(206, 223, 245, 0.82);
+}
+
+.player-nerd-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.32rem 0.5rem;
+}
+
+.player-nerd-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.player-nerd-grid dt {
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(188, 210, 239, 0.72);
+}
+
+.player-nerd-grid dd {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  color: #f3f8ff;
+  word-break: break-word;
+}
+
+.player-nerd-grid dd.is-mono {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: #cfe4ff;
+}
+
+.player-nerd-error {
+  margin: 0.4rem 0 0;
+  font-size: 0.74rem;
+  color: #ffb8b1;
+}
+
+@media (max-width: 900px) {
+  .player-nerd-stats {
+    width: min(380px, calc(100% - 1.1rem));
+    top: 0.56rem;
+    right: 0.56rem;
+    max-height: min(64vh, 440px);
+  }
+}
+
+@media (max-width: 680px) {
+  .player-spinner-ring-gradient {
+    width: 86px;
+    height: 86px;
+  }
+
+  .player-nerd-stats {
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-height: min(54vh, 380px);
+  }
+
+  .player-nerd-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-context-menu {
+    min-width: 200px;
+  }
+}

@@ -1,0 +1,145 @@
+.phone-page-shell .top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  padding: 0.65rem 0.8rem;
+  gap: 0.55rem;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.phone-page-shell .top-nav-left,
+.phone-page-shell .top-nav-right {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.phone-page-shell .top-nav-left {
+  justify-content: space-between;
+}
+
+.phone-page-shell .top-nav-right {
+  justify-content: flex-end;
+}
+
+.phone-page-shell .brand-mark {
+  letter-spacing: 0.2em;
+  font-size: 0.76rem;
+}
+
+.phone-page-shell .browse-links {
+  display: none;
+}
+
+.phone-page-shell .search-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.phone-page-shell .search-row input {
+  min-width: 0;
+}
+
+.phone-page-shell .top-nav-right .search-row {
+  flex: 1 1 auto;
+}
+
+.phone-page-shell .top-nav-right .profile-menu {
+  flex: 0 0 auto;
+}
+
+.phone-page-shell .profile-dropdown {
+  right: 0;
+  left: auto;
+  width: min(20rem, calc(100vw - 1.25rem));
+}
+
+.phone-page-shell .browse-section,
+.phone-page-shell .details-section,
+.phone-page-shell .player-layout,
+.phone-page-shell .settings-content-grid {
+  margin-inline: 0;
+}
+
+.phone-page-shell .hero-banner {
+  min-height: min(30rem, 68vh);
+  border-radius: 1.2rem;
+}
+
+.phone-page-shell .hero-content {
+  max-width: 100%;
+  padding: 1.2rem;
+}
+
+.phone-page-shell .hero-actions {
+  flex-wrap: wrap;
+}
+
+.phone-page-shell .hero-actions .ghost-button,
+.phone-page-shell .hero-actions .accent-button {
+  min-width: 9rem;
+}
+
+.phone-page-shell .library-toolbar,
+.phone-page-shell .media-explore-controls {
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+.phone-page-shell .library-filters {
+  width: 100%;
+}
+
+.phone-page-shell .library-filter-group {
+  width: 100%;
+}
+
+.phone-page-shell .library-select,
+.phone-page-shell .library-filter-group input,
+.phone-page-shell .library-filter-group button {
+  width: 100%;
+}
+
+.phone-page-shell .library-stat-block {
+  width: 100%;
+}
+
+.phone-page-shell .library-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.phone-page-shell .phone-library-page .library-grid,
+.phone-page-shell .phone-library-page .library-grid.is-compact {
+  grid-template-columns: repeat(auto-fill, minmax(clamp(6.6rem, 30vw, 7.8rem), 1fr));
+  gap: 0.56rem;
+}
+
+.phone-page-shell .library-results-viewport {
+  max-height: none;
+}
+
+.phone-page-shell .details-hero,
+.phone-page-shell .details-hero-content,
+.phone-page-shell .details-body-grid {
+  grid-template-columns: 1fr;
+}
+
+.phone-page-shell .player-layout,
+.phone-page-shell .player-layout.player-layout-theater {
+  gap: 0.85rem;
+}
+
+.phone-page-shell .player-top-meta,
+.phone-page-shell .player-actions-row {
+  flex-wrap: wrap;
+}
+
+.phone-page-shell .admin-page-header,
+.phone-page-shell .admin-page-header-compact {
+  padding-inline: 0.2rem;
+}
+

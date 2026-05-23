@@ -244,8 +244,7 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
   }, [
     mediaId,
     selectedAudioStreamIndex,
-    source?.audioStreamIndex,
-    source?.hls,
+    source,
     switchingToHls,
     token,
   ]);

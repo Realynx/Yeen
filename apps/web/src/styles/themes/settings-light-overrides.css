@@ -1,0 +1,233 @@
+/* Consolidated light-theme overrides extracted from layout/component files. */
+/* Keep this imported after base settings layers so light-theme wins by order. */
+/* Extracted from settings-shell */
+
+.settings-page-v2.settings-theme-light {
+  --settings-card-border: rgba(79, 123, 167, 0.24);
+  --settings-card-bg: rgba(246, 250, 255, 0.92);
+  --settings-panel-bg: rgba(246, 250, 255, 0.9);
+  --settings-panel-muted: #4f6782;
+  --settings-title: #102840;
+  --settings-tab-bg: rgba(240, 247, 255, 0.95);
+  --settings-tab-border: rgba(79, 123, 167, 0.28);
+  --settings-tab-subtitle: #526a86;
+  --settings-pill-bg: rgba(226, 238, 250, 0.95);
+  --settings-pill-text: #23547d;
+  --settings-input-bg: rgba(255, 255, 255, 0.95);
+  --settings-input-border: rgba(118, 152, 184, 0.45);
+  --settings-input-focus: rgba(39, 124, 193, 0.74);
+  --settings-input-focus-bg: rgba(255, 255, 255, 1);
+}
+
+.settings-page-v2.settings-theme-light::before {
+  background: radial-gradient(circle, rgba(255, 172, 98, 0.34), transparent 68%);
+}
+
+.settings-page-v2.settings-theme-light::after {
+  background: radial-gradient(circle, rgba(83, 167, 229, 0.32), transparent 70%);
+}
+
+.settings-page-v2.settings-theme-light .settings-hero-card {
+  border-color: rgba(89, 133, 176, 0.28);
+  background:
+    linear-gradient(125deg, rgba(255, 145, 68, 0.24), rgba(255, 145, 68, 0) 46%),
+    linear-gradient(295deg, rgba(76, 168, 232, 0.24), rgba(76, 168, 232, 0) 52%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.97), rgba(240, 247, 255, 0.94));
+  box-shadow: 0 24px 62px rgba(66, 106, 146, 0.22);
+}
+
+.settings-page-v2.settings-theme-light .settings-hero-copy .eyebrow,
+.settings-page-v2.settings-theme-light .settings-hero-copy h1 {
+  color: #102840;
+}
+
+.settings-page-v2.settings-theme-light .settings-hero-copy .muted {
+  color: #3e5f7f;
+}
+
+.settings-page-v2.settings-theme-light .theme-toggle-button,
+.settings-page-v2.settings-theme-light .ghost-button {
+  background: rgba(236, 245, 255, 0.9);
+  border-color: rgba(92, 129, 166, 0.35);
+  color: #163f61;
+}
+
+.settings-page-v2.settings-theme-light .settings-hero-stat {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(91, 135, 177, 0.26);
+}
+
+.settings-page-v2.settings-theme-light .settings-hero-icon {
+  color: #143655;
+  background: linear-gradient(135deg, rgba(255, 180, 108, 0.82), rgba(121, 194, 244, 0.86));
+}
+
+.settings-page-v2.settings-theme-light .settings-tab-pill.active {
+  border-color: rgba(255, 156, 73, 0.42);
+  background:
+    linear-gradient(110deg, rgba(255, 170, 104, 0.38), rgba(255, 170, 104, 0) 52%),
+    linear-gradient(290deg, rgba(106, 188, 241, 0.34), rgba(106, 188, 241, 0) 52%),
+    rgba(236, 245, 255, 0.96);
+}
+
+.settings-page-v2.settings-theme-light .settings-tab-icon {
+  color: #113756;
+  background: linear-gradient(140deg, rgba(255, 185, 120, 0.86), rgba(122, 198, 245, 0.86));
+}
+
+.settings-page-v2.settings-theme-light .settings-category {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .settings-category-toggle-static:hover {
+  background: transparent;
+}
+
+.settings-page-v2.settings-theme-light .settings-category-toggle:hover {
+  background: rgba(186, 214, 244, 0.3);
+}
+
+.settings-page-v2.settings-theme-light .settings-section-kicker {
+  color: #d56617;
+}
+
+/* Extracted from settings-admin-core */
+
+.settings-page-v2.settings-theme-light .system-settings-nav {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .system-settings-nav-icon {
+  border-color: rgba(90, 140, 193, 0.35);
+  background: rgba(236, 245, 255, 0.9);
+  color: #1f5a8b;
+}
+
+.settings-page-v2.settings-theme-light .system-settings-nav-button:hover {
+  border-color: rgba(94, 141, 191, 0.38);
+  background: rgba(186, 214, 244, 0.36);
+}
+
+.settings-page-v2.settings-theme-light .system-settings-nav-button.is-active {
+  border-color: rgba(84, 133, 186, 0.45);
+  background:
+    linear-gradient(125deg, rgba(255, 170, 104, 0.24), rgba(255, 170, 104, 0) 55%),
+    linear-gradient(285deg, rgba(106, 188, 241, 0.22), rgba(106, 188, 241, 0) 60%),
+    rgba(236, 245, 255, 0.95);
+}
+
+.settings-page-v2.settings-theme-light
+  .system-settings-nav-button.is-active
+  .system-settings-nav-icon {
+  border-color: rgba(82, 133, 186, 0.52);
+  background: rgba(224, 239, 255, 0.96);
+  color: #174d79;
+}
+
+.settings-page-v2.settings-theme-light .settings-location-item {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .torrent-control-intake-shell {
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.settings-page-v2.settings-theme-light .torrent-control-intake-shell.is-drop-active {
+  background: rgba(226, 242, 255, 0.9);
+}
+
+.settings-page-v2.settings-theme-light .torrent-control-toolbar {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.settings-page-v2.settings-theme-light .torrent-control-group {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.settings-page-v2.settings-theme-light .torrent-control-meta-chip {
+  background: rgba(236, 245, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .user-settings-profile-summary {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.settings-page-v2.settings-theme-light .user-settings-avatar-preview-shell {
+  background: rgba(240, 248, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .user-settings-upload-box {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .system-media-runtime-column-right {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.settings-page-v2.settings-theme-light .settings-path-mapping-row button {
+  background: rgba(255, 99, 90, 0.14);
+  border-color: rgba(214, 78, 70, 0.42);
+  color: #861f17;
+}
+
+.settings-page-v2.settings-theme-light .settings-path-mappings > button {
+  background: linear-gradient(125deg, rgba(50, 121, 214, 0.96), rgba(32, 79, 144, 0.96));
+  border-color: rgba(50, 121, 214, 0.82);
+  color: #f4f9ff;
+}
+
+.settings-page-v2.settings-theme-light .muted {
+  color: var(--settings-panel-muted);
+}
+
+/* Extracted from settings-maintenance */
+
+.settings-page-v2.settings-theme-light .settings-scan-progress {
+  background: rgba(250, 252, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .commit-backup-panel {
+  background: rgba(250, 252, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .commit-intro code {
+  background: rgba(120, 160, 210, 0.14);
+}
+
+.settings-page-v2.settings-theme-light .commit-toggle {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.settings-page-v2.settings-theme-light .commit-summary-cell {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .commit-changes-list {
+  background: rgba(250, 252, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .commit-history-item {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .recycle-deletion-panel {
+  background: rgba(250, 252, 255, 0.86);
+}
+
+.settings-page-v2.settings-theme-light .recycle-deletion-summary span {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.settings-page-v2.settings-theme-light .recycle-deletion-days-input input {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.settings-page-v2.settings-theme-light .recycle-deletion-list {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.settings-page-v2.settings-theme-light .recycle-deletion-item.is-selected {
+  background: rgba(124, 170, 216, 0.2);
+}
+
+
