@@ -175,6 +175,53 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
       .slice(0, 18);
   }, [catalogRowItems]);
 
+  const discoverItems = useMemo(() => {
+    const seenMediaKeys = new Set<string>();
+
+    for (const item of mediaItems) {
+      const progress = progressMap.get(item.id);
+      if (!progress) {
+        continue;
+      }
+
+      if (!progress.completed && progress.positionSeconds <= 0) {
+        continue;
+      }
+
+      seenMediaKeys.add(toTagRowMediaKey(item));
+    }
+
+    const unseenByMediaKey = new Map<string, MediaItem>();
+
+    for (const item of catalogRowItems) {
+      if (item.digitalMediaType !== 'video') {
+        continue;
+      }
+
+      const mediaKey = toTagRowMediaKey(item);
+      if (seenMediaKeys.has(mediaKey)) {
+        continue;
+      }
+
+      const existing = unseenByMediaKey.get(mediaKey);
+      if (!existing) {
+        unseenByMediaKey.set(mediaKey, item);
+        continue;
+      }
+
+      if (shouldReplaceTagRowRepresentative(existing, item)) {
+        unseenByMediaKey.set(mediaKey, item);
+      }
+    }
+
+    const unseenCandidates = [...unseenByMediaKey.values()];
+
+    return toRandomizedItems(
+      unseenCandidates,
+      seededHash(`${randomRowSeed}:discover`),
+    ).slice(0, 18);
+  }, [catalogRowItems, mediaItems, progressMap, randomRowSeed]);
+
   const featuredItems = useMemo(() => {
     const featured: MediaItem[] = [];
     const seenFeaturedKeys = new Set<string>();
@@ -468,6 +515,17 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
         progressMap={progressMap}
         onOpen={openDetails}
       />
+
+      {discoverItems.length > 0 ? (
+        <HomeMediaShelfRow
+          className="browse-section"
+          id="row-discover"
+          title="Discover"
+          items={discoverItems}
+          progressMap={progressMap}
+          onOpen={openDetails}
+        />
+      ) : null}
 
       {movieRowsByTag.map((row) => (
         <HomeMediaShelfRow

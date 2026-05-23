@@ -11,7 +11,8 @@ async function bootstrap() {
         .filter(Boolean)
     : [];
 
-  const localDevOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+  const localDevOriginPattern =
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
 
   function isOriginAllowed(origin: string): boolean {
     if (configuredOrigins.length === 0) {

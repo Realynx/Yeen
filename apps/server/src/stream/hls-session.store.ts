@@ -35,9 +35,9 @@ export class HlsSessionStore {
   ): HlsSession | undefined {
     return [...this.sessions.values()].find(
       (session) =>
-        session.mediaId === mediaId
-        && session.selectedAudioStreamIndex === selectedAudioStreamIndex
-        && existsSync(session.manifestPath),
+        session.mediaId === mediaId &&
+        session.selectedAudioStreamIndex === selectedAudioStreamIndex &&
+        existsSync(session.manifestPath),
     );
   }
 

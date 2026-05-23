@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { MediaModule } from '../media/media.module';
-import { ProgressModule } from '../progress/progress.module';
 import { SystemSettingsModule } from '../system-settings/system-settings.module';
 import { TorrentModule } from '../torrent/torrent.module';
 import { HlsSessionStore } from './hls-session.store';
@@ -12,7 +11,7 @@ import { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
 import { TorrentDataAvailabilityService } from './hls/torrent-data-availability.service';
 
 @Module({
-  imports: [MediaModule, ProgressModule, SystemSettingsModule, TorrentModule],
+  imports: [MediaModule, SystemSettingsModule, TorrentModule],
   controllers: [StreamController],
   providers: [
     HlsSessionStore,
@@ -22,5 +21,6 @@ import { TorrentDataAvailabilityService } from './hls/torrent-data-availability.
     TorrentDataAvailabilityService,
     StreamService,
   ],
+  exports: [StreamService],
 })
 export class StreamModule {}

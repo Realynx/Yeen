@@ -25,6 +25,12 @@ export const SORT_OPTIONS: Array<{ value: MediaSortOrder; label: string }> = [
   { value: 'duration-asc', label: 'Duration (Shortest)' },
 ];
 
+export interface LibraryItemGroup {
+  item: MediaItem;
+  sourceItems: MediaItem[];
+  showKey: string | null;
+}
+
 export function toLibraryType(item: MediaItem): Exclude<MediaTypeFilter, 'all'> {
   return item.type === 'show' ? 'show' : 'movie';
 }
@@ -202,6 +208,10 @@ function toShowAggregateItem(items: MediaItem[]): MediaItem {
 }
 
 export function toLibraryItems(items: MediaItem[]): MediaItem[] {
+  return toLibraryItemGroups(items).map((group) => group.item);
+}
+
+export function toLibraryItemGroups(items: MediaItem[]): LibraryItemGroup[] {
   const deduplicated: MediaItem[] = [];
   const groupedShows = new Map<string, MediaItem[]>();
 
@@ -221,11 +231,21 @@ export function toLibraryItems(items: MediaItem[]): MediaItem[] {
     groupedShows.set(key, [item]);
   }
 
-  for (const group of groupedShows.values()) {
-    deduplicated.push(toShowAggregateItem(group));
+  const groups: LibraryItemGroup[] = deduplicated.map((item) => ({
+    item,
+    sourceItems: [item],
+    showKey: null,
+  }));
+
+  for (const [showKey, group] of groupedShows.entries()) {
+    groups.push({
+      item: toShowAggregateItem(group),
+      sourceItems: [...group],
+      showKey,
+    });
   }
 
-  return deduplicated;
+  return groups;
 }
 
 export function sortMediaItems(items: MediaItem[], sortOrder: MediaSortOrder): MediaItem[] {

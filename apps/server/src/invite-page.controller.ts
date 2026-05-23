@@ -68,7 +68,9 @@ export class InvitePageController {
     input: { forwardedProto?: string; forwardedHost?: string },
   ): string {
     const host =
-      input.forwardedHost?.split(',')[0]?.trim() || request.get('host') || 'localhost';
+      input.forwardedHost?.split(',')[0]?.trim() ||
+      request.get('host') ||
+      'localhost';
 
     const proto =
       input.forwardedProto?.split(',')[0]?.trim() ||

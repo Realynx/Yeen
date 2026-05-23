@@ -113,8 +113,7 @@ export class MediaAiMetadataService {
     // re-discovering "1080p" isn't part of the show name.
     const representatives = [...namesByHeuristic.values()].map((bucket) => {
       const rawName = bucket[0];
-      const heuristic =
-        normalizedByRaw.get(rawName) ?? cleanTitle(rawName);
+      const heuristic = normalizedByRaw.get(rawName) ?? cleanTitle(rawName);
       return { rawName, heuristic };
     });
     const deadlineMs = Date.now() + this.maxNormalizationWindowMs;
@@ -384,7 +383,7 @@ export class MediaAiMetadataService {
       if (list.every((item) => typeof item === 'string')) {
         for (let i = 0; i < list.length; i += 1) {
           const input = expectedInputs[i];
-          const value = list[i] as string;
+          const value = list[i];
           if (input && value.trim()) {
             results.set(input, value.trim());
           }

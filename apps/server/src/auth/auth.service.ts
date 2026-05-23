@@ -130,7 +130,9 @@ export class AuthService implements OnModuleInit {
 
   async listAccountsForAdmin() {
     const accounts = await this.accountsStore.list();
-    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    const accountsById = new Map(
+      accounts.map((account) => [account.id, account]),
+    );
 
     const normalized = accounts
       .slice()
@@ -138,7 +140,7 @@ export class AuthService implements OnModuleInit {
       .map((account) => ({
         ...this.toSafeAccount(account),
         invitedByName: account.invitedByAccountId
-          ? accountsById.get(account.invitedByAccountId)?.name ?? null
+          ? (accountsById.get(account.invitedByAccountId)?.name ?? null)
           : null,
       }));
 
@@ -178,10 +180,14 @@ export class AuthService implements OnModuleInit {
 
     if (account.role === 'admin' && nextRole !== 'admin') {
       const accounts = await this.accountsStore.list();
-      const adminCount = accounts.filter((entry) => entry.role === 'admin').length;
+      const adminCount = accounts.filter(
+        (entry) => entry.role === 'admin',
+      ).length;
 
       if (adminCount <= 1) {
-        throw new BadRequestException('At least one admin account is required.');
+        throw new BadRequestException(
+          'At least one admin account is required.',
+        );
       }
     }
 
@@ -213,7 +219,7 @@ export class AuthService implements OnModuleInit {
       name: dto.name,
       passwordHash,
       role,
-      invitesRemaining: role === 'admin' ? null : dto.invitesRemaining ?? 0,
+      invitesRemaining: role === 'admin' ? null : (dto.invitesRemaining ?? 0),
     });
 
     return this.toSafeAccount(account);
@@ -407,7 +413,9 @@ export class AuthService implements OnModuleInit {
     this.logger.log(`Seeded default admin account for ${email}.`);
   }
 
-  private async requireUnusedInvite(rawToken: string): Promise<AccountInviteRecord> {
+  private async requireUnusedInvite(
+    rawToken: string,
+  ): Promise<AccountInviteRecord> {
     const token = rawToken.trim();
     if (!token) {
       throw new BadRequestException('Invite token is required.');
@@ -430,6 +438,8 @@ export class AuthService implements OnModuleInit {
       }
     }
 
-    throw new BadRequestException('Unable to generate an invite link right now.');
+    throw new BadRequestException(
+      'Unable to generate an invite link right now.',
+    );
   }
 }

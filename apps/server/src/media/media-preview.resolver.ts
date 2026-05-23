@@ -1,12 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import {
-  access,
-  mkdir,
-  readFile,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { basename, dirname, extname, join } from 'node:path';
 import { MediaChapterThumbnail } from './entities/media-item.entity';
@@ -170,7 +164,7 @@ export class MediaPreviewResolver {
         `${this.hashPath(`${filePath}:${variant}`)}${extension}`,
       );
 
-      if (!force && await this.pathExists(outputPath)) {
+      if (!force && (await this.pathExists(outputPath))) {
         return outputPath;
       }
 
@@ -236,7 +230,10 @@ export class MediaPreviewResolver {
   async findPreviewImagePath(filePath: string): Promise<string | null> {
     const directory = dirname(filePath);
     const fileBaseName = basename(filePath, extname(filePath));
-    const candidates = this.buildPreviewImageCandidates(directory, fileBaseName);
+    const candidates = this.buildPreviewImageCandidates(
+      directory,
+      fileBaseName,
+    );
 
     for (const candidate of candidates) {
       if (await this.pathExists(candidate)) {
@@ -353,7 +350,12 @@ export class MediaPreviewResolver {
     directory: string,
     fileBaseName: string,
   ): string[] {
-    const baseNames = [fileBaseName, `${fileBaseName}-poster`, 'poster', 'folder'];
+    const baseNames = [
+      fileBaseName,
+      `${fileBaseName}-poster`,
+      'poster',
+      'folder',
+    ];
 
     return baseNames.flatMap((baseName) =>
       this.previewImageExtensions.map((extension) =>
@@ -384,12 +386,17 @@ export class MediaPreviewResolver {
   }
 
   private extractNfoTagValue(raw: string, tagName: string): string | null {
-    const tagPattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\/${tagName}>`, 'i');
+    const tagPattern = new RegExp(
+      `<${tagName}\\b[^>]*>([\\s\\S]*?)<\/${tagName}>`,
+      'i',
+    );
     const match = raw.match(tagPattern);
     return match?.[1] ?? null;
   }
 
-  private normalizeDescriptionText(value: string | null | undefined): string | null {
+  private normalizeDescriptionText(
+    value: string | null | undefined,
+  ): string | null {
     if (typeof value !== 'string') {
       return null;
     }

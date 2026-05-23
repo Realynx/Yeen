@@ -61,12 +61,16 @@ export class MediaNfoReader {
     const title = this.extractText(raw, 'title');
     const originalTitle = this.extractText(raw, 'originaltitle');
     const showTitle = this.extractText(raw, 'showtitle');
-    const yearRaw = this.extractText(raw, 'year') ?? this.extractYear(raw, 'premiered') ?? this.extractYear(raw, 'aired');
+    const yearRaw =
+      this.extractText(raw, 'year') ??
+      this.extractYear(raw, 'premiered') ??
+      this.extractYear(raw, 'aired');
     const year = yearRaw ? this.parseIntSafe(yearRaw) : null;
     const genres = this.extractAll(raw, 'genre');
     const seasonNumber = this.parseIntSafe(this.extractText(raw, 'season'));
     const episodeNumber = this.parseIntSafe(this.extractText(raw, 'episode'));
-    const episodeTitle = this.extractText(raw, 'episodetitle') ?? this.extractText(raw, 'title');
+    const episodeTitle =
+      this.extractText(raw, 'episodetitle') ?? this.extractText(raw, 'title');
 
     const hasAnyData =
       title !== null ||
@@ -94,7 +98,10 @@ export class MediaNfoReader {
   }
 
   private extractText(raw: string, tagName: string): string | null {
-    const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i');
+    const pattern = new RegExp(
+      `<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`,
+      'i',
+    );
     const match = raw.match(pattern);
     if (!match) {
       return null;
@@ -113,7 +120,10 @@ export class MediaNfoReader {
   }
 
   private extractAll(raw: string, tagName: string): string[] {
-    const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'gi');
+    const pattern = new RegExp(
+      `<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`,
+      'gi',
+    );
     const results: string[] = [];
     let match: RegExpExecArray | null;
 

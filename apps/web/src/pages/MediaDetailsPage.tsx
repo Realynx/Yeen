@@ -1,24 +1,35 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../components/AssignToShowDialog';
 import { EditMetadataDialog } from '../components/EditMetadataDialog';
 import { LibrarySearchForm } from '../components/LibrarySearchForm';
 import { ProfileMenu } from '../components/ProfileMenu';
-import { listMedia } from '../lib/api';
+import {
+  getSeriesEpisodeTracker,
+  isRemoteMediaId,
+  listMedia,
+  toApiErrorMessage,
+} from '../lib/api';
 import type {
   MediaItem,
+  SeriesEpisodeTrackerResult,
   User,
 } from '../lib/types';
 import { canAccessTorrentTools, isAdminRole } from '../lib/roles';
 import {
   DownloadProgressSection,
   EpisodesSection,
+  SeriesCompletenessSection,
   ScenePreviewsSection,
   SeriesCollectionSection,
   TechnicalDetailsSection,
 } from './media-details/mediaDetailsSections';
-import { backdropImageUrl } from './media-details/mediaDetailsUtils';
+import {
+  areSeriesRelated,
+  backdropImageUrl,
+  normalizeShowKey,
+} from './media-details/mediaDetailsUtils';
 import {
   pickRandomItem,
   toLibrarySearchPath,
@@ -41,6 +52,84 @@ interface MediaDetailsPageProps {
   hideTopNav?: boolean;
   headerContent?: ReactNode;
   usePhoneTorrentPopover?: boolean;
+}
+
+function pickFallbackDetailsItem(
+  availableItems: MediaItem[],
+  previousItem: MediaItem,
+): MediaItem | null {
+  const candidates = availableItems.filter(
+    (item) => !item.isRemote && item.id !== previousItem.id,
+  );
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (previousItem.type === 'show') {
+    const previousShowKey = normalizeShowKey(previousItem);
+    const previousSeason = previousItem.seasonNumber ?? 0;
+    const previousEpisode = previousItem.episodeNumber ?? 0;
+
+    const sameShowCandidates = candidates
+      .filter(
+        (item) =>
+          item.type === 'show' && normalizeShowKey(item) === previousShowKey,
+      )
+      .sort((left, right) => {
+        const leftSeason = left.seasonNumber ?? 0;
+        const rightSeason = right.seasonNumber ?? 0;
+        const leftEpisode = left.episodeNumber ?? 0;
+        const rightEpisode = right.episodeNumber ?? 0;
+
+        const leftDistance =
+          Math.abs(leftSeason - previousSeason) * 1000 +
+          Math.abs(leftEpisode - previousEpisode);
+        const rightDistance =
+          Math.abs(rightSeason - previousSeason) * 1000 +
+          Math.abs(rightEpisode - previousEpisode);
+
+        if (leftDistance !== rightDistance) {
+          return leftDistance - rightDistance;
+        }
+
+        if (leftSeason !== rightSeason) {
+          return leftSeason - rightSeason;
+        }
+
+        if (leftEpisode !== rightEpisode) {
+          return leftEpisode - rightEpisode;
+        }
+
+        return left.relativePath.localeCompare(right.relativePath, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      });
+
+    if (sameShowCandidates.length > 0) {
+      return sameShowCandidates[0];
+    }
+  }
+
+  const relatedMovie = candidates
+    .filter(
+      (item) => item.type === 'movie' && areSeriesRelated(previousItem, item),
+    )
+    .sort((left, right) => {
+      const leftYear = left.releaseYear ?? Number.MAX_SAFE_INTEGER;
+      const rightYear = right.releaseYear ?? Number.MAX_SAFE_INTEGER;
+      if (leftYear !== rightYear) {
+        return leftYear - rightYear;
+      }
+
+      return left.title.localeCompare(right.title);
+    })[0];
+
+  if (relatedMovie) {
+    return relatedMovie;
+  }
+
+  return candidates[0];
 }
 
 export function MediaDetailsPage({
@@ -84,6 +173,12 @@ export function MediaDetailsPage({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showSeriesDialog, setShowSeriesDialog] = useState(false);
   const [editingEpisode, setEditingEpisode] = useState<MediaItem | null>(null);
+  const [seriesTracker, setSeriesTracker] =
+    useState<SeriesEpisodeTrackerResult | null>(null);
+  const [seriesTrackerLoading, setSeriesTrackerLoading] = useState(false);
+  const [seriesTrackerError, setSeriesTrackerError] = useState<string | null>(
+    null,
+  );
   const { items, progress, loading, error, reload } = useMediaDetailsData(mediaId, token);
 
   const {
@@ -98,6 +193,83 @@ export function MediaDetailsPage({
     showStats,
     nextUpEpisode,
   } = useMediaDetailsDerivations(items, progress, mediaId, selectedSeason);
+
+  const lastKnownCurrentRef = useRef<MediaItem | null>(null);
+  const lastRedirectedMissingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (current) {
+      lastKnownCurrentRef.current = current;
+      lastRedirectedMissingIdRef.current = null;
+    }
+  }, [current]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!current || current.isRemote || current.type !== 'show') {
+      setSeriesTracker(null);
+      setSeriesTrackerError(null);
+      setSeriesTrackerLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setSeriesTracker(null);
+    setSeriesTrackerLoading(true);
+    setSeriesTrackerError(null);
+
+    void getSeriesEpisodeTracker(token, current.id)
+      .then((payload) => {
+        if (!cancelled) {
+          setSeriesTracker(payload);
+        }
+      })
+      .catch((trackerError) => {
+        if (!cancelled) {
+          setSeriesTracker(null);
+          setSeriesTrackerError(
+            toApiErrorMessage(
+              trackerError,
+              'Failed to load series completeness tracker.',
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSeriesTrackerLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [current?.id, current?.isRemote, current?.type, current?.updatedAt, token]);
+
+  useEffect(() => {
+    if (loading || error || current || !mediaId || isRemoteMediaId(mediaId)) {
+      return;
+    }
+
+    const previousItem = lastKnownCurrentRef.current;
+    if (!previousItem || previousItem.id !== mediaId) {
+      return;
+    }
+
+    if (lastRedirectedMissingIdRef.current === mediaId) {
+      return;
+    }
+
+    const fallbackItem = pickFallbackDetailsItem(items, previousItem);
+    if (!fallbackItem) {
+      return;
+    }
+
+    lastRedirectedMissingIdRef.current = mediaId;
+    navigate(`/details/${fallbackItem.id}`, { replace: true });
+  }, [current, error, items, loading, mediaId, navigate]);
 
   const iptorrents = useIptorrentsFlow(token, mediaId, current, navigate);
 
@@ -243,6 +415,15 @@ export function MediaDetailsPage({
         onSearchTorrents={torrentSearch.openPopover}
         onEditSeries={() => setShowSeriesDialog(true)}
         onEditMetadata={() => setShowEditDialog(true)}
+        seriesCompletenessContent={
+          detailType === 'show' ? (
+            <SeriesCompletenessSection
+              tracker={seriesTracker}
+              loading={seriesTrackerLoading}
+              error={seriesTrackerError}
+            />
+          ) : null
+        }
       />
 
       {activeDownloadTorrent ? (

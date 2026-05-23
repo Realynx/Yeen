@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { MediaItem, ProgressEntry } from '../../lib/types';
 import {
   episodeDisplayTitle,
@@ -37,6 +37,7 @@ interface MediaDetailsHeroProps {
   onSearchTorrents: () => void;
   onEditSeries: () => void;
   onEditMetadata: () => void;
+  seriesCompletenessContent?: ReactNode;
 }
 
 export function MediaDetailsHero({
@@ -61,6 +62,7 @@ export function MediaDetailsHero({
   onSearchTorrents,
   onEditSeries,
   onEditMetadata,
+  seriesCompletenessContent,
 }: MediaDetailsHeroProps) {
   const isRemoteItem = Boolean(current.isRemote);
   const canPlay = !isRemoteItem;
@@ -74,6 +76,10 @@ export function MediaDetailsHero({
   const canResume = isResumableProgress(heroResumeProgress);
   const playTargetId = heroResumeTarget?.id ?? current.id;
   const playHref = playerHref(playTargetId, heroResumeProgress);
+  const heroResumeEpisodeTitle =
+    detailType === 'show' && heroResumeTarget
+      ? episodeDisplayTitle(heroResumeTarget)
+      : null;
 
   const iconImageUrl = previewImageUrl(current);
 
@@ -225,9 +231,21 @@ export function MediaDetailsHero({
           <div className="hero-resume-bar" aria-hidden="true">
             <div className="hero-resume-fill" style={{ width: `${heroResumePercent}%` }} />
             <span className="hero-resume-meta">
-              {detailType === 'show' && heroResumeTarget
-                ? `Resume “${episodeDisplayTitle(heroResumeTarget)}” at ${formatTimestamp(heroResumeProgress.positionSeconds)}`
-                : `Resume at ${formatTimestamp(heroResumeProgress.positionSeconds)} of ${formatTimestamp(heroResumeProgress.durationSeconds)}`}
+              {detailType === 'show' && heroResumeEpisodeTitle ? (
+                <>
+                  <span className="hero-resume-prefix">Resume</span>
+                  <span className="hero-resume-episode" title={heroResumeEpisodeTitle}>
+                    “{heroResumeEpisodeTitle}”
+                  </span>
+                  <span className="hero-resume-suffix">
+                    at {formatTimestamp(heroResumeProgress.positionSeconds)}
+                  </span>
+                </>
+              ) : (
+                <span className="hero-resume-single">
+                  Resume at {formatTimestamp(heroResumeProgress.positionSeconds)} of {formatTimestamp(heroResumeProgress.durationSeconds)}
+                </span>
+              )}
             </span>
           </div>
         ) : null}
@@ -239,6 +257,8 @@ export function MediaDetailsHero({
             <span><strong>{formatDuration(showStats.totalRuntime)}</strong> Total Runtime</span>
           </div>
         ) : null}
+
+        {detailType === 'show' ? seriesCompletenessContent : null}
       </div>
     </section>
   );

@@ -18,9 +18,9 @@ function isCueTextLine(line: string): boolean {
   }
 
   if (
-    trimmed.startsWith('NOTE')
-    || trimmed.startsWith('STYLE')
-    || trimmed.startsWith('REGION')
+    trimmed.startsWith('NOTE') ||
+    trimmed.startsWith('STYLE') ||
+    trimmed.startsWith('REGION')
   ) {
     return false;
   }

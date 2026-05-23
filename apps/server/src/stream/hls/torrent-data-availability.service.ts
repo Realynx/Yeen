@@ -75,7 +75,11 @@ export class TorrentDataAvailabilityService {
     }
 
     const startOffset = this.timeToOffset(
-      Math.max(0, input.startSeconds - TorrentDataAvailabilityService.SEEK_BACKSTEP_SECONDS),
+      Math.max(
+        0,
+        input.startSeconds -
+          TorrentDataAvailabilityService.SEEK_BACKSTEP_SECONDS,
+      ),
       input.totalDurationSeconds,
       input.fileSize,
     );
@@ -110,17 +114,11 @@ export class TorrentDataAvailabilityService {
     totalDurationSeconds: number,
     fileSize: number,
   ): number {
-    const fraction = Math.max(
-      0,
-      Math.min(1, seconds / totalDurationSeconds),
-    );
+    const fraction = Math.max(0, Math.min(1, seconds / totalDurationSeconds));
     const offset = Math.floor(fraction * fileSize);
     return Math.max(
       0,
-      Math.min(
-        fileSize - TorrentDataAvailabilityService.SAMPLE_BYTES,
-        offset,
-      ),
+      Math.min(fileSize - TorrentDataAvailabilityService.SAMPLE_BYTES, offset),
     );
   }
 
@@ -140,11 +138,7 @@ export class TorrentDataAvailabilityService {
     }
 
     const uncached = await this.readSample(filePath, offset, 'rs');
-    if (
-      uncached !== null
-      && uncached.length > 0
-      && !this.isAllZero(uncached)
-    ) {
+    if (uncached !== null && uncached.length > 0 && !this.isAllZero(uncached)) {
       return false;
     }
 
@@ -155,9 +149,9 @@ export class TorrentDataAvailabilityService {
         TorrentDataAvailabilityService.SAMPLE_BYTES,
       );
       if (
-        unbuffered !== null
-        && unbuffered.length > 0
-        && !this.isAllZero(unbuffered)
+        unbuffered !== null &&
+        unbuffered.length > 0 &&
+        !this.isAllZero(unbuffered)
       ) {
         return false;
       }
@@ -218,26 +212,26 @@ export class TorrentDataAvailabilityService {
     const escapedPath = filePath.replace(/'/g, "''");
 
     const script =
-      "$ErrorActionPreference='Stop';"
-      + `$p='${escapedPath}';`
-      + `$o=${alignedOffset};`
-      + `$s=${alignedBytes};`
-      + 'try{'
-      + '$fs=New-Object System.IO.FileStream('
-      + '$p,'
-      + '[System.IO.FileMode]::Open,'
-      + '[System.IO.FileAccess]::Read,'
-      + '[System.IO.FileShare]::ReadWrite,'
-      + '4096,'
-      + '([System.IO.FileOptions][int]0x20000000));'
-      + '$null=$fs.Seek($o,[System.IO.SeekOrigin]::Begin);'
-      + '$b=New-Object byte[] $s;'
-      + '$n=$fs.Read($b,0,$s);'
-      + '$fs.Close();'
-      + 'if($n -le 0){exit 2}'
-      + '[Console]::OpenStandardOutput().Write($b,0,$n);'
-      + 'exit 0'
-      + '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
+      "$ErrorActionPreference='Stop';" +
+      `$p='${escapedPath}';` +
+      `$o=${alignedOffset};` +
+      `$s=${alignedBytes};` +
+      'try{' +
+      '$fs=New-Object System.IO.FileStream(' +
+      '$p,' +
+      '[System.IO.FileMode]::Open,' +
+      '[System.IO.FileAccess]::Read,' +
+      '[System.IO.FileShare]::ReadWrite,' +
+      '4096,' +
+      '([System.IO.FileOptions][int]0x20000000));' +
+      '$null=$fs.Seek($o,[System.IO.SeekOrigin]::Begin);' +
+      '$b=New-Object byte[] $s;' +
+      '$n=$fs.Read($b,0,$s);' +
+      '$fs.Close();' +
+      'if($n -le 0){exit 2}' +
+      '[Console]::OpenStandardOutput().Write($b,0,$n);' +
+      'exit 0' +
+      '}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 3}';
 
     const raw = await new Promise<Buffer | null>((resolvePromise) => {
       let settled = false;

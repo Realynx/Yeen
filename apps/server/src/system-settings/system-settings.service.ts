@@ -272,9 +272,7 @@ export class SystemSettingsService {
     return Math.max(min, Math.min(max, rounded));
   }
 
-  private normalizePathMappings(
-    value: unknown,
-  ): QbittorrentPathMapping[] {
+  private normalizePathMappings(value: unknown): QbittorrentPathMapping[] {
     if (!Array.isArray(value)) {
       return [];
     }
@@ -283,12 +281,14 @@ export class SystemSettingsService {
     const result: QbittorrentPathMapping[] = [];
     for (const entry of value) {
       if (!entry || typeof entry !== 'object') continue;
-      const from = typeof (entry as { from?: unknown }).from === 'string'
-        ? ((entry as { from: string }).from).trim()
-        : '';
-      const to = typeof (entry as { to?: unknown }).to === 'string'
-        ? ((entry as { to: string }).to).trim()
-        : '';
+      const from =
+        typeof (entry as { from?: unknown }).from === 'string'
+          ? (entry as { from: string }).from.trim()
+          : '';
+      const to =
+        typeof (entry as { to?: unknown }).to === 'string'
+          ? (entry as { to: string }).to.trim()
+          : '';
       if (!from || !to) continue;
       const dedupeKey = `${from.toLowerCase()}|${to.toLowerCase()}`;
       if (seen.has(dedupeKey)) continue;

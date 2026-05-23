@@ -4,6 +4,7 @@ export interface ProgressEntry {
   mediaId: string;
   positionSeconds: number;
   durationSeconds: number;
+  syncTimestampMs?: number | null;
   completed: boolean;
   seriesPreferenceKey?: string | null;
   preferredAudioLanguage?: string | null;

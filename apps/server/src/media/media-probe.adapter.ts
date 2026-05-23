@@ -45,7 +45,10 @@ export interface FfprobePayload {
 export class MediaProbeAdapter {
   private readonly logger = new Logger(MediaProbeAdapter.name);
 
-  async probeFile(filePath: string, ffprobePath: string): Promise<FfprobePayload> {
+  async probeFile(
+    filePath: string,
+    ffprobePath: string,
+  ): Promise<FfprobePayload> {
     // For in-progress torrent downloads we may be probing a `.!qB` partial
     // file or an .mkv that doesn't yet contain its trailing Cues. Give
     // ffprobe more head bytes to work with (default analyzeduration is
@@ -170,10 +173,10 @@ export class MediaProbeAdapter {
   private isRecoverableProbeError(message: string): boolean {
     const normalized = message.toLowerCase();
     return (
-      normalized.includes('invalid data found')
-      || normalized.includes('end of file')
-      || normalized.includes('error reading')
-      || normalized.includes('moov atom not found')
+      normalized.includes('invalid data found') ||
+      normalized.includes('end of file') ||
+      normalized.includes('error reading') ||
+      normalized.includes('moov atom not found')
     );
   }
 }

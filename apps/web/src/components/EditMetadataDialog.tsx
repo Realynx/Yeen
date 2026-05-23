@@ -80,10 +80,13 @@ export function EditMetadataDialog({
 
   function applyCandidate(candidate: MetadataSearchCandidate) {
     setTitle(candidate.title);
-    if (candidate.releaseYear) {
+    if (
+      typeof candidate.releaseYear === 'number' &&
+      Number.isFinite(candidate.releaseYear)
+    ) {
       setReleaseYear(String(candidate.releaseYear));
     }
-    if (candidate.overview && !description.trim()) {
+    if (candidate.overview) {
       setDescription(candidate.overview);
     }
     if (candidate.tags.length > 0 && tagsInput.trim().length === 0) {

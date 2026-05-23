@@ -85,11 +85,9 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
 
     const existing = this.state[accountIndex];
     const role =
-      input.role === 'admin'
-      || input.role === 'sailer'
-      || input.role === 'user'
-      ? input.role
-      : existing.role;
+      input.role === 'admin' || input.role === 'sailer' || input.role === 'user'
+        ? input.role
+        : existing.role;
     const updated: AccountRecord = {
       ...existing,
       email:
@@ -116,7 +114,7 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
               )
             : existing.role === 'admin'
               ? 0
-              : existing.invitesRemaining ?? 0,
+              : (existing.invitesRemaining ?? 0),
       invitedByAccountId:
         input.invitedByAccountId !== undefined
           ? this.asNullableString(input.invitedByAccountId)
@@ -156,15 +154,15 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
       }
 
       const role =
-        entry.role === 'admin'
-        || entry.role === 'sailer'
-        || entry.role === 'user'
+        entry.role === 'admin' ||
+        entry.role === 'sailer' ||
+        entry.role === 'user'
           ? entry.role
           : 'user';
       const invitesRemaining =
         role === 'admin'
           ? null
-          : this.asNonNegativeInteger(entry.invitesRemaining) ?? 0;
+          : (this.asNonNegativeInteger(entry.invitesRemaining) ?? 0);
 
       parsed.push({
         id,

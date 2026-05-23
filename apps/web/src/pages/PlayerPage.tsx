@@ -146,7 +146,7 @@ function PlayerPlaybackPage({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoShellRef = useRef<HTMLDivElement>(null);
-  const lastSyncRef = useRef(0);
+  const progressSyncTimestampRef = useRef(0);
   const hasAppliedInitialSeekRef = useRef(false);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -304,11 +304,17 @@ function PlayerPlaybackPage({
       const safeVideoDuration = Number.isFinite(video?.duration)
         ? Number(video?.duration)
         : totalDuration;
+      const syncTimestampMs = Math.max(
+        Date.now(),
+        progressSyncTimestampRef.current + 1,
+      );
+      progressSyncTimestampRef.current = syncTimestampMs;
 
       try {
         await upsertProgress(token, mediaId, {
           positionSeconds: Math.max(0, Math.floor(video?.currentTime ?? currentTime)),
           durationSeconds: Math.max(0, Math.floor(safeVideoDuration || 0)),
+          syncTimestampMs,
           completed: false,
           seriesPreferenceKey,
           ...payload,
@@ -441,18 +447,34 @@ function PlayerPlaybackPage({
     usePlayerControlsTimer({ isPlaying, isSeeking, setIsControlsVisible });
 
   const syncProgress = useCallback(
-    async (completed = false) => {
+    async (completed = false, keepalive = false) => {
       const video = videoRef.current;
       if (!video || !mediaId) {
         return;
       }
 
       const safeVideoDuration = Number.isFinite(video.duration) ? video.duration : totalDuration;
-      await upsertProgress(token, mediaId, {
-        positionSeconds: Math.max(0, Math.floor(video.currentTime || 0)),
-        durationSeconds: Math.max(0, Math.floor(safeVideoDuration || 0)),
-        completed,
-      });
+      const syncTimestampMs = Math.max(
+        Date.now(),
+        progressSyncTimestampRef.current + 1,
+      );
+      progressSyncTimestampRef.current = syncTimestampMs;
+
+      try {
+        await upsertProgress(
+          token,
+          mediaId,
+          {
+            positionSeconds: Math.max(0, Math.floor(video.currentTime || 0)),
+            durationSeconds: Math.max(0, Math.floor(safeVideoDuration || 0)),
+            syncTimestampMs,
+            completed,
+          },
+          { keepalive },
+        );
+      } catch {
+        // Keep playback uninterrupted if progress persistence fails.
+      }
     },
     [mediaId, token, totalDuration],
   );
@@ -541,7 +563,6 @@ function PlayerPlaybackPage({
     requestedStartSeconds,
     resumeAtSeconds,
     isSeeking,
-    lastSyncRef,
     hasAppliedInitialSeekRef,
     setCurrentTime,
     setSeekValue,

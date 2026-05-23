@@ -19,7 +19,10 @@ interface InviteMetaTagInput {
 
 @Injectable()
 export class AppService {
-  private readonly webDistIndexPath = join(__dirname, '../../web/dist/index.html');
+  private readonly webDistIndexPath = join(
+    __dirname,
+    '../../web/dist/index.html',
+  );
   private readonly webSourceIndexPath = join(__dirname, '../../web/index.html');
 
   getHealth() {
@@ -49,7 +52,10 @@ export class AppService {
       openGraphImageUrl,
       twitterImageUrl,
     });
-    const templateWithoutTitle = template.replace(/<title>[\s\S]*?<\/title>/i, '');
+    const templateWithoutTitle = template.replace(
+      /<title>[\s\S]*?<\/title>/i,
+      '',
+    );
 
     if (!templateWithoutTitle.includes('</head>')) {
       return `${templateWithoutTitle}\n<head>\n    ${socialMetaTags}\n  </head>`;

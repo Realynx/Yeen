@@ -176,12 +176,17 @@ export class NyaaSearchService {
     fallbackFileName?: string;
   }): Promise<IptorrentsDownloadedTorrent> {
     const normalizedDownloadUrl = this.normalizeDownloadUrl(input.downloadUrl);
-    const response = await this.send(normalizedDownloadUrl, DEFAULT_NYAA_TIMEOUT_MS);
-    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const response = await this.send(
+      normalizedDownloadUrl,
+      DEFAULT_NYAA_TIMEOUT_MS,
+    );
+    const contentType =
+      response.headers.get('content-type')?.toLowerCase() ?? '';
 
     if (!response.ok) {
-      const snippet = (await response.text()).trim().slice(0, 160)
-        || 'No response body returned.';
+      const snippet =
+        (await response.text()).trim().slice(0, 160) ||
+        'No response body returned.';
       throw new BadGatewayException(
         `Nyaa download failed (${response.status}): ${snippet}`,
       );
@@ -221,7 +226,13 @@ export class NyaaSearchService {
       return inFlight;
     }
 
-    const task = this.loadSearchPayload(query, category, page, sortBy, sortDirection)
+    const task = this.loadSearchPayload(
+      query,
+      category,
+      page,
+      sortBy,
+      sortDirection,
+    )
       .then(async (payload) => {
         await this.metadataApiCacheStore.set(
           NYAA_CACHE_PROVIDER,
@@ -371,10 +382,7 @@ export class NyaaSearchService {
     sortBy: NyaaSortField,
     sortDirection: NyaaSortDirection,
   ): string {
-    const normalizedQuery = query
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    const normalizedQuery = query.trim().toLowerCase().replace(/\s+/g, ' ');
 
     return `${normalizedQuery}::${category}::p${page}::${sortBy}::${sortDirection}`;
   }
@@ -404,7 +412,9 @@ export class NyaaSearchService {
     return this.sanitizeTorrentFileName(fallbackFileName || 'nyaa-download');
   }
 
-  private parseFileNameFromContentDisposition(header: string | null): string | null {
+  private parseFileNameFromContentDisposition(
+    header: string | null,
+  ): string | null {
     if (!header) {
       return null;
     }
@@ -466,7 +476,10 @@ export class NyaaSearchService {
       const headers = new Headers();
 
       headers.set('User-Agent', CHROME_USER_AGENT);
-      headers.set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
+      headers.set(
+        'Accept',
+        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      );
       headers.set('Accept-Language', 'en-US,en;q=0.9');
 
       return await fetch(requestUrl, {
@@ -481,7 +494,8 @@ export class NyaaSearchService {
         );
       }
 
-      const message = error instanceof Error ? error.message : 'Unknown network error.';
+      const message =
+        error instanceof Error ? error.message : 'Unknown network error.';
       this.logger.warn(`Nyaa request failed: ${message}`);
       throw new BadGatewayException(`Failed to connect to Nyaa: ${message}`);
     } finally {
@@ -496,9 +510,7 @@ export class NyaaSearchService {
     const $ = load(html);
     const results = this.parseSearchResults($);
 
-    const pageInfoText = this.cleanText(
-      $('body').text(),
-    );
+    const pageInfoText = this.cleanText($('body').text());
     const pageInfoMatch = pageInfoText.match(
       /Displaying\s+results\s+\d+\s*-\s*(\d+)\s+out\s+of\s+([\d,]+)\s+results/i,
     );
@@ -558,7 +570,8 @@ export class NyaaSearchService {
         cells.eq(2).find('a[href^="/download/"]').first().attr('href') ?? null,
       );
       const subtitleRaw = this.cleanText(titleLink.attr('title') ?? '');
-      const subtitle = subtitleRaw && subtitleRaw !== title ? subtitleRaw : null;
+      const subtitle =
+        subtitleRaw && subtitleRaw !== title ? subtitleRaw : null;
 
       parsed.push({
         id: this.extractTorrentId(detailsUrl, index + 1),

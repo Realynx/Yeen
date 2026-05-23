@@ -85,15 +85,20 @@ export class SubtitleTracksService {
           const isDefault = stream.disposition?.default === 1;
           const isForced = stream.disposition?.forced === 1;
           const likelyNonDialogue =
-            streamTitle !== null && this.nonDialogueTitlePattern.test(streamTitle);
+            streamTitle !== null &&
+            this.nonDialogueTitlePattern.test(streamTitle);
 
           let subtitleUrl: string | null = null;
           if (extractable && existsSync(outputPath)) {
             try {
               await sanitizeVttFile(outputPath);
-              subtitleUrl = this.subtitleStorageService.subtitleUrl(mediaId, outputName);
+              subtitleUrl = this.subtitleStorageService.subtitleUrl(
+                mediaId,
+                outputName,
+              );
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
+              const message =
+                error instanceof Error ? error.message : String(error);
               this.logger.warn(
                 `Ignoring extracted embedded subtitle stream ${stream.index} for ${mediaId}: ${message}`,
               );

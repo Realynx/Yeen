@@ -167,8 +167,7 @@ export class TorrentService {
     try {
       await this.setTorrentOrderMode(normalizedHash, 'sequential');
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.debug(
         `ensureSequentialDownload failed for ${normalizedHash}: ${message}`,
       );
@@ -191,18 +190,17 @@ export class TorrentService {
       const firstLast = observed.firstLastPiecePriority;
       if (seq !== true || firstLast !== true) {
         this.logger.warn(
-          `ensureSequentialDownload: qBit did not apply flags for ${normalizedHash} `
-            + `(seq=${seq} firstLast=${firstLast} state=${observed.state} progress=${(observed.progress * 100).toFixed(2)}%)`,
+          `ensureSequentialDownload: qBit did not apply flags for ${normalizedHash} ` +
+            `(seq=${seq} firstLast=${firstLast} state=${observed.state} progress=${(observed.progress * 100).toFixed(2)}%)`,
         );
       } else {
         this.logger.debug(
-          `ensureSequentialDownload: ${normalizedHash} confirmed seq=true firstLast=true `
-            + `progress=${(observed.progress * 100).toFixed(2)}%`,
+          `ensureSequentialDownload: ${normalizedHash} confirmed seq=true firstLast=true ` +
+            `progress=${(observed.progress * 100).toFixed(2)}%`,
         );
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.debug(
         `ensureSequentialDownload verify failed for ${normalizedHash}: ${message}`,
       );
@@ -342,9 +340,7 @@ export class TorrentService {
       const prefix = mapping.fromNormalized;
       const matches =
         candidate === prefix ||
-        candidate.startsWith(
-          prefix.endsWith('/') ? prefix : `${prefix}/`,
-        );
+        candidate.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`);
       if (!matches) continue;
 
       const remainder = candidate.slice(prefix.length).replace(/^\/+/, '');
@@ -389,22 +385,31 @@ export class TorrentService {
 
   async getKnownTorrentSavePath(hash: string): Promise<string | null> {
     const normalizedHash = this.normalizeHash(hash);
-    return (await this.getKnownTorrentMetadata(normalizedHash))?.savePath ?? null;
+    return (
+      (await this.getKnownTorrentMetadata(normalizedHash))?.savePath ?? null
+    );
   }
 
   async getKnownTorrentContentPath(hash: string): Promise<string | null> {
     const normalizedHash = this.normalizeHash(hash);
-    return (await this.getKnownTorrentMetadata(normalizedHash))?.contentPath ?? null;
+    return (
+      (await this.getKnownTorrentMetadata(normalizedHash))?.contentPath ?? null
+    );
   }
 
   async getKnownTorrentTitleHint(hash: string): Promise<string | null> {
     const normalizedHash = this.normalizeHash(hash);
-    return (await this.getKnownTorrentMetadata(normalizedHash))?.titleHint ?? null;
+    return (
+      (await this.getKnownTorrentMetadata(normalizedHash))?.titleHint ?? null
+    );
   }
 
-  async getKnownTorrentMediaHint(hash: string): Promise<TorrentMediaHint | null> {
+  async getKnownTorrentMediaHint(
+    hash: string,
+  ): Promise<TorrentMediaHint | null> {
     const normalizedHash = this.normalizeHash(hash);
-    const hint = (await this.getKnownTorrentMetadata(normalizedHash))?.mediaHint;
+    const hint = (await this.getKnownTorrentMetadata(normalizedHash))
+      ?.mediaHint;
     if (!hint) {
       return null;
     }
@@ -546,9 +551,9 @@ export class TorrentService {
 
     if (sequentialChanged || firstLastPiecePriorityChanged) {
       this.logger.log(
-        `Enforced ${orderMode} order on ${normalizedHash} `
-          + `(seq toggled=${sequentialChanged}, first/last toggled=${firstLastPiecePriorityChanged}; `
-          + `was seq=${torrent.sequentialDownload} firstLast=${torrent.firstLastPiecePriority})`,
+        `Enforced ${orderMode} order on ${normalizedHash} ` +
+          `(seq toggled=${sequentialChanged}, first/last toggled=${firstLastPiecePriorityChanged}; ` +
+          `was seq=${torrent.sequentialDownload} firstLast=${torrent.firstLastPiecePriority})`,
       );
     }
 
@@ -592,7 +597,9 @@ export class TorrentService {
     return normalized;
   }
 
-  private normalizeOptionalHash(hash: string | null | undefined): string | null {
+  private normalizeOptionalHash(
+    hash: string | null | undefined,
+  ): string | null {
     if (typeof hash !== 'string') {
       return null;
     }
@@ -646,7 +653,8 @@ export class TorrentService {
     const nextSavePath = input.savePath?.trim() || existing?.savePath || null;
     const nextContentPath =
       input.contentPath?.trim() || existing?.contentPath || null;
-    const nextTitleHint = input.titleHint?.trim() || existing?.titleHint || null;
+    const nextTitleHint =
+      input.titleHint?.trim() || existing?.titleHint || null;
     const incomingMediaHint = this.normalizeTorrentMediaHint(input.mediaHint);
     const nextMediaHint = incomingMediaHint ?? existing?.mediaHint ?? null;
 
@@ -682,11 +690,15 @@ export class TorrentService {
         ? Math.floor(hint.releaseYear)
         : null;
     const mediaType =
-      hint.mediaType === 'movie' || hint.mediaType === 'show' || hint.mediaType === 'other'
+      hint.mediaType === 'movie' ||
+      hint.mediaType === 'show' ||
+      hint.mediaType === 'other'
         ? hint.mediaType
         : null;
     const description =
-      typeof hint.description === 'string' ? hint.description.trim() || null : null;
+      typeof hint.description === 'string'
+        ? hint.description.trim() || null
+        : null;
     const tags = Array.isArray(hint.tags)
       ? hint.tags
           .filter((tag): tag is string => typeof tag === 'string')
@@ -696,7 +708,9 @@ export class TorrentService {
     const posterUrl =
       typeof hint.posterUrl === 'string' ? hint.posterUrl.trim() || null : null;
     const backdropUrl =
-      typeof hint.backdropUrl === 'string' ? hint.backdropUrl.trim() || null : null;
+      typeof hint.backdropUrl === 'string'
+        ? hint.backdropUrl.trim() || null
+        : null;
     const remoteSource =
       hint.remoteSource === 'tmdb' || hint.remoteSource === 'jikan'
         ? hint.remoteSource
@@ -733,7 +747,9 @@ export class TorrentService {
       }
 
       const key = normalizedName.toLowerCase();
-      const safeSize = Number.isFinite(size) ? Math.max(0, Math.floor(size)) : 0;
+      const safeSize = Number.isFinite(size)
+        ? Math.max(0, Math.floor(size))
+        : 0;
       const previous = merged.get(key);
       if (!previous || safeSize > previous.size) {
         merged.set(key, { name: normalizedName, size: safeSize });
