@@ -175,7 +175,8 @@ export interface SubtitleTrack {
 }
 
 export interface ProgressEntry {
-  userId: string;
+  accountId?: string;
+  userId?: string;
   mediaId: string;
   positionSeconds: number;
   durationSeconds: number;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PlayerDetails } from '../components/player/PlayerDetails';
 import { PlayerVideoPanel } from '../components/player/PlayerVideoPanel';
@@ -32,6 +32,8 @@ interface PlayerPageProps {
   token: string;
   user: User;
   onLogout: () => void;
+  hideTopNav?: boolean;
+  headerContent?: ReactNode;
 }
 
 const PLAYER_SCRUBBING_CLASS = 'is-player-scrubbing';
@@ -54,7 +56,13 @@ function redactAccessToken(url: string | null | undefined): string | null {
   }
 }
 
-export function PlayerPage({ token, user, onLogout }: PlayerPageProps) {
+export function PlayerPage({
+  token,
+  user,
+  onLogout,
+  hideTopNav = false,
+  headerContent = null,
+}: PlayerPageProps) {
   const { mediaId = '' } = useParams();
   const [searchParams] = useSearchParams();
 
@@ -70,14 +78,38 @@ export function PlayerPage({ token, user, onLogout }: PlayerPageProps) {
         mediaId={mediaId}
         hash={prepareHash}
         fallbackTitle={fallbackTitle}
+        hideTopNav={hideTopNav}
+        headerContent={headerContent}
       />
     );
   }
 
-  return <PlayerPlaybackPage token={token} user={user} onLogout={onLogout} />;
+  return (
+    <PlayerPlaybackPage
+      token={token}
+      user={user}
+      onLogout={onLogout}
+      hideTopNav={hideTopNav}
+      headerContent={headerContent}
+    />
+  );
 }
 
-function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
+interface PlayerPlaybackPageProps {
+  token: string;
+  user: User;
+  onLogout: () => void;
+  hideTopNav?: boolean;
+  headerContent?: ReactNode;
+}
+
+function PlayerPlaybackPage({
+  token,
+  user,
+  onLogout,
+  hideTopNav = false,
+  headerContent = null,
+}: PlayerPlaybackPageProps) {
   const { mediaId = '' } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -459,6 +491,7 @@ function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
   });
 
   usePlayerKeyboardShortcuts({
+    enabled: !hideTopNav,
     applyVolume,
     revealControls,
     skipBy,
@@ -562,18 +595,28 @@ function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
     [handleVideoEnded, withAutoAdvance],
   );
 
+  const activeTheaterMode = hideTopNav ? false : theaterMode;
+
+  const playerPageClassName = hideTopNav
+    ? 'player-page phone-player-page'
+    : 'player-page';
+
   return (
-    <main className="player-page">
-      <PlayerTopBar
-        title={playerTitle}
-        query={query}
-        onQueryChange={setQuery}
-        onSearchSubmit={handleSearch}
-        onBack={handleBackNavigation}
-        onOpenRandomDetails={openRandomDetails}
-        user={user}
-        onLogout={onLogout}
-      />
+    <main className={playerPageClassName}>
+      {headerContent}
+
+      {!hideTopNav ? (
+        <PlayerTopBar
+          title={playerTitle}
+          query={query}
+          onQueryChange={setQuery}
+          onSearchSubmit={handleSearch}
+          onBack={handleBackNavigation}
+          onOpenRandomDetails={openRandomDetails}
+          user={user}
+          onLogout={onLogout}
+        />
+      ) : null}
 
       {loading ? <p className="muted">Preparing stream...</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
@@ -582,7 +625,7 @@ function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
 
       <PlayerDownloadProgress torrent={downloadingTorrent} />
 
-      <section className={`player-layout ${theaterMode ? 'player-layout-theater' : ''}`}>
+      <section className={`player-layout ${activeTheaterMode ? 'player-layout-theater' : ''}`}>
         <PlayerVideoPanel
           token={token}
           media={media}
@@ -617,7 +660,8 @@ function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
           volume={volume}
           playbackRate={playbackRate}
           subtitleFontPreset={subtitleFontPreset}
-          theaterMode={theaterMode}
+          theaterMode={activeTheaterMode}
+          isPhoneMode={hideTopNav}
           currentTime={currentTime}
           totalDuration={totalDuration}
           safeDuration={safeDuration}
@@ -685,6 +729,7 @@ function PlayerPlaybackPage({ token, user, onLogout }: PlayerPageProps) {
         media={media}
         totalDuration={totalDuration}
         currentTime={currentTime}
+        showKeyboardShortcuts={!hideTopNav}
       />
     </main>
   );

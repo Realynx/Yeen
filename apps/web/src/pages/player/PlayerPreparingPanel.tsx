@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LibrarySearchForm } from '../../components/LibrarySearchForm';
 import { ProfileMenu } from '../../components/ProfileMenu';
@@ -27,6 +27,8 @@ interface PlayerPreparingPanelProps {
   mediaId: string;
   hash: string;
   fallbackTitle: string;
+  hideTopNav?: boolean;
+  headerContent?: ReactNode;
 }
 
 export function PlayerPreparingPanel({
@@ -36,6 +38,8 @@ export function PlayerPreparingPanel({
   mediaId,
   hash,
   fallbackTitle,
+  hideTopNav = false,
+  headerContent = null,
 }: PlayerPreparingPanelProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -129,6 +133,9 @@ export function PlayerPreparingPanel({
   const pendingReason =
     indexResult?.status === 'pending' ? indexResult.reason : null;
   const isIndexed = indexResult?.status === 'indexed';
+  const pageClassName = hideTopNav
+    ? 'player-page prepare-stream-page phone-player-page'
+    : 'player-page prepare-stream-page';
 
   function handleBack() {
     if (isRemoteMediaId(mediaId)) {
@@ -145,32 +152,36 @@ export function PlayerPreparingPanel({
   }
 
   return (
-    <main className="player-page prepare-stream-page">
-      <header className="top-nav">
-        <div className="top-nav-left">
-          <button
-            type="button"
-            className="nav-back-button"
-            onClick={handleBack}
-          >
-            {isRemoteMediaId(mediaId) ? '< Back to details' : '< Back'}
-          </button>
-          <p className="brand-mark">YEEN</p>
-          <p className="page-nav-title" title={displayTitle}>
-            Preparing stream
-          </p>
-        </div>
-        <div className="top-nav-right">
-          <LibrarySearchForm
-            query={query}
-            onQueryChange={setQuery}
-            onSearchSubmit={handleSearch}
-            placeholder="Search titles and paths"
-            onOpenRandomDetails={openRandomDetails}
-          />
-          <ProfileMenu user={user} onLogout={onLogout} />
-        </div>
-      </header>
+    <main className={pageClassName}>
+      {headerContent}
+
+      {!hideTopNav ? (
+        <header className="top-nav">
+          <div className="top-nav-left">
+            <button
+              type="button"
+              className="nav-back-button"
+              onClick={handleBack}
+            >
+              {isRemoteMediaId(mediaId) ? '< Back to details' : '< Back'}
+            </button>
+            <p className="brand-mark">YEEN</p>
+            <p className="page-nav-title" title={displayTitle}>
+              Preparing stream
+            </p>
+          </div>
+          <div className="top-nav-right">
+            <LibrarySearchForm
+              query={query}
+              onQueryChange={setQuery}
+              onSearchSubmit={handleSearch}
+              placeholder="Search titles and paths"
+              onOpenRandomDetails={openRandomDetails}
+            />
+            <ProfileMenu user={user} onLogout={onLogout} />
+          </div>
+        </header>
+      ) : null}
 
       <section className="prepare-stream-panel">
         <p className="eyebrow">Stream queued</p>

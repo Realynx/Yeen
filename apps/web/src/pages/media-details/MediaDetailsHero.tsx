@@ -93,6 +93,7 @@ export function MediaDetailsHero({
     : (detailType === 'show'
       ? (showStats?.watched ? 'Continue Watching' : 'Start Watching')
       : 'Play Now');
+  const canShowAutoTorrentQuickActions = canAccessTorrentTools && isRemoteItem;
   const heroClassName = `details-hero details-hero-v2${isRemoteItem ? ' is-remote-details' : ''}`;
   const showActionRow = canPlay || canAccessTorrentTools || canEditMetadata;
 
@@ -161,29 +162,33 @@ export function MediaDetailsHero({
             ) : null}
             {canAccessTorrentTools ? (
               <>
-                <button
-                  type="button"
-                  className="ghost-button hero-torrent-quick hero-torrent-quick-play"
-                  disabled={autoTorrentBusy}
-                  onClick={onAutoTorrentPlay}
-                >
-                  <span className="hero-torrent-quick-icon" aria-hidden="true">▶</span>
-                  {autoTorrentPendingMode === 'stream'
-                    ? `Finding Best on ${preferredTorrentTrackerLabel}...`
-                    : `Play Best Seeder (${preferredTorrentTrackerLabel})`}
-                </button>
+                {canShowAutoTorrentQuickActions ? (
+                  <>
+                    <button
+                      type="button"
+                      className="ghost-button hero-torrent-quick hero-torrent-quick-play"
+                      disabled={autoTorrentBusy}
+                      onClick={onAutoTorrentPlay}
+                    >
+                      <span className="hero-torrent-quick-icon" aria-hidden="true">▶</span>
+                      {autoTorrentPendingMode === 'stream'
+                        ? `Finding Best on ${preferredTorrentTrackerLabel}...`
+                        : `Play Best Seeder (${preferredTorrentTrackerLabel})`}
+                    </button>
 
-                <button
-                  type="button"
-                  className="ghost-button hero-torrent-quick hero-torrent-quick-download"
-                  disabled={autoTorrentBusy}
-                  onClick={onAutoTorrentDownload}
-                >
-                  <span className="hero-torrent-quick-icon" aria-hidden="true">↓</span>
-                  {autoTorrentPendingMode === 'download'
-                    ? `Finding Best on ${preferredTorrentTrackerLabel}...`
-                    : `Download Best Seeder (${preferredTorrentTrackerLabel})`}
-                </button>
+                    <button
+                      type="button"
+                      className="ghost-button hero-torrent-quick hero-torrent-quick-download"
+                      disabled={autoTorrentBusy}
+                      onClick={onAutoTorrentDownload}
+                    >
+                      <span className="hero-torrent-quick-icon" aria-hidden="true">↓</span>
+                      {autoTorrentPendingMode === 'download'
+                        ? `Finding Best on ${preferredTorrentTrackerLabel}...`
+                        : `Download Best Seeder (${preferredTorrentTrackerLabel})`}
+                    </button>
+                  </>
+                ) : null}
 
                 <button
                   type="button"

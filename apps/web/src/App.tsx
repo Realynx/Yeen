@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthPanel } from './components/AuthPanel';
 import { InviteSignupPanel } from './components/InviteSignupPanel';
 import { TOKEN_STORAGE_KEY, me } from './lib/api';
+import { useClientExperience } from './lib/ui/clientExperience';
 import type { AuthResponse, User } from './lib/types';
 import { canAccessTorrentTools, isAdminRole } from './lib/roles';
 import { HomePage } from './pages/HomePage';
@@ -14,6 +15,15 @@ import { DownloadControlPage } from './pages/DownloadControlPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SystemSettingsPage } from './pages/SystemSettingsPage';
 import { AccountAccessPage } from './pages/AccountAccessPage';
+import { HomePagePhone } from './pages/phone/HomePagePhone';
+import { MediaExplorePagePhone } from './pages/phone/MediaExplorePagePhone';
+import { MediaLibraryPagePhone } from './pages/phone/MediaLibraryPagePhone';
+import { MediaDetailsPagePhone } from './pages/phone/MediaDetailsPagePhone';
+import { PlayerPagePhone } from './pages/phone/PlayerPagePhone';
+import { DownloadControlPagePhone } from './pages/phone/DownloadControlPagePhone';
+import { SettingsPagePhone } from './pages/phone/SettingsPagePhone';
+import { SystemSettingsPagePhone } from './pages/phone/SystemSettingsPagePhone';
+import { AccountAccessPagePhone } from './pages/phone/AccountAccessPagePhone';
 
 function titleForPath(pathname: string): string {
   if (pathname === '/') {
@@ -79,6 +89,7 @@ function RouteTitleManager() {
 }
 
 function App() {
+  const experience = useClientExperience();
   const [token, setToken] = useState<string>(() => {
     return localStorage.getItem(TOKEN_STORAGE_KEY) ?? '';
   });
@@ -158,46 +169,91 @@ function App() {
     return <AuthPanel onAuthenticated={handleAuthenticated} />;
   }
 
+  const isPhoneExperience = experience === 'phone';
+
   return (
     <BrowserRouter>
       <RouteTitleManager />
       <Routes>
         <Route
           path="/"
-          element={<HomePage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            isPhoneExperience ? (
+              <HomePagePhone token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <HomePage token={token} user={user} onLogout={handleLogout} />
+            )
+          }
         />
         <Route
           path="/settings"
           element={
-            <SettingsPage
-              token={token}
-              user={user}
-              onUserUpdated={setUser}
-              onLogout={handleLogout}
-            />
+            isPhoneExperience ? (
+              <SettingsPagePhone
+                token={token}
+                user={user}
+                onUserUpdated={setUser}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <SettingsPage
+                token={token}
+                user={user}
+                onUserUpdated={setUser}
+                onLogout={handleLogout}
+              />
+            )
           }
         />
         <Route
           path="/library"
-          element={<MediaLibraryPage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            isPhoneExperience ? (
+              <MediaLibraryPagePhone token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <MediaLibraryPage token={token} user={user} onLogout={handleLogout} />
+            )
+          }
         />
         <Route
           path="/explore"
-          element={<MediaExplorePage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            isPhoneExperience ? (
+              <MediaExplorePagePhone token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <MediaExplorePage token={token} user={user} onLogout={handleLogout} />
+            )
+          }
         />
         <Route
           path="/details/:mediaId"
-          element={<MediaDetailsPage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            isPhoneExperience ? (
+              <MediaDetailsPagePhone token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <MediaDetailsPage token={token} user={user} onLogout={handleLogout} />
+            )
+          }
         />
         <Route
           path="/player/:mediaId"
-          element={<PlayerPage token={token} user={user} onLogout={handleLogout} />}
+          element={
+            isPhoneExperience ? (
+              <PlayerPagePhone token={token} user={user} onLogout={handleLogout} />
+            ) : (
+              <PlayerPage token={token} user={user} onLogout={handleLogout} />
+            )
+          }
         />
         <Route
           path="/admin/system"
           element={
             isAdminRole(user.role) ? (
-              <SystemSettingsPage token={token} user={user} onLogout={handleLogout} />
+              isPhoneExperience ? (
+                <SystemSettingsPagePhone token={token} user={user} onLogout={handleLogout} />
+              ) : (
+                <SystemSettingsPage token={token} user={user} onLogout={handleLogout} />
+              )
             ) : (
               <Navigate to="/settings" replace />
             )
@@ -207,7 +263,11 @@ function App() {
           path="/admin/accounts"
           element={
             isAdminRole(user.role) ? (
-              <AccountAccessPage token={token} user={user} onLogout={handleLogout} />
+              isPhoneExperience ? (
+                <AccountAccessPagePhone token={token} user={user} onLogout={handleLogout} />
+              ) : (
+                <AccountAccessPage token={token} user={user} onLogout={handleLogout} />
+              )
             ) : (
               <Navigate to="/settings" replace />
             )
@@ -217,7 +277,11 @@ function App() {
           path="/admin/downloads"
           element={
             canAccessTorrentTools(user.role) ? (
-              <DownloadControlPage token={token} user={user} onLogout={handleLogout} />
+              isPhoneExperience ? (
+                <DownloadControlPagePhone token={token} user={user} onLogout={handleLogout} />
+              ) : (
+                <DownloadControlPage token={token} user={user} onLogout={handleLogout} />
+              )
             ) : (
               <Navigate to="/" replace />
             )

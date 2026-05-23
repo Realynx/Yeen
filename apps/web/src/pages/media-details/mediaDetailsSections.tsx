@@ -305,6 +305,7 @@ interface IptorrentsResultsSectionProps {
   searchUrl: string;
   showLocalControls?: boolean;
   enableEpisodeAggregation?: boolean;
+  disableVirtualization?: boolean;
   loading: boolean;
   hasSearchRequest?: boolean;
   error: string | null;
@@ -612,6 +613,7 @@ export function IptorrentsResultsSection({
   searchUrl,
   showLocalControls = true,
   enableEpisodeAggregation = false,
+  disableVirtualization = false,
   loading,
   hasSearchRequest = false,
   error,
@@ -696,7 +698,9 @@ export function IptorrentsResultsSection({
   }, [locallyFilteredResults, showLocalControls, sortDirection, sortField]);
 
   const shouldVirtualize =
-    !enableEpisodeAggregation && sortedResults.length >= VIRTUALIZE_MIN_RESULTS;
+    !disableVirtualization
+    && !enableEpisodeAggregation
+    && sortedResults.length >= VIRTUALIZE_MIN_RESULTS;
 
   useEffect(() => {
     setVirtualScrollTop(0);
