@@ -22,4 +22,3 @@ export class TorrentAccessGuard implements CanActivate {
     return true;
   }
 }
-

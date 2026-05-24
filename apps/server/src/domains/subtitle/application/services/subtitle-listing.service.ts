@@ -150,4 +150,3 @@ export class SubtitleListingService {
     return sanitized;
   }
 }
-

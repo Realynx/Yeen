@@ -9,7 +9,6 @@ import { MediaNfoReader } from '../../../infrastructure/readers/media-nfo.reader
 import { MediaPreviewResolver } from '../../../infrastructure/resolvers/media-preview.resolver';
 import {
   MediaProbeAdapter,
-  type FfprobePayload,
 } from '../../../infrastructure/adapters/media-probe.adapter';
 import { MediaSubtitleResolver } from '../../../infrastructure/resolvers/media-subtitle.resolver';
 import { JikanMetadataService } from '../remote-metadata/jikan-metadata.service';
@@ -22,6 +21,19 @@ import {
   cleanTitle,
   normalizeForKey,
 } from '../../../infrastructure/helpers/title-normalizer';
+import {
+  buildDedupeKey,
+  extractEpisodeTitleFromTags,
+  guessType,
+  normalizeEpisodeTitle,
+  normalizeTags,
+  shouldUseJikanFallback,
+} from './media-scanner-classification-helpers';
+import {
+  parseFrameRate,
+  parseNumber,
+  resolveDurationSeconds,
+} from './media-scanner-format-helpers';
 
 export interface MediaProbeHint {
   title?: string;
@@ -66,7 +78,7 @@ export class MediaScannerService {
         const item = await this.probeFile(filePath, resolvedPath);
         items.push(item);
       } catch (error) {
-        const message = this.toErrorMessage(error);
+        const message = toErrorMessage(error);
         this.logger.warn(`Skipping ${filePath}: ${message}`);
       }
     }
@@ -175,7 +187,7 @@ export class MediaScannerService {
           }
         : null;
     const seasonEpisode = nfoSeasonEpisode ?? filenameSE;
-    const guessedMediaType = this.guessType(relativePath, seasonEpisode);
+    const guessedMediaType = guessType(relativePath, seasonEpisode);
     const mediaType =
       metadataHint?.mediaType === 'movie' ||
       metadataHint?.mediaType === 'show' ||
@@ -183,7 +195,7 @@ export class MediaScannerService {
         ? metadataHint.mediaType
         : guessedMediaType;
     const subtitleDetails = [...embeddedSubtitles, ...externalSubtitles];
-    const durationSeconds = this.resolveDurationSeconds(parsed, fileStats.size);
+    const durationSeconds = resolveDurationSeconds(parsed, fileStats.size);
     const fallbackTitle = cleanTitle(fileName);
     const nfoTitle =
       (nfoMetadata?.showTitle ?? nfoMetadata?.title)?.trim() || null;
@@ -199,7 +211,7 @@ export class MediaScannerService {
     const parsedReleaseYear =
       nfoMetadata?.year ?? parseReleaseYear(fileName) ?? hintedReleaseYear;
 
-    const hintTags = this.normalizeTags(metadataHint?.tags ?? null);
+    const hintTags = normalizeTags(metadataHint?.tags ?? null);
     const hasHintMetadataEnrichment =
       hintTags.length > 0 ||
       Boolean(metadataHint?.description?.trim()) ||
@@ -216,7 +228,7 @@ export class MediaScannerService {
     const jikan =
       shouldLookupRemoteMetadata &&
       !tmdb &&
-      this.shouldUseJikanFallback(relativePath, mediaType, hintedTitle)
+      shouldUseJikanFallback(relativePath, mediaType, hintedTitle)
         ? await this.jikanMetadataService.lookup({
             title: hintedTitle,
             releaseYear: parsedReleaseYear,
@@ -240,7 +252,7 @@ export class MediaScannerService {
 
     const title = metadata?.title?.trim() || hintedTitle;
     const normalizedTitle = normalizeForKey(title);
-    const tags = this.normalizeTags(
+    const tags = normalizeTags(
       hintTags.length > 0
         ? hintTags
         : metadata?.tags?.length
@@ -250,9 +262,9 @@ export class MediaScannerService {
     const releaseYear = parsedReleaseYear ?? metadata?.releaseYear ?? null;
     const episodeTitle =
       mediaType === 'show'
-        ? this.normalizeEpisodeTitle(
+        ? normalizeEpisodeTitle(
             nfoMetadata?.episodeTitle ??
-              this.extractEpisodeTitleFromTags(parsed.format?.tags),
+              extractEpisodeTitleFromTags(parsed.format?.tags),
             title,
           )
         : null;
@@ -305,7 +317,7 @@ export class MediaScannerService {
     const hintDescription = metadataHint?.description?.trim() || null;
     const description =
       sidecarDescription ?? hintDescription ?? metadata?.overview ?? null;
-    const dedupeKey = this.buildDedupeKey({
+    const dedupeKey = buildDedupeKey({
       mediaType,
       normalizedTitle,
       releaseYear,
@@ -345,8 +357,8 @@ export class MediaScannerService {
       chapterThumbnails,
       mediaDetails: {
         formatName: parsed.format?.format_name ?? null,
-        bitRate: this.parseNumber(parsed.format?.bit_rate),
-        frameRate: this.parseFrameRate(video?.avg_frame_rate),
+        bitRate: parseNumber(parsed.format?.bit_rate),
+        frameRate: parseFrameRate(video?.avg_frame_rate),
         audioChannels: audio?.channels ?? null,
       },
       metadataRefreshedAt,
@@ -360,356 +372,8 @@ export class MediaScannerService {
     };
   }
 
-  private buildDedupeKey(input: {
-    mediaType: 'movie' | 'show' | 'other';
-    normalizedTitle: string;
-    releaseYear: number | null;
-    seasonNumber: number | null;
-    episodeNumber: number | null;
-    durationSeconds: number;
-  }): string {
-    const safeTitle = input.normalizedTitle || 'untitled';
-
-    if (input.mediaType === 'show') {
-      const season = input.seasonNumber ?? 0;
-      const episode = input.episodeNumber ?? 0;
-      return `show:${safeTitle}:s${season}:e${episode}`;
-    }
-
-    if (input.mediaType === 'movie') {
-      return `movie:${safeTitle}:y${input.releaseYear ?? 0}`;
-    }
-
-    const durationBucket = Math.max(0, Math.round(input.durationSeconds / 300));
-    return `other:${safeTitle}:y${input.releaseYear ?? 0}:d${durationBucket}`;
-  }
-
-  private extractEpisodeTitleFromTags(
-    tags: Record<string, string | undefined> | undefined,
-  ): string | null {
-    if (!tags) {
-      return null;
-    }
-
-    const lowerCasedTags = new Map<string, string>();
-    for (const [key, value] of Object.entries(tags)) {
-      if (typeof value !== 'string') {
-        continue;
-      }
-
-      const trimmed = value.trim();
-      if (!trimmed) {
-        continue;
-      }
-
-      lowerCasedTags.set(key.toLowerCase(), trimmed);
-    }
-
-    const episodeTitleKeys = [
-      'episode_title',
-      'episodetitle',
-      'episode title',
-      'title',
-    ];
-
-    for (const key of episodeTitleKeys) {
-      const value = lowerCasedTags.get(key);
-      if (value) {
-        return value;
-      }
-    }
-
-    return null;
-  }
-
-  private normalizeEpisodeTitle(
-    episodeTitle: string | null,
-    seriesTitle: string,
-  ): string | null {
-    if (!episodeTitle) {
-      return null;
-    }
-
-    const trimmed = episodeTitle.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    if (normalizeForKey(trimmed) === normalizeForKey(seriesTitle)) {
-      return null;
-    }
-
-    return trimmed;
-  }
-
-  private normalizeTags(tags: string[] | null | undefined): string[] {
-    if (!Array.isArray(tags) || tags.length === 0) {
-      return [];
-    }
-
-    const deduped = new Map<string, string>();
-    for (const tag of tags) {
-      if (typeof tag !== 'string') {
-        continue;
-      }
-
-      const cleaned = tag.trim();
-      if (!cleaned) {
-        continue;
-      }
-
-      const key = cleaned.toLowerCase();
-      if (!deduped.has(key)) {
-        deduped.set(key, cleaned);
-      }
-    }
-
-    return [...deduped.values()].sort((left, right) =>
-      left.localeCompare(right, undefined, { sensitivity: 'base' }),
-    );
-  }
-
-  private resolveDurationSeconds(
-    payload: FfprobePayload,
-    fileSizeBytes: number,
-  ): number {
-    const directDuration = this.parseNumber(payload.format?.duration);
-    if (directDuration && directDuration > 0) {
-      return directDuration;
-    }
-
-    const formatTagDuration = this.parseDurationFromTagCollection(
-      payload.format?.tags,
-    );
-    if (formatTagDuration && formatTagDuration > 0) {
-      return formatTagDuration;
-    }
-
-    for (const stream of payload.streams ?? []) {
-      const streamTagDuration = this.parseDurationFromTagCollection(
-        stream.tags,
-      );
-      if (streamTagDuration && streamTagDuration > 0) {
-        return streamTagDuration;
-      }
-    }
-
-    const formatBitRate = this.parseNumber(payload.format?.bit_rate);
-    if (
-      formatBitRate &&
-      formatBitRate > 0 &&
-      Number.isFinite(fileSizeBytes) &&
-      fileSizeBytes > 0
-    ) {
-      const estimatedSeconds = (fileSizeBytes * 8) / formatBitRate;
-      if (
-        Number.isFinite(estimatedSeconds) &&
-        estimatedSeconds > 30 &&
-        estimatedSeconds < 12 * 60 * 60
-      ) {
-        return estimatedSeconds;
-      }
-    }
-
-    return 0;
-  }
-
-  private parseDurationFromTagCollection(
-    tags: Record<string, string | undefined> | undefined,
-  ): number | null {
-    if (!tags) {
-      return null;
-    }
-
-    for (const [key, value] of Object.entries(tags)) {
-      if (!value || !key.toLowerCase().startsWith('duration')) {
-        continue;
-      }
-
-      const parsed = this.parseDurationString(value);
-      if (parsed && parsed > 0) {
-        return parsed;
-      }
-    }
-
-    return null;
-  }
-
-  private parseDurationString(value: string): number | null {
-    const trimmed = value.trim();
-    if (!trimmed || /^n\/a$/i.test(trimmed)) {
-      return null;
-    }
-
-    const numeric = this.parseNumber(trimmed);
-    if (numeric && numeric > 0) {
-      return numeric;
-    }
-
-    const hhmmssMatch = trimmed.match(
-      /^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/,
-    );
-    if (hhmmssMatch) {
-      const hours = Number.parseInt(hhmmssMatch[1], 10);
-      const minutes = Number.parseInt(hhmmssMatch[2], 10);
-      const seconds = Number.parseInt(hhmmssMatch[3], 10);
-      const fraction = hhmmssMatch[4]
-        ? Number.parseFloat(`0.${hhmmssMatch[4]}`)
-        : 0;
-
-      if (
-        Number.isFinite(hours) &&
-        Number.isFinite(minutes) &&
-        Number.isFinite(seconds)
-      ) {
-        return (
-          hours * 3600 +
-          minutes * 60 +
-          seconds +
-          (Number.isFinite(fraction) ? fraction : 0)
-        );
-      }
-    }
-
-    return null;
-  }
-
-  private parseNumber(value?: string): number | null {
-    if (!value) {
-      return null;
-    }
-
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  private parseFrameRate(value?: string): number | null {
-    if (!value) {
-      return null;
-    }
-
-    if (value.includes('/')) {
-      const [numeratorRaw, denominatorRaw] = value.split('/');
-      const numerator = Number.parseFloat(numeratorRaw);
-      const denominator = Number.parseFloat(denominatorRaw);
-
-      if (
-        !Number.isFinite(numerator) ||
-        !Number.isFinite(denominator) ||
-        denominator === 0
-      ) {
-        return null;
-      }
-
-      return Math.round((numerator / denominator) * 1000) / 1000;
-    }
-
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? Math.round(parsed * 1000) / 1000 : null;
-  }
-
-  private shouldUseJikanFallback(
-    relativePath: string,
-    mediaType: 'movie' | 'show' | 'other',
-    title: string,
-  ): boolean {
-    const normalizedPath = relativePath.toLowerCase();
-    const hasAnimePathHint =
-      normalizedPath.includes('/anime/') ||
-      normalizedPath.includes('/animes/') ||
-      normalizedPath.includes('/animation/anime/');
-
-    if (hasAnimePathHint) {
-      return true;
-    }
-
-    if (mediaType !== 'show') {
-      return false;
-    }
-
-    return this.isLikelyAnimeTitle(title);
-  }
-
-  private isLikelyAnimeTitle(title: string): boolean {
-    const cleaned = title.trim();
-    if (!cleaned) {
-      return false;
-    }
-
-    if (
-      /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(cleaned)
-    ) {
-      return true;
-    }
-
-    const tokens = new Set(normalizeForKey(cleaned).split(' ').filter(Boolean));
-    const animeMarkers = [
-      'anime',
-      'ova',
-      'ona',
-      'oad',
-      'isekai',
-      'senpai',
-      'chan',
-      'kun',
-      'sama',
-      'shonen',
-      'shounen',
-      'seinen',
-      'josei',
-      'shippuden',
-    ];
-
-    for (const marker of animeMarkers) {
-      if (tokens.has(marker)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private guessType(
-    relativePath: string,
-    seasonEpisode: {
-      seasonNumber: number | null;
-      episodeNumber: number | null;
-    },
-  ): 'movie' | 'show' | 'other' {
-    // Any concrete season/episode signal (from the filename OR a season
-    // folder like "Show/Season 02/") is the strongest hint that this
-    // file is part of a series.
-    if (
-      seasonEpisode.seasonNumber !== null ||
-      seasonEpisode.episodeNumber !== null
-    ) {
-      return 'show';
-    }
-
-    const normalized = relativePath.toLowerCase();
-    if (
-      normalized.includes('/shows/') ||
-      normalized.includes('/show/') ||
-      normalized.includes('/tv/') ||
-      normalized.includes('/series/')
-    ) {
-      return 'show';
-    }
-
-    if (
-      normalized.includes('/movies/') ||
-      normalized.includes('/movie/') ||
-      normalized.includes('/films/')
-    ) {
-      return 'movie';
-    }
-
-    return 'other';
-  }
-
-  private toErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
 }
 
-
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

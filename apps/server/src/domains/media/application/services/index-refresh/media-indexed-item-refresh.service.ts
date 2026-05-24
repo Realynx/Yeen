@@ -48,8 +48,8 @@ export class MediaIndexedItemRefreshService {
       const merged = this.mediaIndexedItemMergeService.mergeScannedIndexedItem(
         existing,
         {
-        ...scanned,
-        relativePath: existing.relativePath,
+          ...scanned,
+          relativePath: existing.relativePath,
         },
       );
 

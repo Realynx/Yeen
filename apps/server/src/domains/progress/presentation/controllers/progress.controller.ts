@@ -29,4 +29,3 @@ export class ProgressController {
     return this.progressService.upsert(user, mediaId, dto);
   }
 }
-

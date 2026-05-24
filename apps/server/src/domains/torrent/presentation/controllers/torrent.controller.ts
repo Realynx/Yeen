@@ -93,4 +93,3 @@ export class TorrentController {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
-

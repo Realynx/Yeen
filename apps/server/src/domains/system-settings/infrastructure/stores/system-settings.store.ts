@@ -34,4 +34,3 @@ export class SystemSettingsStore extends JsonFileStore<
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
-

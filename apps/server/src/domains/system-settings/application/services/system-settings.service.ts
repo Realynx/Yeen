@@ -326,4 +326,3 @@ export class SystemSettingsService {
     return this.normalizePathMappings(parsed);
   }
 }
-

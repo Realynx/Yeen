@@ -8,13 +8,16 @@ const BORDERLINE_MIN = Number.parseInt(
 );
 const hardMode =
   process.argv.includes('--hard') || process.env.LINE_BUDGET_HARD === '1';
+const includeTests = process.env.LINE_BUDGET_INCLUDE_TESTS === '1';
+const jsonMode =
+  process.argv.includes('--json') || process.env.LINE_BUDGET_JSON === '1';
 
 const includeExtensions = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const scopedRoots = [
   'apps/server/src',
-  'apps/server/test',
   'apps/web/src',
-  'apps/web/test',
+  'packages/shared-contracts/src',
+  ...(includeTests ? ['apps/server/test', 'apps/web/test'] : []),
 ];
 
 const skippedDirectoryNames = new Set([
@@ -208,8 +211,46 @@ async function main() {
   const allowlistedViolations = violations.filter((entry) => entry.allowlistEntry);
   const unallowlistedViolations = violations.filter((entry) => !entry.allowlistEntry);
 
+  const resultPayload = {
+    scopeRoots: scopedRoots,
+    includeTests,
+    budget: MAX_LINES,
+    borderlineMin: BORDERLINE_MIN,
+    hardMode,
+    filesScanned: measured.length,
+    overBudgetCount: violations.length,
+    overBudget: violations.map((entry) => ({
+      path: entry.path,
+      lines: entry.lines,
+      allowlist: entry.allowlistEntry,
+    })),
+    overBudgetUnallowlisted: unallowlistedViolations.map((entry) => ({
+      path: entry.path,
+      lines: entry.lines,
+    })),
+    borderline: borderline.map((entry) => ({
+      path: entry.path,
+      lines: entry.lines,
+      allowlist: entry.allowlistEntry,
+    })),
+    allowlist: {
+      expired: allowlist.expired,
+      invalid: allowlist.invalid,
+    },
+  };
+
+  if (jsonMode) {
+    console.log(JSON.stringify(resultPayload, null, 2));
+
+    if (hardMode && unallowlistedViolations.length > 0) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   console.log('Line budget check');
   console.log(`  Scope roots: ${scopedRoots.join(', ')}`);
+  console.log(`  Include tests: ${includeTests ? 'yes' : 'no'}`);
   console.log(`  Budget: <= ${MAX_LINES} lines`);
   console.log(`  Mode: ${hardMode ? 'hard-fail' : 'soft-warn'}`);
   console.log(`  Files scanned: ${measured.length}`);

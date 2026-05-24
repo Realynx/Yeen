@@ -224,4 +224,3 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
-

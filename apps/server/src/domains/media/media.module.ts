@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MetadataApiCacheStore } from './infrastructure/stores/metadata-api-cache.store';
 import { SystemSettingsModule } from '../system-settings/system-settings.module';
 import { MediaAiMetadataService } from './application/services/ai-metadata/media-ai-metadata.service';
+import { MediaAiTitleProviderService } from './application/services/ai-metadata/media-ai-title-provider.service';
 import { MediaController } from './presentation/controllers/media.controller';
 import { MediaImagesController } from './presentation/controllers/media-images.controller';
 import { MediaLocationsStore } from './infrastructure/stores/media-locations.store';
@@ -20,12 +21,14 @@ import { MediaFsCommitService } from './application/services/filesystem/media-fs
 import { MediaFsCommitPlannerService } from './application/services/filesystem/media-fs-commit-planner.service';
 import { MediaFsFileOpsService } from './application/services/filesystem/media-fs-file-ops.service';
 import { MediaFsNfoService } from './application/services/filesystem/media-fs-nfo.service';
+import { MediaFsRollbackService } from './application/services/filesystem/media-fs-rollback.service';
 import { IptorrentsSearchService } from './application/services/torrent-search/iptorrents-search.service';
 import { NyaaSearchService } from './application/services/torrent-search/nyaa-search.service';
 import { MediaPathResolverService } from './application/services/path-resolution/media-path-resolver.service';
 import { MediaTorrentIndexingService } from './application/services/torrent-intake/media-torrent-indexing.service';
 import { MediaTorrentIntakePollingService } from './application/services/torrent-intake/media-torrent-intake-polling.service';
 import { MediaTorrentIntakeCandidateService } from './application/services/torrent-intake/media-torrent-intake-candidate.service';
+import { MediaSearchTorrentDownloadService } from './application/services/torrent-intake/media-search-torrent-download.service';
 import { MediaLibraryLocationsService } from './application/services/library-locations/media-library-locations.service';
 import { MediaStorageSummaryService } from './application/services/storage/media-storage-summary.service';
 import { MediaIndexRefreshPolicyService } from './application/services/index-refresh/media-index-refresh-policy.service';
@@ -54,6 +57,7 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaLocationsStore,
     MetadataApiCacheStore,
     MediaAiMetadataService,
+    MediaAiTitleProviderService,
     TmdbMetadataService,
     JikanMetadataService,
     MediaNfoReader,
@@ -66,8 +70,10 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaFsCommitPlannerService,
     MediaFsFileOpsService,
     MediaFsNfoService,
+    MediaFsRollbackService,
     MediaPathResolverService,
     MediaTorrentIndexingService,
+    MediaSearchTorrentDownloadService,
     MediaTorrentIntakeCandidateService,
     MediaTorrentIntakePollingService,
     MediaLibraryLocationsService,

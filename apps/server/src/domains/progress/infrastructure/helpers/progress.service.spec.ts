@@ -77,4 +77,3 @@ describe('ProgressService', () => {
     expect(stored?.syncTimestampMs).toBe(4000);
   });
 });
-

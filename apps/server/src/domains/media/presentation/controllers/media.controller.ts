@@ -36,8 +36,15 @@ import { IptorrentsSearchService } from '../../application/services/torrent-sear
 import { NyaaSearchService } from '../../application/services/torrent-search/nyaa-search.service';
 import { MediaFsCommitService } from '../../application/services/filesystem/media-fs-commit.service';
 import { MediaService } from '../../application/services/media.service';
-import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { TorrentService } from '../../../torrent/application/services/torrent.service';
+import { MediaSearchTorrentDownloadService } from '../../application/services/torrent-intake/media-search-torrent-download.service';
+import {
+  normalizeUploadedJsonFile,
+  parseBooleanQuery,
+  parseRemoteProvidersQuery,
+  parseStringArrayBody,
+  parseTagsQuery,
+} from './media.controller.helpers';
 
 @UseGuards(JwtAuthGuard)
 @Controller('media')
@@ -47,13 +54,13 @@ export class MediaController {
     private readonly mediaFsCommitService: MediaFsCommitService,
     private readonly iptorrentsSearchService: IptorrentsSearchService,
     private readonly nyaaSearchService: NyaaSearchService,
+    private readonly mediaSearchTorrentDownloadService: MediaSearchTorrentDownloadService,
     private readonly torrentService: TorrentService,
-    private readonly systemSettingsService: SystemSettingsService,
   ) {}
 
   @Get()
   list(@Query('q') query?: string, @Query('tags') tags?: string | string[]) {
-    return this.mediaService.list(query, this.parseTagsQuery(tags));
+    return this.mediaService.list(query, parseTagsQuery(tags));
   }
 
   @Get('locations')
@@ -132,9 +139,9 @@ export class MediaController {
       query: (query ?? '').trim(),
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       page: Number.isFinite(parsedPage) ? parsedPage : undefined,
-      providers: this.parseRemoteProvidersQuery(providers),
-      tags: this.parseTagsQuery(tags),
-      useCache: !this.parseBooleanQuery(noCache),
+      providers: parseRemoteProvidersQuery(providers),
+      tags: parseTagsQuery(tags),
+      useCache: !parseBooleanQuery(noCache),
     });
   }
 
@@ -181,89 +188,16 @@ export class MediaController {
   @Post('search/iptorrents/download')
   @UseGuards(TorrentAccessGuard)
   async startIptorrentsDownload(@Body() dto: DownloadIptorrentDto) {
-    const intent = dto.intent === 'background' ? 'background' : 'stream';
-    const systemSettings = await this.systemSettingsService.getSettings();
-    const torrentFile = await this.iptorrentsSearchService.downloadTorrentFile({
-      downloadUrl: dto.downloadUrl,
-      fallbackFileName: dto.title,
-    });
-
-    const result = await this.torrentService.addTorrent(
-      {
-        savePath: dto.savePath?.trim() || undefined,
-        paused: false,
-        seedAfterDownload: systemSettings.iptorrentsSeedingEnabled,
-        intent,
-        orderMode: intent === 'stream' ? 'sequential' : undefined,
-      },
-      torrentFile,
+    return this.mediaSearchTorrentDownloadService.startDownload(
+      'iptorrents',
+      dto,
     );
-
-    if (result.hash && dto.metadataHint) {
-      await this.torrentService.setKnownTorrentMediaHint(
-        result.hash,
-        dto.metadataHint,
-      );
-    }
-
-    // Both stream and background downloads should be indexed once enough of the
-    // file is on disk so the new media shows up in the library. The frontend
-    // continues polling /torrent/:hash/index while this initial attempt is
-    // pending.
-    const indexResult = result.hash
-      ? await this.mediaService.indexTorrentFile(result.hash).catch(() => null)
-      : null;
-
-    return {
-      ...result,
-      message:
-        intent === 'stream'
-          ? 'Stream torrent started in qBittorrent (sequential order).'
-          : 'Torrent download started in qBittorrent.',
-      indexResult,
-    };
   }
 
   @Post('search/nyaa/download')
   @UseGuards(TorrentAccessGuard)
   async startNyaaDownload(@Body() dto: DownloadIptorrentDto) {
-    const intent = dto.intent === 'background' ? 'background' : 'stream';
-    const systemSettings = await this.systemSettingsService.getSettings();
-    const torrentFile = await this.nyaaSearchService.downloadTorrentFile({
-      downloadUrl: dto.downloadUrl,
-      fallbackFileName: dto.title,
-    });
-
-    const result = await this.torrentService.addTorrent(
-      {
-        savePath: dto.savePath?.trim() || undefined,
-        paused: false,
-        seedAfterDownload: systemSettings.nyaaSeedingEnabled,
-        intent,
-        orderMode: intent === 'stream' ? 'sequential' : undefined,
-      },
-      torrentFile,
-    );
-
-    if (result.hash && dto.metadataHint) {
-      await this.torrentService.setKnownTorrentMediaHint(
-        result.hash,
-        dto.metadataHint,
-      );
-    }
-
-    const indexResult = result.hash
-      ? await this.mediaService.indexTorrentFile(result.hash).catch(() => null)
-      : null;
-
-    return {
-      ...result,
-      message:
-        intent === 'stream'
-          ? 'Nyaa stream torrent started in qBittorrent (sequential order).'
-          : 'Nyaa torrent download started in qBittorrent.',
-      indexResult,
-    };
+    return this.mediaSearchTorrentDownloadService.startDownload('nyaa', dto);
   }
 
   @Post('torrent/:hash/index')
@@ -304,7 +238,7 @@ export class MediaController {
   @Post('torrent/download-progress')
   getTorrentDownloadProgress(@Body() body: { mediaIds?: unknown }) {
     return this.mediaService.getTorrentDownloadProgressByMediaIds(
-      this.parseStringArrayBody(body?.mediaIds),
+      parseStringArrayBody(body?.mediaIds),
     );
   }
 
@@ -361,7 +295,7 @@ export class MediaController {
     @Body() dto: ImportMetadataDto,
     @UploadedFile() importFile?: unknown,
   ) {
-    const normalizedFile = this.normalizeUploadedJsonFile(importFile);
+    const normalizedFile = normalizeUploadedJsonFile(importFile);
     if (!normalizedFile) {
       throw new BadRequestException('Metadata import file is required.');
     }
@@ -440,120 +374,4 @@ export class MediaController {
   getPlayback(@Param('mediaId') mediaId: string) {
     return this.mediaService.getPlaybackPlan(mediaId);
   }
-
-  private parseTagsQuery(raw: string | string[] | undefined): string[] {
-    if (typeof raw === 'undefined') {
-      return [];
-    }
-
-    const values = Array.isArray(raw) ? raw : [raw];
-    const deduped = new Set<string>();
-
-    for (const value of values) {
-      if (typeof value !== 'string') {
-        continue;
-      }
-
-      for (const splitValue of value.split(',')) {
-        const cleaned = splitValue.trim();
-        if (cleaned) {
-          deduped.add(cleaned);
-        }
-      }
-    }
-
-    return [...deduped];
-  }
-
-  private parseRemoteProvidersQuery(
-    raw: string | string[] | undefined,
-  ): Array<'tmdb' | 'jikan'> | undefined {
-    if (typeof raw === 'undefined') {
-      return undefined;
-    }
-
-    const values = Array.isArray(raw) ? raw : [raw];
-    const deduped = new Set<'tmdb' | 'jikan'>();
-
-    for (const value of values) {
-      if (typeof value !== 'string') {
-        continue;
-      }
-
-      for (const splitValue of value.split(',')) {
-        const cleaned = splitValue.trim().toLowerCase();
-
-        if (cleaned === 'tmdb' || cleaned === 'jikan') {
-          deduped.add(cleaned);
-        }
-      }
-    }
-
-    return deduped.size > 0 ? [...deduped] : undefined;
-  }
-
-  private parseBooleanQuery(raw: string | string[] | undefined): boolean {
-    if (typeof raw === 'undefined') {
-      return false;
-    }
-
-    const first = Array.isArray(raw) ? raw[0] : raw;
-    if (typeof first !== 'string') {
-      return false;
-    }
-
-    const cleaned = first.trim().toLowerCase();
-    return (
-      cleaned === '1' ||
-      cleaned === 'true' ||
-      cleaned === 'yes' ||
-      cleaned === 'on'
-    );
-  }
-
-  private parseStringArrayBody(raw: unknown): string[] {
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-
-    const deduped = new Set<string>();
-    for (const value of raw) {
-      if (typeof value !== 'string') {
-        continue;
-      }
-
-      const cleaned = value.trim();
-      if (cleaned) {
-        deduped.add(cleaned);
-      }
-    }
-
-    return [...deduped];
-  }
-
-  private normalizeUploadedJsonFile(
-    value: unknown,
-  ): { buffer: Buffer; mimetype: string } | undefined {
-    if (!this.isObject(value)) {
-      return undefined;
-    }
-
-    const candidateBuffer = value['buffer'];
-    if (!Buffer.isBuffer(candidateBuffer)) {
-      return undefined;
-    }
-
-    const candidateType =
-      typeof value['mimetype'] === 'string' ? value['mimetype'].trim() : '';
-
-    return {
-      buffer: candidateBuffer,
-      mimetype: candidateType,
-    };
-  }
-
-  private isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-  }
 }
-

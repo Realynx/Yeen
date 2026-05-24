@@ -82,4 +82,3 @@ export class SubtitleController {
     return null;
   }
 }
-

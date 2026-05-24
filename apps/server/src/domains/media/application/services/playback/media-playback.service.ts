@@ -66,9 +66,10 @@ export class MediaPlaybackService {
     const canonicalFilePath = await this.mediaFileResolutionService
       .resolveMediaFilePath(item.filePath, item.relativePath)
       .catch(() => item.filePath);
-    const probePath = await this.mediaFileResolutionService.resolvePlaybackProbePath(
-      canonicalFilePath,
-    );
+    const probePath =
+      await this.mediaFileResolutionService.resolvePlaybackProbePath(
+        canonicalFilePath,
+      );
 
     try {
       const payload = await this.mediaProbeAdapter.probeFile(
@@ -97,7 +98,8 @@ export class MediaPlaybackService {
         );
         const codec = this.normalizePlaybackTrackCodec(stream.codec_name);
         const channels =
-          typeof stream.channels === 'number' && Number.isFinite(stream.channels)
+          typeof stream.channels === 'number' &&
+          Number.isFinite(stream.channels)
             ? Math.max(1, Math.round(stream.channels))
             : null;
         const title = stream.tags?.title?.trim() || '';
@@ -280,7 +282,9 @@ export class MediaPlaybackService {
     return normalized.toLowerCase();
   }
 
-  private normalizePlaybackTrackCodec(value: string | undefined): string | null {
+  private normalizePlaybackTrackCodec(
+    value: string | undefined,
+  ): string | null {
     const normalized = value?.trim();
     if (!normalized) {
       return null;

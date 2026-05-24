@@ -48,28 +48,34 @@ export class MediaMetadataImportNormalizerService {
       'relativePath',
       context,
     );
-    const relativePath = this.mediaMetadataIoService.normalizeImportedRelativePath(
-      importedRelativePath,
-    );
+    const relativePath =
+      this.mediaMetadataIoService.normalizeImportedRelativePath(
+        importedRelativePath,
+      );
     const filePath = this.mediaMetadataIoService.rebaseImportedFilePath(
       importedFilePath,
       relativePath,
       pathContext,
     );
     const id =
-      this.mediaMetadataIoService.readOptionalString(value, 'id') ?? randomUUID();
+      this.mediaMetadataIoService.readOptionalString(value, 'id') ??
+      randomUUID();
     const type = this.mediaMetadataIoService.normalizeImportedType(
       this.mediaMetadataIoService.readOptionalString(value, 'type'),
     );
     const normalizedTitle =
-      this.mediaMetadataIoService.readOptionalString(value, 'normalizedTitle') ??
-      normalizeForKey(title);
-    const tags = this.mediaMetadataPatchApplicationService.normalizeEditableTags(
-      this.mediaMetadataIoService.readStringArray(value, 'tags'),
-    );
-    const releaseYear = this.mediaMetadataPatchApplicationService.coerceOptionalInt(
-      this.mediaMetadataIoService.readOptionalNumber(value, 'releaseYear'),
-    );
+      this.mediaMetadataIoService.readOptionalString(
+        value,
+        'normalizedTitle',
+      ) ?? normalizeForKey(title);
+    const tags =
+      this.mediaMetadataPatchApplicationService.normalizeEditableTags(
+        this.mediaMetadataIoService.readStringArray(value, 'tags'),
+      );
+    const releaseYear =
+      this.mediaMetadataPatchApplicationService.coerceOptionalInt(
+        this.mediaMetadataIoService.readOptionalNumber(value, 'releaseYear'),
+      );
     let seasonNumber =
       this.mediaMetadataPatchApplicationService.coerceOptionalInt(
         this.mediaMetadataIoService.readOptionalNumber(value, 'seasonNumber'),
@@ -97,10 +103,14 @@ export class MediaMetadataImportNormalizerService {
       this.mediaMetadataIoService.readOptionalString(value, 'extension') ||
       extname(filePath) ||
       '.bin';
-    const metadataRefreshedAt = this.mediaMetadataIoService.normalizeImportedTimestamp(
-      this.mediaMetadataIoService.readOptionalString(value, 'metadataRefreshedAt'),
-      fallbackTimestamp,
-    );
+    const metadataRefreshedAt =
+      this.mediaMetadataIoService.normalizeImportedTimestamp(
+        this.mediaMetadataIoService.readOptionalString(
+          value,
+          'metadataRefreshedAt',
+        ),
+        fallbackTimestamp,
+      );
     const updatedAt = this.mediaMetadataIoService.normalizeImportedTimestamp(
       this.mediaMetadataIoService.readOptionalString(value, 'updatedAt'),
       metadataRefreshedAt,
@@ -119,10 +129,11 @@ export class MediaMetadataImportNormalizerService {
           'episodeCatalogSource',
         ),
       );
-    const episodeCatalogSourceId = this.mediaMetadataIoService.readOptionalString(
-      value,
-      'episodeCatalogSourceId',
-    );
+    const episodeCatalogSourceId =
+      this.mediaMetadataIoService.readOptionalString(
+        value,
+        'episodeCatalogSourceId',
+      );
 
     const item: MediaItem = {
       id,
@@ -176,11 +187,15 @@ export class MediaMetadataImportNormalizerService {
         'audioCodec',
       ),
       subtitleStreams: this.mediaMetadataIoService.toNonNegativeInteger(
-        this.mediaMetadataIoService.readOptionalNumber(value, 'subtitleStreams'),
+        this.mediaMetadataIoService.readOptionalNumber(
+          value,
+          'subtitleStreams',
+        ),
       ),
-      subtitleDetails: this.mediaMetadataIoService.normalizeImportedSubtitleDetails(
-        value['subtitleDetails'],
-      ),
+      subtitleDetails:
+        this.mediaMetadataIoService.normalizeImportedSubtitleDetails(
+          value['subtitleDetails'],
+        ),
       previewImagePath: this.mediaMetadataIoService.readOptionalString(
         value,
         'previewImagePath',
@@ -189,9 +204,10 @@ export class MediaMetadataImportNormalizerService {
         value,
         'backdropImagePath',
       ),
-      chapterThumbnails: this.mediaMetadataIoService.normalizeImportedChapterThumbnails(
-        value['chapterThumbnails'],
-      ),
+      chapterThumbnails:
+        this.mediaMetadataIoService.normalizeImportedChapterThumbnails(
+          value['chapterThumbnails'],
+        ),
       mediaDetails: this.mediaMetadataIoService.normalizeImportedMediaDetails(
         value['mediaDetails'],
       ),

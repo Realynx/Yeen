@@ -96,4 +96,3 @@ export class MediaSubtitleResolver {
     return /^[a-z]{2,3}$/.test(token) ? token : null;
   }
 }
-

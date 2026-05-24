@@ -142,4 +142,3 @@ export class AuthController {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
-

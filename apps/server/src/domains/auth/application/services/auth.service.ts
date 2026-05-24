@@ -22,6 +22,8 @@ import { AccountInviteRecord } from '../../domain/entities/account-invite-record
 import { AccountRecord } from '../../domain/entities/account-record.entity';
 import { AuthUser } from '../../domain/entities/auth-user.entity';
 import { InviteTokensStore } from '../../infrastructure/stores/invite-tokens.store';
+import { AuthAdminAccountService } from './auth-admin-account.service';
+import { toSafeAccount } from '../helpers/auth-account-helpers';
 
 interface UploadedAvatarImage {
   buffer: Buffer;
@@ -44,6 +46,7 @@ export class AuthService implements OnModuleInit {
     private readonly inviteTokensStore: InviteTokensStore,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly authAdminAccountService: AuthAdminAccountService,
   ) {}
 
   async onModuleInit() {
@@ -129,100 +132,19 @@ export class AuthService implements OnModuleInit {
   }
 
   async listAccountsForAdmin() {
-    const accounts = await this.accountsStore.list();
-    const accountsById = new Map(
-      accounts.map((account) => [account.id, account]),
-    );
-
-    const normalized = accounts
-      .slice()
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map((account) => ({
-        ...this.toSafeAccount(account),
-        invitedByName: account.invitedByAccountId
-          ? (accountsById.get(account.invitedByAccountId)?.name ?? null)
-          : null,
-      }));
-
-    return {
-      accounts: normalized,
-    };
+    return this.authAdminAccountService.listAccountsForAdmin();
   }
 
   async setAccountInvites(accountId: string, dto: UpdateAccountInvitesDto) {
-    const account = await this.requireAccount(accountId);
-
-    if (account.role === 'admin') {
-      return this.toSafeAccount(account);
-    }
-
-    const updated = await this.accountsStore.updateById(account.id, {
-      invitesRemaining: dto.invitesRemaining,
-    });
-
-    if (!updated) {
-      throw new UnauthorizedException('Account not found.');
-    }
-
-    return this.toSafeAccount(updated);
+    return this.authAdminAccountService.setAccountInvites(accountId, dto);
   }
 
   async setAccountRole(accountId: string, dto: UpdateAccountRoleDto) {
-    const account = await this.requireAccount(accountId);
-    const nextRole =
-      dto.role === 'admin' || dto.role === 'sailer' || dto.role === 'user'
-        ? dto.role
-        : 'user';
-
-    if (account.role === nextRole) {
-      return this.toSafeAccount(account);
-    }
-
-    if (account.role === 'admin' && nextRole !== 'admin') {
-      const accounts = await this.accountsStore.list();
-      const adminCount = accounts.filter(
-        (entry) => entry.role === 'admin',
-      ).length;
-
-      if (adminCount <= 1) {
-        throw new BadRequestException(
-          'At least one admin account is required.',
-        );
-      }
-    }
-
-    const updated = await this.accountsStore.updateById(account.id, {
-      role: nextRole,
-      invitesRemaining: account.invitesRemaining ?? 0,
-    });
-
-    if (!updated) {
-      throw new UnauthorizedException('Account not found.');
-    }
-
-    return this.toSafeAccount(updated);
+    return this.authAdminAccountService.setAccountRole(accountId, dto);
   }
 
   async createAccountAsAdmin(dto: CreateAdminAccountDto) {
-    const existing = await this.accountsStore.findByEmail(dto.email);
-    if (existing) {
-      throw new ConflictException('Email is already registered.');
-    }
-
-    const role =
-      dto.role === 'admin' || dto.role === 'sailer' || dto.role === 'user'
-        ? dto.role
-        : 'user';
-    const passwordHash = await bcrypt.hash(dto.password, 12);
-    const account = await this.accountsStore.create({
-      email: dto.email,
-      name: dto.name,
-      passwordHash,
-      role,
-      invitesRemaining: role === 'admin' ? null : (dto.invitesRemaining ?? 0),
-    });
-
-    return this.toSafeAccount(account);
+    return this.authAdminAccountService.createAccountAsAdmin(dto);
   }
 
   async login(dto: LoginDto) {
@@ -242,7 +164,7 @@ export class AuthService implements OnModuleInit {
   async me(user: AuthUser) {
     const account = await this.requireAccount(user.sub);
 
-    return this.toSafeAccount(account);
+    return toSafeAccount(account);
   }
 
   async updateProfile(user: AuthUser, dto: UpdateProfileDto) {
@@ -266,7 +188,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Account not found.');
     }
 
-    return this.toSafeAccount(updated);
+    return toSafeAccount(updated);
   }
 
   async changePassword(user: AuthUser, dto: ChangePasswordDto) {
@@ -328,7 +250,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Account not found.');
     }
 
-    return this.toSafeAccount(updated);
+    return toSafeAccount(updated);
   }
 
   async removeAvatar(user: AuthUser) {
@@ -341,7 +263,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Account not found.');
     }
 
-    return this.toSafeAccount(updated);
+    return toSafeAccount(updated);
   }
 
   private async buildAuthResponse(account: AccountRecord) {
@@ -356,21 +278,7 @@ export class AuthService implements OnModuleInit {
 
     return {
       accessToken,
-      user: this.toSafeAccount(account),
-    };
-  }
-
-  private toSafeAccount(account: AccountRecord) {
-    return {
-      id: account.id,
-      email: account.email,
-      name: account.name,
-      avatarDataUrl: account.avatarDataUrl ?? null,
-      role: account.role,
-      invitesRemaining:
-        account.role === 'admin' ? null : (account.invitesRemaining ?? 0),
-      invitedByAccountId: account.invitedByAccountId ?? null,
-      createdAt: account.createdAt,
+      user: toSafeAccount(account),
     };
   }
 
@@ -443,4 +351,3 @@ export class AuthService implements OnModuleInit {
     );
   }
 }
-

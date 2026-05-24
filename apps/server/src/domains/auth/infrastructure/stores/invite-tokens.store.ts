@@ -135,4 +135,3 @@ export class InviteTokensStore extends JsonFileStore<AccountInviteRecord[]> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
-
