@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
-import { ProfileMenu } from '../../navigation/components/ProfileMenu';
+import { useNavigate } from 'react-router-dom';
 import type { User } from '../../shared/services/types';
 import { pickRandomItem, toLibrarySearchPath } from '../../library/services/librarySearchUtils';
 import { MediaExploreControls } from '../components/MediaExploreControls';
 import { MediaExploreResults } from '../components/MediaExploreResults';
+import { ExploreTopNav } from '../components/ExploreTopNav';
 import {
   EXPECTED_TAGS_BY_MODE,
   providerLabelForMode,
   QUICK_TAGS_BY_MODE,
-  type ExploreCatalogMode,
 } from '../services/exploreCatalog';
 import {
   getExploreTypeCounts,
@@ -19,6 +17,7 @@ import {
   getFilteredExploreItems,
   shouldUseCompactExploreGrid,
 } from '../services/exploreGrid';
+import { useExploreFilterActions } from '../services/useExploreFilterActions';
 import { useExploreCatalogState } from '../services/useExploreCatalogState';
 
 interface MediaExplorePageProps {
@@ -77,12 +76,9 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
   const catalogModeRef = useRef(catalogMode);
   const pendingScrollRestoreRef = useRef(initialScrollTop);
 
-  const openDetails = useCallback(
-    (mediaId: string) => {
-      navigate(`/details/${mediaId}`);
-    },
-    [navigate],
-  );
+  const openDetails = useCallback((mediaId: string) => {
+    navigate(`/details/${mediaId}`);
+  }, [navigate]);
 
   const clearQueuedLoad = useCallback(() => {
     if (queuedLoadTimeoutRef.current !== null) {
@@ -292,28 +288,15 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     typeFilter,
   ]);
 
-  useEffect(() => {
-    return () => {
-      clearQueuedLoad();
-    };
+  useEffect(() => () => {
+    clearQueuedLoad();
   }, [clearQueuedLoad]);
 
-  const selectableTags = useMemo(() => {
-    return [...EXPECTED_TAGS_BY_MODE[catalogMode]];
-  }, [catalogMode]);
+  const selectableTags = useMemo(() => [...EXPECTED_TAGS_BY_MODE[catalogMode]], [catalogMode]);
 
-  const typeCounts = useMemo(() => {
-    return getExploreTypeCounts(remoteItems);
-  }, [remoteItems]);
+  const typeCounts = useMemo(() => getExploreTypeCounts(remoteItems), [remoteItems]);
 
-  const filteredItems = useMemo(() => {
-    return getFilteredExploreItems(remoteItems, typeFilter);
-  }, [remoteItems, typeFilter]);
-
-  const randomDetailsCandidates = useMemo(
-    () => filteredItems,
-    [filteredItems],
-  );
+  const filteredItems = useMemo(() => getFilteredExploreItems(remoteItems, typeFilter), [remoteItems, typeFilter]);
 
   const useCompactResultsGrid = shouldUseCompactExploreGrid(filteredItems);
 
@@ -327,124 +310,46 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     });
   }, [filteredItems, scrollTop, useCompactResultsGrid, viewportHeight, viewportWidth]);
 
-  const sectionTitle =
-    catalogMode === 'anime' ? 'Anime Explorer' : 'Movie & TV Explorer';
-
-  const sectionSubtitle = tagFilter
-    ? `Showing results from ${providerLabelForMode(catalogMode)} tagged "${tagFilter}".`
-    : `Choose a tag to browse ${providerLabelForMode(catalogMode)} titles.`;
-
-  const loadingMoreLabel =
-    waitingForRateLimit
-      ? 'Waiting for rate limit window...'
-      : catalogMode === 'anime'
-      ? 'Loading more anime from Jikan...'
-      : 'Loading more titles...';
-
   const showLoadingMoreIndicator = loadingMore || waitingForRateLimit;
 
-  function handleModeChange(nextMode: ExploreCatalogMode) {
-    if (nextMode === catalogMode) {
-      return;
-    }
-
-    const nextTag = QUICK_TAGS_BY_MODE[nextMode][0] ?? '';
-    setCatalogMode(nextMode);
-    setTypeFilter('all');
-    setTagFilter(nextTag);
-    resetExploreForTag(nextTag);
-  }
-
-  function applyQuickTag(tag: string) {
-    const cleanedTag = tag.trim();
-    if (cleanedTag.length < 2) {
-      return;
-    }
-
-    setTagFilter(cleanedTag);
-    setTypeFilter('all');
-    resetExploreForTag(cleanedTag);
-  }
-
-  function handleTagSelect(nextTag: string) {
-    setTagFilter(nextTag);
-    setTypeFilter('all');
-    resetExploreForTag(nextTag);
-  }
-
-  function handleClearTag() {
-    setTagFilter('');
-    setTypeFilter('all');
-    resetExploreForTag('');
-  }
-
-  function resetExploreFilters() {
-    const nextTag = QUICK_TAGS_BY_MODE[catalogMode][0] ?? '';
-    setTypeFilter('all');
-    setTagFilter(nextTag);
-    resetExploreForTag(nextTag);
-  }
+  const {
+    handleModeChange,
+    applyQuickTag,
+    handleTagSelect,
+    handleClearTag,
+    resetExploreFilters,
+  } = useExploreFilterActions({
+    catalogMode,
+    setCatalogMode,
+    setTypeFilter,
+    setTagFilter,
+    resetExploreForTag,
+  });
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    navigate(toLibrarySearchPath(query));
+    event.preventDefault(); navigate(toLibrarySearchPath(query));
   }
 
   const openRandomDetails = useCallback(() => {
-    const randomCandidate = pickRandomItem(randomDetailsCandidates);
+    const randomCandidate = pickRandomItem(filteredItems);
     if (!randomCandidate) {
       return;
     }
 
     openDetails(randomCandidate.id);
-  }, [openDetails, randomDetailsCandidates]);
+  }, [filteredItems, openDetails]);
 
   return (
     <main className="browse-page media-library-page media-explore-page">
-      <header className="top-nav">
-        <div className="top-nav-left">
-          <p className="brand-mark">YEEN</p>
-          <nav className="browse-links" aria-label="Browse">
-            <NavLink
-              className={({ isActive }) =>
-                isActive ? 'browse-link active' : 'browse-link'
-              }
-              end
-              to="/"
-            >
-              Home
-            </NavLink>
-            <NavLink
-              className={({ isActive }) =>
-                isActive ? 'browse-link active' : 'browse-link'
-              }
-              to="/library"
-            >
-              Library
-            </NavLink>
-            <NavLink
-              className={({ isActive }) =>
-                isActive ? 'browse-link active' : 'browse-link'
-              }
-              to="/explore"
-            >
-              Explore
-            </NavLink>
-          </nav>
-        </div>
-
-        <div className="top-nav-right">
-          <LibrarySearchForm
-            query={query}
-            onQueryChange={setQuery}
-            onSearchSubmit={handleSearch}
-            placeholder="Search titles and paths"
-            onOpenRandomDetails={openRandomDetails}
-            randomDisabled={randomDetailsCandidates.length === 0}
-          />
-          <ProfileMenu user={user} onLogout={onLogout} />
-        </div>
-      </header>
+      <ExploreTopNav
+        query={query}
+        onQueryChange={setQuery}
+        onSearchSubmit={handleSearch}
+        onOpenRandomDetails={openRandomDetails}
+        randomDisabled={filteredItems.length === 0}
+        user={user}
+        onLogout={onLogout}
+      />
 
       <MediaExploreControls
         catalogMode={catalogMode}
@@ -463,8 +368,10 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
       />
 
       <MediaExploreResults
-        sectionTitle={sectionTitle}
-        sectionSubtitle={sectionSubtitle}
+        sectionTitle={catalogMode === 'anime' ? 'Anime Explorer' : 'Movie & TV Explorer'}
+        sectionSubtitle={tagFilter
+          ? `Showing results from ${providerLabelForMode(catalogMode)} tagged "${tagFilter}".`
+          : `Choose a tag to browse ${providerLabelForMode(catalogMode)} titles.`}
         error={error}
         loading={loading}
         filteredItems={filteredItems}
@@ -473,7 +380,11 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
         resultsViewportRef={resultsViewportRef}
         loadMoreSentinelRef={loadMoreSentinelRef}
         showLoadingMoreIndicator={showLoadingMoreIndicator}
-        loadingMoreLabel={loadingMoreLabel}
+        loadingMoreLabel={waitingForRateLimit
+          ? 'Waiting for rate limit window...'
+          : catalogMode === 'anime'
+            ? 'Loading more anime from Jikan...'
+            : 'Loading more titles...'}
         waitingForRateLimit={waitingForRateLimit}
         tagFilter={tagFilter}
         hasMore={hasMore}

@@ -1,12 +1,22 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { ReactElement } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+  useParams,
+} from 'react-router-dom';
 import { AuthPanel } from './features/auth/components/AuthPanel';
 import { InviteSignupPanel } from './features/auth/components/InviteSignupPanel';
 import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
 import { useClientExperience } from './features/navigation/services/clientExperience';
 import type { AuthResponse, User } from './features/shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from './features/auth/services/roles';
+import { PublicBroadcastPage } from './features/broadcast/pages/PublicBroadcastPage';
+import { BroadcastProvider } from './features/broadcast/services/broadcast-context';
 import { HomePage } from './features/home/pages/HomePage';
 import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePage';
 import { HomePagePhone } from './features/home/pages/HomePagePhone';
@@ -65,6 +75,10 @@ function titleForPath(pathname: string): string {
     return 'Player - Yeen';
   }
 
+  if (pathname.startsWith('/watch/')) {
+    return 'Broadcast - Yeen';
+  }
+
   if (pathname.startsWith('/settings')) {
     return 'Settings - Yeen';
   }
@@ -86,6 +100,19 @@ function titleForPath(pathname: string): string {
 
 function inviteTokenFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/invite\/([^/]+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+function watchTokenFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/watch\/([^/]+)$/i);
   if (!match) {
     return null;
   }
@@ -122,6 +149,11 @@ function RouteScrollManager({ enabled }: { enabled: boolean }) {
   }, [enabled, hash, navigationType, pathname]);
 
   return null;
+}
+
+function PublicBroadcastRoute() {
+  const { shareToken = '' } = useParams();
+  return <PublicBroadcastPage shareToken={shareToken} />;
 }
 
 function App() {
@@ -192,6 +224,11 @@ function App() {
   }
 
   if (!token || !user) {
+    const watchToken = watchTokenFromPath(window.location.pathname);
+    if (watchToken) {
+      return <PublicBroadcastPage shareToken={watchToken} />;
+    }
+
     const inviteToken = inviteTokenFromPath(window.location.pathname);
     if (inviteToken) {
       return (
@@ -282,37 +319,44 @@ function App() {
 
   return (
     <BrowserRouter>
-      <RouteTitleManager />
-      <RouteScrollManager enabled={!isPhoneExperience} />
-      <Routes>
-        {experienceRoutes.map((route) => (
+      <BroadcastProvider token={token}>
+        <RouteTitleManager />
+        <RouteScrollManager enabled={!isPhoneExperience} />
+        <Routes>
           <Route
-            key={route.path}
-            path={route.path}
-            element={routeElementForExperience(isPhoneExperience, route)}
+            path="/watch/:shareToken"
+            element={<PublicBroadcastRoute />}
           />
-        ))}
 
-        {guardedExperienceRoutes.map((route) => (
+          {experienceRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={routeElementForExperience(isPhoneExperience, route)}
+            />
+          ))}
+
+          {guardedExperienceRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.allowed
+                ? routeElementForExperience(isPhoneExperience, route)
+                : <Navigate to={route.redirectTo} replace />}
+            />
+          ))}
+
           <Route
-            key={route.path}
-            path={route.path}
-            element={route.allowed
-              ? routeElementForExperience(isPhoneExperience, route)
-              : <Navigate to={route.redirectTo} replace />}
+            path="/admin/download-control"
+            element={<Navigate to="/admin/downloads" replace />}
           />
-        ))}
-
-        <Route
-          path="/admin/download-control"
-          element={<Navigate to="/admin/downloads" replace />}
-        />
-        <Route
-          path="/admin/metadata"
-          element={<Navigate to="/admin/system#system-metadata-commits" replace />}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route
+            path="/admin/metadata"
+            element={<Navigate to="/admin/system#system-metadata-commits" replace />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BroadcastProvider>
     </BrowserRouter>
   );
 }

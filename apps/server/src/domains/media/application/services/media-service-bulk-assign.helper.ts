@@ -8,7 +8,9 @@ export async function bulkAssignEpisodesValue(
   context: MediaMetadataOpsContext,
   input: BulkAssignEpisodesInput,
 ): Promise<{ updatedCount: number; items: MediaItem[] }> {
-  const ids = context.mediaEpisodeCatalogService.normalizeIdList(input.mediaIds);
+  const ids = context.mediaEpisodeCatalogService.normalizeIdList(
+    input.mediaIds,
+  );
   if (ids.length === 0) {
     throw new BadRequestException('At least one mediaId is required.');
   }
@@ -38,7 +40,8 @@ export async function bulkAssignEpisodesValue(
       ? Math.floor(input.startEpisodeNumber)
       : 1;
   const seasonNumber =
-    typeof input.seasonNumber === 'number' && Number.isFinite(input.seasonNumber)
+    typeof input.seasonNumber === 'number' &&
+    Number.isFinite(input.seasonNumber)
       ? Math.max(-1, Math.floor(input.seasonNumber))
       : type === 'show'
         ? 1

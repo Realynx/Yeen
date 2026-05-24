@@ -20,7 +20,10 @@ export interface JikanSeriesContext {
   seriesCatalogInFlight: Map<string, Promise<JikanSeriesEpisodeCatalog | null>>;
   isRateLimited: () => boolean;
   fetchJson: (url: string, timeoutMs: number) => Promise<unknown>;
-  applyRateLimitCooldown: (requestedCooldownMs: number, attemptedTitle: string) => void;
+  applyRateLimitCooldown: (
+    requestedCooldownMs: number,
+    attemptedTitle: string,
+  ) => void;
   logger: { warn(message: string): void };
 }
 
@@ -36,10 +39,11 @@ export async function getSeriesEpisodeCatalogValue(
   const requestKey = `series-episodes:${resolvedId}:v1`;
 
   if (useCache) {
-    const cachedCatalog = await context.metadataApiCacheStore.get<JikanSeriesEpisodeCatalog>(
-      context.cacheProvider,
-      requestKey,
-    );
+    const cachedCatalog =
+      await context.metadataApiCacheStore.get<JikanSeriesEpisodeCatalog>(
+        context.cacheProvider,
+        requestKey,
+      );
     if (cachedCatalog) {
       const normalized = normalizeSeriesEpisodeCatalog(cachedCatalog);
       if (normalized) return normalized;
@@ -100,7 +104,11 @@ async function loadSeriesEpisodeCatalog(
       payload = (await context.fetchJson(url, 15000)) as JikanEpisodesResponse;
 
       if (useCache) {
-        await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+        await context.metadataApiCacheStore.set(
+          context.cacheProvider,
+          requestKey,
+          payload,
+        );
       }
     }
 

@@ -15,7 +15,9 @@ import {
  * Classifies a transcode error message as recoverable (temporary input issue)
  * vs. permanent failure. Recoverable errors trigger retry/proxy strategies.
  */
-export function isRecoverableTranscodeInputErrorValue(message: string): boolean {
+export function isRecoverableTranscodeInputErrorValue(
+  message: string,
+): boolean {
   const normalized = message.toLowerCase();
   return (
     normalized.includes('invalid data found when processing input') ||
@@ -30,9 +32,7 @@ export function isRecoverableTranscodeInputErrorValue(message: string): boolean 
  * Clears the startup segment failure recovery window on a session, resetting
  * failure counters so recovery can restart if the issue recurs later.
  */
-export function clearStartSegmentFailureStateValue(
-  session: HlsSession,
-): void {
+export function clearStartSegmentFailureStateValue(session: HlsSession): void {
   session.startSegmentRecoverableWindowStartedAtMs = 0;
   session.startSegmentRecoverableFailures = 0;
 }
@@ -77,10 +77,7 @@ export async function readProxyHeadBytesValue(
   }
 
   if (process.platform === 'win32') {
-    const unbuffered = await readMediaFileHeaderUnbuffered(
-      filePath,
-      byteCount,
-    );
+    const unbuffered = await readMediaFileHeaderUnbuffered(filePath, byteCount);
     if (
       unbuffered !== null &&
       unbuffered.length > 0 &&
@@ -129,7 +126,11 @@ export async function buildSegment0HeadProxyValue(
     try {
       const existing = await stat(proxyPath);
       if (existing.isFile() && existing.size > 0) {
-        const existingHeader = await readMediaFileHeaderCached(proxyPath, 16, 'r');
+        const existingHeader = await readMediaFileHeaderCached(
+          proxyPath,
+          16,
+          'r',
+        );
         if (scoreMediaHeaderValue(existingHeader) > 0) {
           return proxyPath;
         }
@@ -257,8 +258,7 @@ export async function recordStartSegmentRecoverableFailureValue(
   logger: Logger,
 ): Promise<boolean> {
   const now = Date.now();
-  const windowStartedAt =
-    session.startSegmentRecoverableWindowStartedAtMs ?? 0;
+  const windowStartedAt = session.startSegmentRecoverableWindowStartedAtMs ?? 0;
 
   if (now - windowStartedAt > startSegmentRecoverableWindowMs) {
     session.startSegmentRecoverableWindowStartedAtMs = now;

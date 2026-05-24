@@ -103,7 +103,9 @@ export function toNormalizedTagSetValue(
   return normalized;
 }
 
-export function remoteCandidateScoreValue(candidate: RemoteMediaCandidate): number {
+export function remoteCandidateScoreValue(
+  candidate: RemoteMediaCandidate,
+): number {
   let score = 0;
 
   if (candidate.posterUrl) {

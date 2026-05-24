@@ -7,39 +7,17 @@ import {
 } from 'react';
 import type { AdminAccountsState } from '../services/useAdminAccounts';
 import type { AdminManagedAccount } from '../../shared/services/types';
+import { AdminAccountsActivityCard } from './AdminAccountsActivityCard';
+import { AdminAccountsManageCard } from './AdminAccountsManageCard';
+import { AdminAccountsSummaryCard } from './AdminAccountsSummaryCard';
+import {
+  normalizeBitrateInput,
+  normalizeInvitesInput,
+  toLastSeenLabel,
+} from './adminAccountsViewUtils';
 
 interface AdminAccountsPanelProps {
   adminAccountsState: AdminAccountsState;
-}
-
-function normalizeInvitesInput(rawValue: string): number {
-  const parsed = Number.parseInt(rawValue, 10);
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-}
-
-function normalizeBitrateInput(rawValue: string): number | null {
-  const parsed = Number.parseInt(rawValue.trim(), 10);
-  return Number.isFinite(parsed) ? Math.max(250, Math.min(50000, parsed)) : null;
-}
-
-function toProgressLabel(progressPercent: number): string {
-  const normalized = Number.isFinite(progressPercent)
-    ? Math.max(0, Math.min(100, Math.round(progressPercent)))
-    : 0;
-  return `${normalized}%`;
-}
-
-function toLastSeenLabel(value: string | null): string {
-  if (!value) {
-    return 'No activity recorded yet';
-  }
-
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return 'No activity recorded yet';
-  }
-
-  return new Date(parsed).toLocaleString();
 }
 
 export function AdminAccountsPanel({
@@ -341,469 +319,62 @@ export function AdminAccountsPanel({
 
   return (
     <section className="settings-content-grid admin-accounts-layout">
-      <article className="settings-surface settings-surface-full">
-        <header className="settings-surface-header">
-          <div>
-            <p className="settings-section-kicker">Identity</p>
-            <h2>Account & Access</h2>
-          </div>
-          <span className="settings-pill">Admin Only</span>
-        </header>
+      <AdminAccountsSummaryCard
+        accountsCount={accounts.length}
+        adminCount={adminCount}
+        sailerCount={sailerCount}
+        userCount={userCount}
+        totalInvites={totalInvites}
+        customBitrateCount={customBitrateCount}
+        activeAccountCount={activeAccountCount}
+        activeWatcherCount={activeWatcherCount}
+        activeDownloadCount={activeDownloadCount}
+        recentlyActiveCount={recentlyActiveCount}
+        accountsMessage={accountsMessage}
+        accountsError={accountsError}
+      />
 
-        <div className="admin-accounts-summary-grid" aria-live="polite">
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Total Accounts</p>
-            <p className="admin-accounts-summary-value">{accounts.length}</p>
-            <p className="admin-accounts-summary-note">All active profiles</p>
-          </article>
+      <AdminAccountsActivityCard
+        loadingActivity={loadingActivity}
+        activeAccountActivity={activeAccountActivity}
+        accountsById={accountsById}
+        activityDownloads={activityDownloads}
+      />
 
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Admins</p>
-            <p className="admin-accounts-summary-value">{adminCount}</p>
-            <p className="admin-accounts-summary-note">Unlimited invite access</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Sailers</p>
-            <p className="admin-accounts-summary-value">{sailerCount}</p>
-            <p className="admin-accounts-summary-note">
-              Torrent search and downloads
-            </p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Users</p>
-            <p className="admin-accounts-summary-value">{userCount}</p>
-            <p className="admin-accounts-summary-note">Media-only access</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Invites Remaining</p>
-            <p className="admin-accounts-summary-value">{totalInvites}</p>
-            <p className="admin-accounts-summary-note">Across user accounts</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Bitrate Overrides</p>
-            <p className="admin-accounts-summary-value">{customBitrateCount}</p>
-            <p className="admin-accounts-summary-note">Custom transcode caps</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Active Accounts</p>
-            <p className="admin-accounts-summary-value">{activeAccountCount}</p>
-            <p className="admin-accounts-summary-note">Watching or downloading now</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Watching Now</p>
-            <p className="admin-accounts-summary-value">{activeWatcherCount}</p>
-            <p className="admin-accounts-summary-note">Users in playback progress</p>
-          </article>
-
-          <article className="admin-accounts-summary-card">
-            <p className="admin-accounts-summary-kicker">Active Downloads</p>
-            <p className="admin-accounts-summary-value">{activeDownloadCount}</p>
-            <p className="admin-accounts-summary-note">
-              Recently active users: {recentlyActiveCount}
-            </p>
-          </article>
-        </div>
-
-        {accountsMessage ? <p className="scan-success">{accountsMessage}</p> : null}
-        {accountsError ? <p className="error-text">{accountsError}</p> : null}
-      </article>
-
-      <article className="settings-surface settings-surface-large admin-accounts-activity-card">
-        <header className="settings-surface-header">
-          <div>
-            <p className="settings-section-kicker">Activity</p>
-            <h2>User Activity & Media</h2>
-          </div>
-          <span className="settings-pill">
-            {loadingActivity
-              ? 'Loading'
-              : `${activeAccountActivity.length} active`}
-          </span>
-        </header>
-
-        <p className="muted admin-accounts-section-copy">
-          Live view of what your users are watching and what media is currently
-          downloading in the queue.
-        </p>
-
-        {loadingActivity ? (
-          <p className="muted">Loading account activity...</p>
-        ) : (
-          <div className="admin-accounts-activity-layout">
-            <section className="admin-accounts-activity-column">
-              <h3 className="admin-accounts-activity-heading">Users Watching / Downloading</h3>
-
-              {activeAccountActivity.length === 0 ? (
-                <p className="muted admin-accounts-activity-empty">
-                  No active user playback or download-linked activity right now.
-                </p>
-              ) : (
-                <ul className="admin-accounts-activity-list">
-                  {activeAccountActivity.map((activity) => {
-                    const account = accountsById.get(activity.accountId);
-                    if (!account) {
-                      return null;
-                    }
-
-                    return (
-                      <li key={activity.accountId} className="admin-accounts-activity-item">
-                        <div className="admin-accounts-activity-account-line">
-                          <p className="admin-accounts-activity-account-name">{account.name}</p>
-                          <span className={`settings-account-role-badge is-${account.role}`}>
-                            {account.role}
-                          </span>
-                        </div>
-
-                        {activity.watching.length > 0 ? (
-                          <div className="admin-accounts-media-pill-row">
-                            {activity.watching.map((item) => (
-                              <span key={`watching:${activity.accountId}:${item.mediaId}`} className="admin-accounts-media-pill is-watching">
-                                {item.title} ({toProgressLabel(item.progressPercent)})
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-
-                        {activity.downloading.length > 0 ? (
-                          <div className="admin-accounts-media-pill-row">
-                            {activity.downloading.map((item) => (
-                              <span key={`downloading:${activity.accountId}:${item.mediaId}`} className="admin-accounts-media-pill is-downloading">
-                                {item.title} ({toProgressLabel(item.progressPercent)})
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-
-                        <p className="admin-accounts-activity-meta muted">
-                          {activity.inProgressCount} in progress • Last active {toLastSeenLabel(activity.lastActivityAt)}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="admin-accounts-activity-column">
-              <h3 className="admin-accounts-activity-heading">Active Download Queue</h3>
-
-              {activityDownloads.length === 0 ? (
-                <p className="muted admin-accounts-activity-empty">
-                  No active downloads detected in the queue.
-                </p>
-              ) : (
-                <ul className="admin-accounts-download-list">
-                  {activityDownloads.map((item) => (
-                    <li key={item.hash} className="admin-accounts-download-item">
-                      <p className="admin-accounts-download-title">{item.title}</p>
-                      <p className="admin-accounts-download-meta muted">
-                        {toProgressLabel(item.progressPercent)} • {item.state}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-        )}
-      </article>
-
-      <article className="settings-surface settings-profile-card admin-accounts-manage-card">
-        <header className="settings-surface-header">
-          <div>
-            <p className="settings-section-kicker">Invite Balances</p>
-            <h2>Manage Accounts</h2>
-          </div>
-          <span className="settings-pill">
-            {loadingAccounts
-              ? 'Loading'
-              : `${filteredAccounts.length} of ${accounts.length}`}
-          </span>
-        </header>
-
-        <p className="muted admin-accounts-section-copy">
-          Double-click a user row to open the edit card for role, limits,
-          profile details, and password reset.
-        </p>
-
-        <div className="admin-accounts-toolbar-compact">
-          <input
-            className="admin-accounts-search-input-compact"
-            type="search"
-            value={accountQuery}
-            onChange={(event) => setAccountQuery(event.target.value)}
-            placeholder="Search accounts"
-            aria-label="Search accounts by name, email, or inviter"
-          />
-
-          <select
-            className="admin-accounts-role-select-compact"
-            value={roleFilter}
-            onChange={(event) =>
-              setRoleFilter(
-                event.target.value as 'all' | 'admin' | 'sailer' | 'user',
-              )
-            }
-            aria-label="Filter accounts by role"
-          >
-            <option value="all">All Roles</option>
-            <option value="admin">Admins</option>
-            <option value="sailer">Sailers</option>
-            <option value="user">Users</option>
-          </select>
-
-          <p className="admin-accounts-results-pill muted" aria-live="polite">
-            {loadingAccounts
-              ? 'Loading account directory...'
-              : `${filteredAccounts.length} account${
-                  filteredAccounts.length === 1 ? '' : 's'
-                }`}
-          </p>
-        </div>
-
-        {loadingAccounts ? (
-          <p className="muted">Loading accounts...</p>
-        ) : filteredAccounts.length === 0 ? (
-          <p className="muted admin-accounts-empty-state">
-            No accounts match that filter.
-          </p>
-        ) : (
-          <ul className="settings-account-list admin-accounts-click-list">
-            {filteredAccounts.map((account) => {
-              const accountActivity = activityByAccount.get(account.id) ?? null;
-              const isLastAdmin = account.role === 'admin' && adminCount <= 1;
-
-              return (
-                <li
-                  key={account.id}
-                  className={`settings-account-item admin-accounts-click-row${
-                    selectedAccountId === account.id ? ' is-selected' : ''
-                  }`}
-                  onDoubleClick={() => openAccountEditor(account)}
-                  onKeyDown={(event) => handleAccountRowKeyDown(event, account)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Open editor for ${account.name}`}
-                >
-                  <div className="settings-account-main">
-                    <div className="settings-account-header-line">
-                      <p className="settings-account-name">{account.name}</p>
-                      <span
-                        className={`settings-account-role-badge is-${account.role}`}
-                      >
-                        {account.role}
-                      </span>
-                    </div>
-                    <p className="settings-account-meta">{account.email}</p>
-                    <p className="settings-account-submeta">
-                      <span>
-                        {account.invitedByName
-                          ? `Invited by ${account.invitedByName}`
-                          : 'Created manually'}
-                      </span>
-                      <span>
-                        {account.role === 'admin'
-                          ? 'Unlimited invites'
-                          : `${Math.max(0, account.invitesRemaining ?? 0)} invites remaining`}
-                      </span>
-                      <span>
-                        {typeof account.maxBitrateKbps === 'number'
-                          ? `Max bitrate ${account.maxBitrateKbps} kbps`
-                          : 'Max bitrate from transcoding defaults'}
-                      </span>
-                    </p>
-
-                    {accountActivity ? (
-                      <p className="admin-accounts-row-activity muted">
-                        Watching {accountActivity.watching.length} • Download-linked {accountActivity.downloading.length} • Last active {toLastSeenLabel(accountActivity.lastActivityAt)}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="admin-accounts-row-hint">
-                    <span className="admin-accounts-edit-chip">Double-click to edit</span>
-                    {isLastAdmin ? (
-                      <small className="settings-field-hint">Last admin account</small>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {selectedAccount ? (
-          <div
-            className="admin-accounts-editor-backdrop"
-            onClick={closeAccountEditor}
-          >
-            <article
-              className="admin-accounts-editor-card"
-              onClick={(event) => event.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="admin-account-editor-title"
-            >
-              <header className="admin-accounts-editor-header">
-                <div>
-                  <p className="settings-section-kicker">User Edit Card</p>
-                  <h3 id="admin-account-editor-title">{selectedAccount.name}</h3>
-                  <p className="admin-accounts-editor-subtitle">
-                    {selectedAccount.email}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className="ghost-button small"
-                  onClick={closeAccountEditor}
-                >
-                  Close
-                </button>
-              </header>
-
-              <dl className="admin-accounts-editor-meta">
-                <div>
-                  <dt>Invited By</dt>
-                  <dd>{selectedAccount.invitedByName ?? 'Manual creation'}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>{toLastSeenLabel(selectedAccount.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt>Last Activity</dt>
-                  <dd>{selectedLastActiveLabel}</dd>
-                </div>
-              </dl>
-
-              <form className="admin-accounts-editor-form" onSubmit={handleSaveAccountEdits}>
-                <label className="settings-field">
-                  <span className="settings-field-label">Display Name</span>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(event) => setEditName(event.target.value)}
-                    minLength={2}
-                    maxLength={64}
-                    required
-                  />
-                </label>
-
-                <label className="settings-field">
-                  <span className="settings-field-label">Email</span>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(event) => setEditEmail(event.target.value)}
-                    required
-                  />
-                </label>
-
-                <label className="settings-field">
-                  <span className="settings-field-label">Role</span>
-                  <select
-                    value={editRole}
-                    onChange={(event) =>
-                      setEditRole(
-                        event.target.value as 'admin' | 'sailer' | 'user',
-                      )
-                    }
-                  >
-                    <option value="user">User</option>
-                    <option value="sailer">Sailer</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  {selectedIsLastAdmin ? (
-                    <small className="settings-field-hint">
-                      At least one admin account is required.
-                    </small>
-                  ) : null}
-                </label>
-
-                <label className="settings-field">
-                  <span className="settings-field-label">Invites Remaining</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100000}
-                    value={editInvites}
-                    onChange={(event) => setEditInvites(event.target.value)}
-                    disabled={editRole === 'admin'}
-                  />
-                </label>
-
-                <label className="settings-field settings-field-wide">
-                  <span className="settings-field-label">Max Transcode Bitrate (kbps)</span>
-                  <input
-                    type="number"
-                    min={250}
-                    max={50000}
-                    value={editMaxBitrate}
-                    onChange={(event) => setEditMaxBitrate(event.target.value)}
-                    placeholder="Default"
-                  />
-                </label>
-
-                <div className="settings-actions-row admin-accounts-editor-actions settings-field-wide">
-                  <button
-                    type="submit"
-                    className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                    disabled={updatingAccountId === selectedAccount.id}
-                  >
-                    {updatingAccountId === selectedAccount.id
-                      ? 'Saving...'
-                      : 'Save Details'}
-                  </button>
-                </div>
-              </form>
-
-              <form
-                className="admin-accounts-editor-password-form"
-                onSubmit={handleResetPassword}
-              >
-                <label className="settings-field settings-field-wide">
-                  <span className="settings-field-label">Reset Password</span>
-                  <input
-                    type="password"
-                    value={resetPasswordDraft}
-                    onChange={(event) => setResetPasswordDraft(event.target.value)}
-                    minLength={8}
-                    maxLength={72}
-                    required
-                    placeholder="Set a temporary password"
-                  />
-                  <small className="settings-field-hint">
-                    The user can change this password later in Profile settings.
-                  </small>
-                </label>
-
-                <div className="settings-actions-row admin-accounts-editor-actions settings-field-wide">
-                  <button
-                    type="submit"
-                    className="ghost-button small"
-                    disabled={updatingAccountId === selectedAccount.id}
-                  >
-                    {updatingAccountId === selectedAccount.id
-                      ? 'Updating...'
-                      : 'Reset Password'}
-                  </button>
-                </div>
-              </form>
-
-              {editorNotice ? (
-                <p className="admin-accounts-editor-notice muted">{editorNotice}</p>
-              ) : null}
-            </article>
-          </div>
-        ) : null}
-      </article>
+      <AdminAccountsManageCard
+        accounts={accounts}
+        filteredAccounts={filteredAccounts}
+        loadingAccounts={loadingAccounts}
+        accountQuery={accountQuery}
+        roleFilter={roleFilter}
+        selectedAccountId={selectedAccountId}
+        adminCount={adminCount}
+        activityByAccount={activityByAccount}
+        selectedAccount={selectedAccount}
+        selectedIsLastAdmin={selectedIsLastAdmin}
+        selectedLastActiveLabel={selectedLastActiveLabel}
+        editName={editName}
+        editEmail={editEmail}
+        editRole={editRole}
+        editInvites={editInvites}
+        editMaxBitrate={editMaxBitrate}
+        resetPasswordDraft={resetPasswordDraft}
+        updatingAccountId={updatingAccountId}
+        editorNotice={editorNotice}
+        onAccountQueryChange={setAccountQuery}
+        onRoleFilterChange={setRoleFilter}
+        onOpenAccountEditor={openAccountEditor}
+        onAccountRowKeyDown={handleAccountRowKeyDown}
+        onCloseAccountEditor={closeAccountEditor}
+        onEditNameChange={setEditName}
+        onEditEmailChange={setEditEmail}
+        onEditRoleChange={setEditRole}
+        onEditInvitesChange={setEditInvites}
+        onEditMaxBitrateChange={setEditMaxBitrate}
+        onResetPasswordDraftChange={setResetPasswordDraft}
+        onSaveAccountEdits={handleSaveAccountEdits}
+        onResetPassword={handleResetPassword}
+      />
     </section>
   );
 }

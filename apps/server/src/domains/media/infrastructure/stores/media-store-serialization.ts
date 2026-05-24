@@ -120,12 +120,15 @@ export function mediaItemToDbParams(item: MediaItem): Record<string, unknown> {
     preview_image_path: item.previewImagePath,
     backdrop_image_path: item.backdropImagePath,
     chapter_thumbnails_json: JSON.stringify(item.chapterThumbnails ?? []),
-    media_details_json: JSON.stringify(item.mediaDetails ?? defaultMediaDetails()),
+    media_details_json: JSON.stringify(
+      item.mediaDetails ?? defaultMediaDetails(),
+    ),
     series_assignment_rules_json: item.seriesAssignmentRules
       ? JSON.stringify(item.seriesAssignmentRules)
       : null,
     episode_catalog_source:
-      item.episodeCatalogSource === 'tmdb' || item.episodeCatalogSource === 'jikan'
+      item.episodeCatalogSource === 'tmdb' ||
+      item.episodeCatalogSource === 'jikan'
         ? item.episodeCatalogSource
         : null,
     episode_catalog_source_id: toNullableString(item.episodeCatalogSourceId),
@@ -192,7 +195,11 @@ function parseChapterThumbnails(raw: string): MediaChapterThumbnail[] {
 
     return parsed
       .map((entry) => {
-        if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+        if (
+          typeof entry !== 'object' ||
+          entry === null ||
+          Array.isArray(entry)
+        ) {
           return null;
         }
 
@@ -224,13 +231,18 @@ function parseMediaDetails(raw: string): MediaDetails {
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return fallback;
     }
 
     const details = parsed as Record<string, unknown>;
     return {
-      formatName: typeof details.formatName === 'string' ? details.formatName : null,
+      formatName:
+        typeof details.formatName === 'string' ? details.formatName : null,
       bitRate: toFiniteNumber(details.bitRate),
       frameRate: toFiniteNumber(details.frameRate),
       audioChannels: toFiniteNumber(details.audioChannels),
@@ -240,14 +252,20 @@ function parseMediaDetails(raw: string): MediaDetails {
   }
 }
 
-function parseSeriesAssignmentRules(raw: string | null): SeriesAssignmentRules | null {
+function parseSeriesAssignmentRules(
+  raw: string | null,
+): SeriesAssignmentRules | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     return null;
   }
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return null;
     }
 

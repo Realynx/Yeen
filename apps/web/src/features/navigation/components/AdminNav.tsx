@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { ProfileMenu } from './ProfileMenu';
 import type { User } from '../../shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
@@ -53,6 +54,8 @@ export function AdminNav({ user, onLogout }: AdminNavProps) {
           ))}
         </nav>
       </div>
+
+      <BroadcastNavBadge />
 
       <div className="top-nav-right">
         <button

@@ -56,7 +56,11 @@ export async function discoverRemoteCandidatesValue(
       payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
 
       if (input.useCache) {
-        await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+        await context.metadataApiCacheStore.set(
+          context.cacheProvider,
+          requestKey,
+          payload,
+        );
       }
     }
 
@@ -64,7 +68,8 @@ export async function discoverRemoteCandidatesValue(
     if (rawResults.length === 0) break;
 
     for (const raw of rawResults) {
-      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue;
+      if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+        continue;
 
       const value = raw as Record<string, unknown>;
       const providerId = extractNumericId(value.id);

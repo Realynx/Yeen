@@ -4,114 +4,29 @@ import {
   searchNyaa,
   toApiErrorMessage,
 } from '../../shared/services/api';
-import type {
-  MediaItem,
-  NyaaSortDirection,
-  NyaaSortField,
-} from '../../shared/services/types';
+import type { NyaaSortField } from '../../shared/services/types';
 import { normalizeTitleKey } from './mediaDetailsUtils';
 import {
   loadCachedBestTorrent,
   saveCachedBestTorrent,
 } from './bestTorrentCache';
-import type { IptorrentsFlowState } from './useIptorrentsFlow';
-import type { NyaaFlowState } from './useNyaaFlow';
+import {
+  createInitialLocalState,
+  type BestSeededTorrentResult,
+  type MediaDetailsTorrentSearchState,
+  type TorrentSearchLocalState,
+  type UseMediaDetailsTorrentSearchArgs,
+} from './mediaDetailsTorrentSearch.types';
 import {
   type AutoTorrentMode,
-  NYAA_DEFAULT_DIRECTION,
-  NYAA_DEFAULT_SORT,
   TORRENT_TRACKERS,
   type TorrentTrackerId,
 } from './torrentSearchTypes';
 
-interface UseMediaDetailsTorrentSearchArgs {
-  token: string;
-  mediaId: string;
-  current: MediaItem | null;
-  hasTorrentAccess: boolean;
-  iptorrents: Pick<
-    IptorrentsFlowState,
-    | 'searchResponse'
-    | 'searchLoading'
-    | 'searchRequested'
-    | 'searchError'
-    | 'pendingAction'
-    | 'actionSuccess'
-    | 'actionError'
-    | 'requestSearch'
-    | 'handleStartStream'
-    | 'handleStartDownload'
-  >;
-  nyaa: Pick<
-    NyaaFlowState,
-    | 'searchResponse'
-    | 'searchLoading'
-    | 'searchRequested'
-    | 'searchError'
-    | 'pendingAction'
-    | 'actionSuccess'
-    | 'actionError'
-    | 'requestSearch'
-    | 'handleStartStream'
-    | 'handleStartDownload'
-  >;
-}
-
-interface BestSeededTorrentResult {
-  item: NonNullable<IptorrentsFlowState['searchResponse']>['results'][number] | null;
-  cached: boolean;
-}
-
-interface TorrentSearchLocalState {
-  mediaId: string;
-  nyaaSortBy: NyaaSortField;
-  nyaaSortDirection: NyaaSortDirection;
-  nyaaPage: number;
-  autoTorrentPendingMode: AutoTorrentMode | null;
-  autoTorrentStatus: string | null;
-  autoTorrentError: string | null;
-}
-
-function createInitialLocalState(mediaId: string): TorrentSearchLocalState {
-  return {
-    mediaId,
-    nyaaSortBy: NYAA_DEFAULT_SORT,
-    nyaaSortDirection: NYAA_DEFAULT_DIRECTION,
-    nyaaPage: 1,
-    autoTorrentPendingMode: null,
-    autoTorrentStatus: null,
-    autoTorrentError: null,
-  };
-}
-
-export interface MediaDetailsTorrentSearchState {
-  showPopover: boolean;
-  activeTracker: TorrentTrackerId;
-  preferredAutoTrackerLabel: string;
-  autoTorrentPendingMode: AutoTorrentMode | null;
-  heroAutoTorrentBusy: boolean;
-  heroAutoTorrentStatus: string | null;
-  heroAutoTorrentError: string | null;
-  trackerDescription: string;
-  showIptTrackerPanel: boolean;
-  iptorrentsSearchUrl: string;
-  nyaaSearchUrl: string;
-  nyaaSortBy: NyaaSortField;
-  nyaaSortDirection: NyaaSortDirection;
-  resolvedNyaaPage: number;
-  nyaaHasMore: boolean;
-  openPopover: () => void;
-  closePopover: () => void;
-  setActiveTracker: (tracker: TorrentTrackerId) => void;
-  selectNyaaSort: (sortBy: NyaaSortField) => void;
-  toggleNyaaSortDirection: () => void;
-  refreshNyaaSearch: () => void;
-  goToPreviousNyaaPage: () => void;
-  goToNextNyaaPage: () => void;
-  retryIptSearch: () => void;
-  retryNyaaSearch: () => void;
-  startAutoBestSeededTorrent: (mode: AutoTorrentMode) => Promise<void>;
-}
+export type {
+  MediaDetailsTorrentSearchState,
+  UseMediaDetailsTorrentSearchArgs,
+} from './mediaDetailsTorrentSearch.types';
 
 export function useMediaDetailsTorrentSearch({
   token,

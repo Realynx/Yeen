@@ -55,7 +55,9 @@ export function remoteSelectionsEqual(
     return left === right;
   }
 
-  return left.provider === right.provider && left.providerId === right.providerId;
+  return (
+    left.provider === right.provider && left.providerId === right.providerId
+  );
 }
 
 export function resolveMediaTypeHintAfterPatch(
@@ -90,7 +92,8 @@ export function shouldHydrateDescriptionFromRemote(
     return true;
   }
 
-  const existingDescription = normalizeOptionalString(existing.description) ?? '';
+  const existingDescription =
+    normalizeOptionalString(existing.description) ?? '';
   return incomingDescription === existingDescription;
 }
 
@@ -109,7 +112,9 @@ export function normalizeOptionalString(
   return cleaned ? cleaned : null;
 }
 
-export function coercePositiveEpisodeNumber(value: number | null): number | null {
+export function coercePositiveEpisodeNumber(
+  value: number | null,
+): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
   }

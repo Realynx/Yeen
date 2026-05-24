@@ -40,9 +40,7 @@ export function resolveRequestedAudioStreamIndexValue(
   }
 
   if (
-    audioTracks.some(
-      (track) => track.streamIndex === requestedAudioStreamIndex,
-    )
+    audioTracks.some((track) => track.streamIndex === requestedAudioStreamIndex)
   ) {
     return requestedAudioStreamIndex;
   }

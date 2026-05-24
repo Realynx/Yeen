@@ -115,6 +115,26 @@
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
 
+.profile-dropdown-item:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+.profile-dropdown-item.broadcast-toggle {
+  color: #d8f5dd;
+}
+
+.profile-dropdown-item.broadcast-toggle.is-live {
+  border-color: rgba(86, 220, 126, 0.32);
+  background: rgba(86, 220, 126, 0.1);
+}
+
+.profile-dropdown-item.broadcast-toggle.is-live:hover,
+.profile-dropdown-item.broadcast-toggle.is-live:focus-visible {
+  border-color: rgba(124, 236, 158, 0.5);
+  background: rgba(86, 220, 126, 0.18);
+}
+
 .settings-page-v2.settings-theme-light .profile-dropdown-item {
   color: #163c5d;
 }

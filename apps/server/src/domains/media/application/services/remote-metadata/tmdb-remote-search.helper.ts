@@ -112,10 +112,11 @@ export async function searchCandidatesValue(
   const requestKey = `${endpoint}?${params.toString()}`;
 
   try {
-    const cachedPayload = await context.metadataApiCacheStore.get<TmdbSearchResponse>(
-      context.cacheProvider,
-      requestKey,
-    );
+    const cachedPayload =
+      await context.metadataApiCacheStore.get<TmdbSearchResponse>(
+        context.cacheProvider,
+        requestKey,
+      );
 
     let payload: TmdbSearchResponse;
     if (cachedPayload !== undefined) {
@@ -125,7 +126,11 @@ export async function searchCandidatesValue(
       requestParams.set('api_key', apiKey);
       const url = `https://api.themoviedb.org/3/search/${endpoint}?${requestParams.toString()}`;
       payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
-      await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+      await context.metadataApiCacheStore.set(
+        context.cacheProvider,
+        requestKey,
+        payload,
+      );
     }
 
     const results = Array.isArray(payload.results) ? payload.results : [];
@@ -203,7 +208,11 @@ export async function searchRemoteCandidatesValue(
       payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
 
       if (useCache) {
-        await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+        await context.metadataApiCacheStore.set(
+          context.cacheProvider,
+          requestKey,
+          payload,
+        );
       }
     }
 
@@ -212,7 +221,8 @@ export async function searchRemoteCandidatesValue(
     const candidates: TmdbRemoteCandidate[] = [];
 
     for (const raw of results) {
-      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue;
+      if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+        continue;
 
       const value = raw as Record<string, unknown>;
       const candidateType = resolveCandidateMediaType(value, 'other');
@@ -248,7 +258,9 @@ export async function searchRemoteCandidatesValue(
     return candidates;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`TMDB remote search failed for "${cleanedTitle}": ${message}`);
+    context.logger.warn(
+      `TMDB remote search failed for "${cleanedTitle}": ${message}`,
+    );
     return [];
   }
 }
@@ -279,10 +291,26 @@ export async function searchRemoteCandidatesByTagValue(
   const targets: TmdbDiscoverInput[] = [];
 
   if (movieGenreId) {
-    targets.push({ apiKey, endpoint: 'movie', mediaType: 'movie', genreId: movieGenreId, limit, page, useCache });
+    targets.push({
+      apiKey,
+      endpoint: 'movie',
+      mediaType: 'movie',
+      genreId: movieGenreId,
+      limit,
+      page,
+      useCache,
+    });
   }
   if (showGenreId) {
-    targets.push({ apiKey, endpoint: 'tv', mediaType: 'show', genreId: showGenreId, limit, page, useCache });
+    targets.push({
+      apiKey,
+      endpoint: 'tv',
+      mediaType: 'show',
+      genreId: showGenreId,
+      limit,
+      page,
+      useCache,
+    });
   }
 
   const discoveredByTarget = await Promise.all(
@@ -312,10 +340,11 @@ export async function getRemoteDetailsValue(
   const requestKey = `remote:details:${endpoint}:${providerId}`;
 
   try {
-    const cachedPayload = await context.metadataApiCacheStore.get<TmdbDetailsResponse>(
-      context.cacheProvider,
-      requestKey,
-    );
+    const cachedPayload =
+      await context.metadataApiCacheStore.get<TmdbDetailsResponse>(
+        context.cacheProvider,
+        requestKey,
+      );
 
     let payload: TmdbDetailsResponse;
     if (cachedPayload !== undefined) {
@@ -324,7 +353,11 @@ export async function getRemoteDetailsValue(
       const params = new URLSearchParams({ api_key: apiKey });
       const url = `https://api.themoviedb.org/3/${endpoint}/${providerId}?${params.toString()}`;
       payload = (await context.fetchJson(url, 15000)) as TmdbDetailsResponse;
-      await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+      await context.metadataApiCacheStore.set(
+        context.cacheProvider,
+        requestKey,
+        payload,
+      );
     }
 
     const candidate = toCandidate(
@@ -349,7 +382,9 @@ export async function getRemoteDetailsValue(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`TMDB remote details lookup failed for ${providerId}: ${message}`);
+    context.logger.warn(
+      `TMDB remote details lookup failed for ${providerId}: ${message}`,
+    );
     return null;
   }
 }
@@ -360,7 +395,11 @@ async function searchTmdbValue(
   input: TmdbLookupInput,
 ): Promise<TmdbLookupResult | null> {
   const endpoint = endpointForType(input.mediaType);
-  const params = new URLSearchParams({ query: input.title, include_adult: 'false', page: '1' });
+  const params = new URLSearchParams({
+    query: input.title,
+    include_adult: 'false',
+    page: '1',
+  });
 
   if (input.mediaType === 'movie' && input.releaseYear) {
     params.set('year', String(input.releaseYear));
@@ -370,10 +409,11 @@ async function searchTmdbValue(
   }
 
   const requestKey = `${endpoint}?${params.toString()}`;
-  const cachedPayload = await context.metadataApiCacheStore.get<TmdbSearchResponse>(
-    context.cacheProvider,
-    requestKey,
-  );
+  const cachedPayload =
+    await context.metadataApiCacheStore.get<TmdbSearchResponse>(
+      context.cacheProvider,
+      requestKey,
+    );
 
   let payload: TmdbSearchResponse;
   if (cachedPayload !== undefined) {
@@ -383,7 +423,11 @@ async function searchTmdbValue(
     requestParams.set('api_key', apiKey);
     const url = `https://api.themoviedb.org/3/search/${endpoint}?${requestParams.toString()}`;
     payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
-    await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+    await context.metadataApiCacheStore.set(
+      context.cacheProvider,
+      requestKey,
+      payload,
+    );
   }
 
   const results = Array.isArray(payload.results) ? payload.results : [];
@@ -425,4 +469,3 @@ async function searchTmdbValue(
     backdropUrl: picked.backdropUrl,
   };
 }
-

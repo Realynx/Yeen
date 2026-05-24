@@ -149,9 +149,7 @@ export class MediaEpisodeCatalogService {
     const expectedSeasons = [
       ...new Set(catalog.episodes.map((episode) => episode.seasonNumber)),
     ].sort((left, right) => left - right);
-    const preferredSeasonNumber = coerceSeasonForTracker(
-      current.seasonNumber,
-    );
+    const preferredSeasonNumber = coerceSeasonForTracker(current.seasonNumber);
     const primarySeasonNumber = expectedSeasons.includes(preferredSeasonNumber)
       ? preferredSeasonNumber
       : (expectedSeasons[0] ?? seasonsSeen[0] ?? 1);
@@ -250,9 +248,7 @@ export class MediaEpisodeCatalogService {
       target.remoteSource === 'jikan' ||
       target.remoteSource === 'tmdb'
     ) {
-      const linkedProviderId = normalizeOptionalString(
-        target.remoteSourceId,
-      );
+      const linkedProviderId = normalizeOptionalString(target.remoteSourceId);
       linkedCatalog = linkedProviderId
         ? {
             source: target.remoteSource,
@@ -352,5 +348,4 @@ export class MediaEpisodeCatalogService {
       return null;
     }
   }
-
 }

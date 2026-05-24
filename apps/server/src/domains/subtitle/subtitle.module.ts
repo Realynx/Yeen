@@ -24,5 +24,6 @@ import { SubtitleTracksService } from './application/services/subtitle-tracks.se
     SubtitleFileStreamService,
     SubtitleOnlineLookupService,
   ],
+  exports: [SubtitleListingService, SubtitleFileStreamService],
 })
 export class SubtitleModule {}

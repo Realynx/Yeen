@@ -6,44 +6,19 @@ export type {
   User,
   UserRole,
 } from '@yeen/shared-contracts';
-
-export interface AdminAccountMediaActivityItem {
-  mediaId: string;
-  title: string;
-  updatedAt: string;
-  progressPercent: number;
-}
-
-export interface AdminAccountActivityItem {
-  accountId: string;
-  watching: AdminAccountMediaActivityItem[];
-  downloading: AdminAccountMediaActivityItem[];
-  inProgressCount: number;
-  completedCount: number;
-  lastActivityAt: string | null;
-  isRecentlyActive: boolean;
-}
-
-export interface AdminDownloadActivityItem {
-  hash: string;
-  mediaId: string | null;
-  title: string;
-  state: string;
-  progressPercent: number;
-}
-
-export interface AdminAccountsActivityOverview {
-  asOf: string;
-  summary: {
-    activeAccounts: number;
-    activeWatchers: number;
-    activeDownloads: number;
-    watchEntries: number;
-    recentlyActiveAccounts: number;
-  };
-  accounts: AdminAccountActivityItem[];
-  downloads: AdminDownloadActivityItem[];
-}
+export type {
+  IptorrentsSearchItem,
+  IptorrentsSearchResponse,
+  NyaaSearchResponse,
+  NyaaSortDirection,
+  NyaaSortField,
+} from './types-torrent-search';
+export type {
+  AdminAccountActivityItem,
+  AdminAccountMediaActivityItem,
+  AdminAccountsActivityOverview,
+  AdminDownloadActivityItem,
+} from './types-admin-activity';
 
 export type DigitalMediaType = 'video' | 'audio' | 'image' | 'other';
 
@@ -187,6 +162,62 @@ export interface HlsSessionStats {
   inflightCount: number;
   nextSegmentIndex: number | null;
   recoverableStartFailures: number;
+}
+
+export interface BroadcastOwnerSession {
+  enabled: boolean;
+  activePlayer: boolean;
+  shareToken: string | null;
+  mediaId: string | null;
+  hlsSessionId: string | null;
+  subtitleFileName: string | null;
+  playbackPositionSeconds: number;
+  playbackIsPlaying: boolean;
+  playbackUpdatedAt: string | null;
+  selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number | null;
+  audioBitrateKbps: number | null;
+  maxOutputHeight: number | null;
+  viewerCount: number;
+  updatedAt: string | null;
+}
+
+export interface BroadcastPublicSession {
+  enabled: boolean;
+  isLive: boolean;
+  activePlayer: boolean;
+  shareToken: string;
+  mediaId: string | null;
+  manifestUrl: string | null;
+  subtitleUrl: string | null;
+  playbackPositionSeconds: number;
+  playbackIsPlaying: boolean;
+  playbackUpdatedAt: string | null;
+  viewerCount: number;
+}
+
+export interface BroadcastViewerHeartbeatResponse {
+  viewerId: string;
+  viewerCount: number;
+  enabled: boolean;
+  isLive: boolean;
+}
+
+export interface BroadcastSourceUpdate {
+  mediaId?: string | null;
+  hlsSessionId?: string | null;
+  subtitleFileName?: string | null;
+  selectedAudioStreamIndex?: number | null;
+  maxVideoBitrateKbps?: number | null;
+  audioBitrateKbps?: number | null;
+  maxOutputHeight?: number | null;
+}
+
+export interface BroadcastPlaybackUpdate {
+  positionSeconds: number;
+  playbackIsPlaying: boolean;
+  activePlayer?: boolean;
+  syncTimestampMs?: number;
 }
 
 export type TorrentOrderMode = 'sequential' | 'random';
@@ -408,37 +439,3 @@ export interface SystemSettings {
   subtitleDefaultLanguage: string;
 }
 
-export interface IptorrentsSearchItem {
-  id: string;
-  title: string;
-  category: string;
-  subtitle: string | null;
-  size: string;
-  snatches: number;
-  seeders: number;
-  leechers: number;
-  comments: number;
-  isFreeleech: boolean;
-  isNew: boolean;
-  detailsUrl: string;
-  downloadUrl: string | null;
-}
-
-export interface IptorrentsSearchResponse {
-  query: string;
-  mediaType: 'movie' | 'show' | 'all';
-  sourceUrl: string;
-  total: number;
-  results: IptorrentsSearchItem[];
-}
-
-export type NyaaSortField = 'size' | 'seeders' | 'leechers';
-export type NyaaSortDirection = 'desc' | 'asc';
-
-export interface NyaaSearchResponse extends IptorrentsSearchResponse {
-  category: string;
-  page: number;
-  hasMore: boolean;
-  sortBy: NyaaSortField;
-  sortDirection: NyaaSortDirection;
-}

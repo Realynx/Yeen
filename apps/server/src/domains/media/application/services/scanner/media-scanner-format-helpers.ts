@@ -9,7 +9,9 @@ export function resolveDurationSeconds(
     return directDuration;
   }
 
-  const formatTagDuration = parseDurationFromTagCollection(payload.format?.tags);
+  const formatTagDuration = parseDurationFromTagCollection(
+    payload.format?.tags,
+  );
   if (formatTagDuration && formatTagDuration > 0) {
     return formatTagDuration;
   }
@@ -107,9 +109,7 @@ function parseDurationString(value: string): number | null {
     return numeric;
   }
 
-  const hhmmssMatch = trimmed.match(
-    /^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/,
-  );
+  const hhmmssMatch = trimmed.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
   if (hhmmssMatch) {
     const hours = Number.parseInt(hhmmssMatch[1], 10);
     const minutes = Number.parseInt(hhmmssMatch[2], 10);

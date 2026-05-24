@@ -99,9 +99,12 @@ export function resolveCandidateMediaType(
   value: Record<string, unknown>,
   requestedType: 'movie' | 'show' | 'other',
 ): 'movie' | 'show' | 'other' {
-  if (requestedType === 'movie' || requestedType === 'show') return requestedType;
+  if (requestedType === 'movie' || requestedType === 'show')
+    return requestedType;
   const rawType =
-    typeof value.media_type === 'string' ? value.media_type.trim().toLowerCase() : '';
+    typeof value.media_type === 'string'
+      ? value.media_type.trim().toLowerCase()
+      : '';
   if (rawType === 'movie') return 'movie';
   if (rawType === 'tv') return 'show';
   return 'other';
@@ -250,7 +253,11 @@ export function extractRuntimeSeconds(
 
   if (!Array.isArray(value.episode_run_time)) return null;
   for (const runTime of value.episode_run_time) {
-    if (typeof runTime === 'number' && Number.isFinite(runTime) && runTime > 0) {
+    if (
+      typeof runTime === 'number' &&
+      Number.isFinite(runTime) &&
+      runTime > 0
+    ) {
       return Math.round(runTime * 60);
     }
   }
@@ -274,7 +281,10 @@ export function resolveGenreId(
   for (const candidate of normalizedCandidates) {
     for (const [id, label] of Object.entries(genresById)) {
       const normalizedLabel = normalizeGenreLabel(label);
-      if (normalizedLabel.includes(candidate) || candidate.includes(normalizedLabel)) {
+      if (
+        normalizedLabel.includes(candidate) ||
+        candidate.includes(normalizedLabel)
+      ) {
         return Number.parseInt(id, 10);
       }
     }

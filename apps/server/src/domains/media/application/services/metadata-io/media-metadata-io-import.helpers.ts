@@ -33,7 +33,10 @@ export function extractImportedItemsValue(value: unknown): unknown[] {
 export function extractImportedImageAssetsValue(
   value: unknown,
 ): Record<string, MetadataExportImageAsset> | null {
-  if (!isObjectRecordValue(value) || !isObjectRecordValue(value['imageAssets'])) {
+  if (
+    !isObjectRecordValue(value) ||
+    !isObjectRecordValue(value['imageAssets'])
+  ) {
     return null;
   }
 
@@ -50,9 +53,7 @@ export function extractImportedImageAssetsValue(
         ? candidate['mimeType'].trim()
         : '';
     const base64 =
-      typeof candidate['base64'] === 'string'
-        ? candidate['base64'].trim()
-        : '';
+      typeof candidate['base64'] === 'string' ? candidate['base64'].trim() : '';
 
     if (!assetId || !mimeType || !base64) {
       continue;
@@ -208,7 +209,12 @@ export function normalizeImportedChapterThumbnailsValue(
 
     const imagePath = readOptionalStringValue(entry, 'imagePath') ?? '';
     const second = readOptionalNumberValue(entry, 'second');
-    if (!imagePath || second === null || !Number.isFinite(second) || second < 0) {
+    if (
+      !imagePath ||
+      second === null ||
+      !Number.isFinite(second) ||
+      second < 0
+    ) {
       continue;
     }
 
@@ -236,7 +242,9 @@ export function normalizeImportedMediaDetailsValue(
   return {
     formatName: readOptionalStringValue(value, 'formatName'),
     bitRate: toNullableNumberValue(readOptionalNumberValue(value, 'bitRate')),
-    frameRate: toNullableNumberValue(readOptionalNumberValue(value, 'frameRate')),
+    frameRate: toNullableNumberValue(
+      readOptionalNumberValue(value, 'frameRate'),
+    ),
     audioChannels: toNullableNumberValue(
       readOptionalNumberValue(value, 'audioChannels'),
     ),

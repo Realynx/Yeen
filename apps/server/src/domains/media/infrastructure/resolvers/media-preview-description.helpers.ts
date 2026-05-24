@@ -31,7 +31,9 @@ function extractNfoTagValue(raw: string, tagName: string): string | null {
   return match?.[1] ?? null;
 }
 
-function normalizeDescriptionText(value: string | null | undefined): string | null {
+function normalizeDescriptionText(
+  value: string | null | undefined,
+): string | null {
   if (typeof value !== 'string') {
     return null;
   }

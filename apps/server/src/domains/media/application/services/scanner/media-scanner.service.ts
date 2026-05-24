@@ -7,9 +7,7 @@ import { SystemSettingsService } from '../../../../system-settings/application/s
 import { MediaItem } from '../../../domain/entities/media-item.entity';
 import { MediaNfoReader } from '../../../infrastructure/media-nfo.reader';
 import { MediaPreviewResolver } from '../../../infrastructure/resolvers/media-preview.resolver';
-import {
-  MediaProbeAdapter,
-} from '../../../infrastructure/media-probe.adapter';
+import { MediaProbeAdapter } from '../../../infrastructure/media-probe.adapter';
 import { MediaSubtitleResolver } from '../../../infrastructure/resolvers/media-subtitle.resolver';
 import { JikanMetadataService } from '../remote-metadata/jikan-metadata.service';
 import { TmdbMetadataService } from '../remote-metadata/tmdb-metadata.service';
@@ -371,7 +369,6 @@ export class MediaScannerService {
       episodeCatalogSourceId: tmdbSeriesCatalogId ?? jikanSeriesCatalogId,
     };
   }
-
 }
 
 function toErrorMessage(error: unknown): string {

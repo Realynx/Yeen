@@ -32,10 +32,7 @@ export function processCandidatesForCatalogValue(
       continue;
     }
 
-    if (
-      !isTagExploreMode &&
-      isAlreadyIndexedFn(candidate, localTitleIndex)
-    ) {
+    if (!isTagExploreMode && isAlreadyIndexedFn(candidate, localTitleIndex)) {
       continue;
     }
 

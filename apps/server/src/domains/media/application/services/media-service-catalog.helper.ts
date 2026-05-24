@@ -60,15 +60,17 @@ export async function bulkDeleteMediaPermanentlyValue(
 
   for (const mediaId of ids) {
     try {
-      const result = await context.mediaPermanentDeleteService.deleteMediaPermanently(
-        mediaId,
-      );
+      const result =
+        await context.mediaPermanentDeleteService.deleteMediaPermanently(
+          mediaId,
+        );
       results.push(result);
       if (result.success) {
         deleted += 1;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown delete error.';
+      const message =
+        error instanceof Error ? error.message : 'Unknown delete error.';
       context.logger.warn(`Permanent delete failed for ${mediaId}: ${message}`);
       results.push({
         mediaId,

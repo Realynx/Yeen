@@ -12,7 +12,9 @@ export interface ParsedRemoteMediaId {
   providerId: string;
 }
 
-export function parseRemoteMediaIdValue(mediaId: string): ParsedRemoteMediaId | null {
+export function parseRemoteMediaIdValue(
+  mediaId: string,
+): ParsedRemoteMediaId | null {
   const cleanedId = mediaId.trim();
   const match = cleanedId.match(
     /^remote_(tmdb|jikan)_(movie|show)_([A-Za-z0-9-]{1,64})$/,

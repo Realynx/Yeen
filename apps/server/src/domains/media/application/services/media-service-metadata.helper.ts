@@ -68,7 +68,10 @@ interface MediaMetadataPatchEnrichmentLike {
   ): Promise<{
     effectivePatch: MediaMetadataPatch;
     remoteSelectionChanged: boolean;
-    remoteCandidate: { posterUrl: string | null; backdropUrl: string | null } | null;
+    remoteCandidate: {
+      posterUrl: string | null;
+      backdropUrl: string | null;
+    } | null;
   }>;
 }
 
@@ -121,7 +124,8 @@ export async function exportMetadataValue(
   context: MediaMetadataOpsContext,
 ): Promise<MediaMetadataExportPayload> {
   const items = await context.mediaStore.all();
-  const pathContext = await context.mediaMetadataIoService.createImportPathContext();
+  const pathContext =
+    await context.mediaMetadataIoService.createImportPathContext();
   const imageAssets: Record<string, MetadataExportImageAsset> = {};
   const portableItems = await Promise.all(
     items.map((item) =>
@@ -152,7 +156,8 @@ export async function importMetadataValue(
     imageAssets?: Record<string, MetadataExportImageAsset> | null;
   },
 ): Promise<MediaMetadataImportResult> {
-  const mode: MetadataImportMode = input.mode === 'replace' ? 'replace' : 'upsert';
+  const mode: MetadataImportMode =
+    input.mode === 'replace' ? 'replace' : 'upsert';
   const sourceItems = Array.isArray(input.items) ? input.items : [];
 
   if (sourceItems.length === 0 && mode !== 'replace') {
@@ -162,7 +167,8 @@ export async function importMetadataValue(
   }
 
   const importedAt = new Date().toISOString();
-  const pathContext = await context.mediaMetadataIoService.createImportPathContext();
+  const pathContext =
+    await context.mediaMetadataIoService.createImportPathContext();
 
   if (sourceItems.length > 0 && pathContext.roots.length === 0) {
     throw new BadRequestException(
@@ -227,7 +233,8 @@ export async function importMetadataFromJsonValue(
   return importMetadataValue(context, {
     mode: input.mode,
     items: context.mediaMetadataIoService.extractImportedItems(parsed),
-    imageAssets: context.mediaMetadataIoService.extractImportedImageAssets(parsed),
+    imageAssets:
+      context.mediaMetadataIoService.extractImportedImageAssets(parsed),
   });
 }
 
@@ -327,19 +334,23 @@ async function resolveImportedItemsValue(
         filePath: resolved.absoluteFilePath,
         relativePath: `${resolved.locationLabel}/${resolved.relativePathUnderLocation}`,
         extension:
-          (extname(resolved.absoluteFilePath) || nextItem.extension || '').toLowerCase() ||
-          nextItem.extension,
+          (
+            extname(resolved.absoluteFilePath) ||
+            nextItem.extension ||
+            ''
+          ).toLowerCase() || nextItem.extension,
       };
     } catch {
       unresolvedPaths.push(item.relativePath || item.filePath);
       continue;
     }
 
-    const hydratedItem = await context.mediaMetadataIoService.restorePortableImagePaths(
-      nextItem,
-      imageAssets,
-      restoredAssetPathById,
-    );
+    const hydratedItem =
+      await context.mediaMetadataIoService.restorePortableImagePaths(
+        nextItem,
+        imageAssets,
+        restoredAssetPathById,
+      );
     items.push(hydratedItem);
   }
 
@@ -361,7 +372,9 @@ async function persistImportedItemsValue(
   }
 }
 
-function normalizeOptionalString(value: string | null | undefined): string | null {
+function normalizeOptionalString(
+  value: string | null | undefined,
+): string | null {
   if (typeof value !== 'string') {
     return null;
   }

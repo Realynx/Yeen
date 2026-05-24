@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   changeMyPassword,
   createInviteLink,
@@ -7,111 +7,24 @@ import {
   updateMyProfile,
   uploadMyAvatar,
 } from '../../shared/services/api';
-import { formatBytes } from '../../shared/services/formatters';
 import { isAdminRole, roleLabel as toRoleLabel } from '../../auth/services/roles';
 import type { User } from '../../shared/services/types';
+import { UserAvatarSection } from './UserAvatarSection';
+import { UserInvitesSection } from './UserInvitesSection';
+import { UserProfileDetailsSection } from './UserProfileDetailsSection';
+import { UserSecuritySection } from './UserSecuritySection';
+import { UserSettingsOverviewSidebar } from './UserSettingsOverviewSidebar';
+import {
+  USER_SETTINGS_SECTION_IDS,
+  createUserSettingsQuickActions,
+  type UserSettingsCategoryId,
+} from './userSettings.types';
+import { MAX_AVATAR_BYTES } from './userSettingsViewUtils';
 
 interface UserSettingsTabProps {
   token: string;
   user: User;
   onUserUpdated: (user: User) => void;
-}
-
-type UserSettingsCategoryId = 'profile' | 'picture' | 'invites' | 'security';
-
-const USER_SETTINGS_SECTION_IDS: Record<UserSettingsCategoryId, string> = {
-  profile: 'user-profile-details',
-  picture: 'user-profile-picture',
-  invites: 'user-invites',
-  security: 'user-password-reset',
-};
-
-interface UserSettingsCategorySectionProps {
-  id: string;
-  kicker: string;
-  title: string;
-  description: string;
-  badge?: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}
-
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const AVATAR_SIZE_UNITS = ['B', 'KB', 'MB'] as const;
-
-function UserSettingsCategorySection({
-  id,
-  kicker,
-  title,
-  description,
-  badge,
-  isOpen,
-  onToggle,
-  children,
-}: UserSettingsCategorySectionProps) {
-  const contentId = `${id}-content`;
-
-  return (
-    <section className={`settings-category${isOpen ? ' is-open' : ''}`}>
-      <button
-        type="button"
-        className="settings-category-toggle"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls={contentId}
-      >
-        <div className="settings-category-toggle-copy">
-          <p className="settings-section-kicker">{kicker}</p>
-          <h3>{title}</h3>
-          <p className="muted">{description}</p>
-        </div>
-
-        <div className="settings-category-toggle-meta">
-          {badge ? <span className="settings-pill">{badge}</span> : null}
-          <span
-            className={`settings-category-chevron${isOpen ? ' is-open' : ''}`}
-            aria-hidden="true"
-          >
-            v
-          </span>
-        </div>
-      </button>
-
-      {isOpen ? (
-        <div id={contentId} className="settings-category-content">
-          {children}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function formatMemberSince(value: string): string {
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) {
-    return 'Unknown';
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(parsed));
-}
-
-function initialForName(value: string): string {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (parts.length === 0) {
-    return 'U';
-  }
-
-  return parts.map((part) => part[0]?.toUpperCase() ?? '').join('');
 }
 
 export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabProps) {
@@ -156,13 +69,10 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   });
 
   const availableInvites = isAdmin ? null : Math.max(0, user.invitesRemaining ?? 0);
-  const remainingInvitesLabel = isAdmin
-    ? 'Unlimited'
-    : `${availableInvites ?? 0} remaining`;
-  const maxBitrateLabel =
-    typeof user.maxBitrateKbps === 'number' && Number.isFinite(user.maxBitrateKbps)
-      ? `${user.maxBitrateKbps.toLocaleString()} kbps`
-      : 'No limit';
+  const remainingInvitesLabel = isAdmin ? 'Unlimited' : `${availableInvites ?? 0} remaining`;
+  const maxBitrateLabel = typeof user.maxBitrateKbps === 'number' && Number.isFinite(user.maxBitrateKbps)
+    ? `${user.maxBitrateKbps.toLocaleString()} kbps`
+    : 'No limit';
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -385,34 +295,7 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
     }
   }
 
-  const quickActions: Array<{
-    category: UserSettingsCategoryId;
-    label: string;
-    note: string;
-  }> = [
-    {
-      category: 'profile',
-      label: 'Account Details',
-      note: 'Display name and email',
-    },
-    {
-      category: 'picture',
-      label: 'Profile Photo',
-      note: 'Avatar upload and removal',
-    },
-    {
-      category: 'invites',
-      label: 'Invite Links',
-      note: isAdmin
-        ? 'Create unlimited invites'
-        : `${availableInvites ?? 0} invite(s) available`,
-    },
-    {
-      category: 'security',
-      label: 'Password',
-      note: 'Reset your sign-in password',
-    },
-  ];
+  const quickActions = useMemo(() => createUserSettingsQuickActions(isAdmin, availableInvites), [availableInvites, isAdmin]);
 
   return (
     <section className="settings-content-grid">
@@ -426,357 +309,87 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
         </header>
 
         <div className="user-settings-layout">
-          <aside className="user-settings-layout-sidebar" aria-label="Profile quick summary">
-            <section className="user-settings-overview-card user-settings-overview-left-column" aria-label="Profile summary">
-              <div className="user-settings-avatar-preview-shell user-settings-avatar-preview-shell-large">
-                {avatarPreviewUrl ? (
-                  <img
-                    src={avatarPreviewUrl}
-                    alt={`${user.name} profile`}
-                    className="user-settings-avatar-preview"
-                  />
-                ) : (
-                  <span className="profile-avatar user-settings-avatar-fallback user-settings-avatar-fallback-large">
-                    {initialForName(user.name)}
-                  </span>
-                )}
-              </div>
-
-              <div className="user-settings-overview-details">
-                <p className="settings-section-kicker">Profile Snapshot</p>
-                <h3>{user.name}</h3>
-                <p className="muted">{user.email}</p>
-
-                <dl className="settings-profile-list user-settings-profile-summary user-settings-profile-summary-overview">
-                  <div>
-                    <dt>Role</dt>
-                    <dd>{roleLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Member Since</dt>
-                    <dd>{formatMemberSince(user.createdAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Config Scope</dt>
-                    <dd>{configScopeLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Invites</dt>
-                    <dd>{remainingInvitesLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Max Bitrate</dt>
-                    <dd>{maxBitrateLabel}</dd>
-                  </div>
-                </dl>
-              </div>
-            </section>
-
-            <nav className="system-settings-nav user-settings-quick-actions" aria-label="Profile quick actions">
-              <p className="settings-section-kicker">Quick Actions</p>
-
-              <ul className="system-settings-nav-list user-settings-quick-actions-list">
-                {quickActions.map((item) => {
-                  const isActive = expandedCategories[item.category];
-
-                  return (
-                    <li key={item.category}>
-                      <button
-                        type="button"
-                        className={`system-settings-nav-button${isActive ? ' is-active' : ''}`}
-                        onClick={() => openAndScrollToCategory(item.category)}
-                      >
-                        <span className="system-settings-nav-button-main">
-                          <span className="user-settings-quick-action-dot" aria-hidden="true" />
-                          <span className="system-settings-nav-copy">
-                            <span className="system-settings-nav-label">{item.label}</span>
-                            <span className="system-settings-nav-note">{item.note}</span>
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-          </aside>
+          <UserSettingsOverviewSidebar
+            user={user}
+            avatarPreviewUrl={avatarPreviewUrl}
+            roleLabel={roleLabel}
+            configScopeLabel={configScopeLabel}
+            remainingInvitesLabel={remainingInvitesLabel}
+            maxBitrateLabel={maxBitrateLabel}
+            expandedCategories={expandedCategories}
+            quickActions={quickActions}
+            onOpenCategory={openAndScrollToCategory}
+          />
 
           <div className="settings-categories user-settings-categories">
-          <UserSettingsCategorySection
-            id="user-profile-details"
-            kicker="Account"
-            title="Profile Details"
-            description="Update your display name and email address used for sign-in."
-            badge={hasProfileChanges ? 'Unsaved Changes' : 'Up to date'}
-            isOpen={expandedCategories.profile}
-            onToggle={() => toggleCategory('profile')}
-          >
-            <form className="system-settings-form" onSubmit={handleSaveProfile}>
-              <label className="settings-field">
-                <span className="settings-field-label">Display Name</span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Your name"
-                />
-              </label>
+            <UserProfileDetailsSection
+              isOpen={expandedCategories.profile}
+              hasProfileChanges={hasProfileChanges}
+              name={name}
+              email={email}
+              savingProfile={savingProfile}
+              profileMessage={profileMessage}
+              profileError={profileError}
+              onToggle={() => toggleCategory('profile')}
+              onNameChange={setName}
+              onEmailChange={setEmail}
+              onReset={() => {
+                setName(user.name);
+                setEmail(user.email);
+              }}
+              onSubmit={handleSaveProfile}
+            />
 
-              <label className="settings-field">
-                <span className="settings-field-label">Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                />
-              </label>
+            <UserAvatarSection
+              isOpen={expandedCategories.picture}
+              userName={user.name}
+              hasUserAvatar={Boolean(user.avatarDataUrl)}
+              avatarPreviewUrl={avatarPreviewUrl}
+              selectedAvatarFile={selectedAvatarFile}
+              avatarInputKey={avatarInputKey}
+              savingAvatar={savingAvatar}
+              avatarMessage={avatarMessage}
+              avatarError={avatarError}
+              onToggle={() => toggleCategory('picture')}
+              onSelectAvatarFile={setSelectedAvatarFile}
+              onUploadSubmit={handleUploadAvatar}
+              onClearSelection={clearSelectedAvatar}
+              onRemoveCurrentPhoto={() => {
+                void handleRemoveAvatar();
+              }}
+            />
 
-              <div className="system-settings-footer settings-field-wide">
-                <p className="muted">Changes apply to your account immediately.</p>
+            <UserInvitesSection
+              isOpen={expandedCategories.invites}
+              isAdmin={isAdmin}
+              availableInvites={availableInvites}
+              creatingInvite={creatingInvite}
+              latestInviteUrl={latestInviteUrl}
+              inviteMessage={inviteMessage}
+              inviteError={inviteError}
+              onToggle={() => toggleCategory('invites')}
+              onCreateInvite={() => {
+                void handleCreateInvite();
+              }}
+              onCopyLatestInvite={() => {
+                void handleCopyInviteLink();
+              }}
+            />
 
-                <div className="settings-actions-row">
-                  <button
-                    type="button"
-                    className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                    onClick={() => {
-                      setName(user.name);
-                      setEmail(user.email);
-                    }}
-                    disabled={savingProfile || !hasProfileChanges}
-                  >
-                    Reset
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                    disabled={savingProfile || !hasProfileChanges}
-                  >
-                    {savingProfile ? 'Saving...' : 'Save Profile'}
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            {profileMessage ? <p className="scan-success">{profileMessage}</p> : null}
-            {profileError ? <p className="error-text">{profileError}</p> : null}
-          </UserSettingsCategorySection>
-
-          <UserSettingsCategorySection
-            id="user-profile-picture"
-            kicker="Account"
-            title="Profile Picture"
-            description="Upload a personal image shown in the profile menu and account surfaces."
-            badge={user.avatarDataUrl ? 'Custom Photo' : 'Initials Avatar'}
-            isOpen={expandedCategories.picture}
-            onToggle={() => toggleCategory('picture')}
-          >
-            <section className="user-settings-avatar-panel" aria-label="Profile picture preview">
-              <div className="user-settings-avatar-preview-shell">
-                {avatarPreviewUrl ? (
-                  <img
-                    src={avatarPreviewUrl}
-                    alt={`${user.name} profile`}
-                    className="user-settings-avatar-preview"
-                  />
-                ) : (
-                  <span className="profile-avatar user-settings-avatar-fallback">
-                    {initialForName(user.name)}
-                  </span>
-                )}
-              </div>
-
-              <div className="user-settings-avatar-copy">
-                <p className="settings-field-label">Current Picture</p>
-                <p className="muted">
-                  PNG, JPEG, WEBP, or GIF. Maximum size: 2 MB.
-                </p>
-                {selectedAvatarFile ? (
-                  <p className="muted user-settings-avatar-selected">
-                    Selected: {selectedAvatarFile.name} ({formatBytes(selectedAvatarFile.size, { units: AVATAR_SIZE_UNITS })})
-                  </p>
-                ) : null}
-              </div>
-            </section>
-
-            <form
-              id="user-avatar-upload-form"
-              className="user-settings-avatar-form"
-              onSubmit={handleUploadAvatar}
-            >
-              <label className="settings-field user-settings-upload-box">
-                <span className="settings-field-label">Choose Image</span>
-                <input
-                  key={avatarInputKey}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={(event) => {
-                    const nextFile = event.target.files?.[0] ?? null;
-                    setSelectedAvatarFile(nextFile);
-                  }}
-                />
-                <small className="settings-field-hint">
-                  Uploading replaces your existing profile picture.
-                </small>
-              </label>
-            </form>
-
-            <div className="settings-actions-row user-settings-avatar-actions">
-              <button
-                type="submit"
-                form="user-avatar-upload-form"
-                className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                disabled={savingAvatar || !selectedAvatarFile}
-              >
-                {savingAvatar ? 'Uploading...' : 'Upload Photo'}
-              </button>
-
-              <button
-                type="button"
-                className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                onClick={clearSelectedAvatar}
-                disabled={savingAvatar || !selectedAvatarFile}
-              >
-                Clear Selection
-              </button>
-
-              <button
-                type="button"
-                className="danger-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                onClick={() => void handleRemoveAvatar()}
-                disabled={savingAvatar || !user.avatarDataUrl}
-              >
-                Remove Current Photo
-              </button>
-            </div>
-
-            {avatarMessage ? <p className="scan-success">{avatarMessage}</p> : null}
-            {avatarError ? <p className="error-text">{avatarError}</p> : null}
-          </UserSettingsCategorySection>
-
-          <UserSettingsCategorySection
-            id="user-invites"
-            kicker="Invites"
-            title="Invite Friends"
-            description="Generate invite links for new signups. Regular users consume one invite per link."
-            badge={
-              isAdmin
-                ? 'Unlimited'
-                : `${availableInvites ?? 0} available`
-            }
-            isOpen={expandedCategories.invites}
-            onToggle={() => toggleCategory('invites')}
-          >
-            <p className="settings-invite-balance">
-              {isAdmin
-                ? 'As an admin, you can create unlimited invite links.'
-                : `You currently have ${availableInvites ?? 0} invite(s) remaining.`}
-            </p>
-
-            <div className="settings-actions-row">
-              <button
-                type="button"
-                className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                onClick={() => void handleCreateInvite()}
-                disabled={
-                  creatingInvite ||
-                  (!isAdmin && (availableInvites ?? 0) <= 0)
-                }
-              >
-                {creatingInvite ? 'Creating Invite...' : 'Create Invite Link'}
-              </button>
-
-              <button
-                type="button"
-                className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                onClick={() => void handleCopyInviteLink()}
-                disabled={!latestInviteUrl}
-              >
-                Copy Latest Link
-              </button>
-            </div>
-
-            {latestInviteUrl ? (
-              <label className="settings-field settings-field-wide">
-                <span className="settings-field-label">Latest Invite URL</span>
-                <input
-                  className="settings-invite-link-input"
-                  type="text"
-                  value={latestInviteUrl}
-                  readOnly
-                />
-                <small className="settings-field-hint">
-                  Anyone with this URL can access the invite signup page.
-                </small>
-              </label>
-            ) : null}
-
-            {inviteMessage ? <p className="scan-success">{inviteMessage}</p> : null}
-            {inviteError ? <p className="error-text">{inviteError}</p> : null}
-          </UserSettingsCategorySection>
-
-          <UserSettingsCategorySection
-            id="user-password-reset"
-            kicker="Security"
-            title="Reset Password"
-            description="Confirm your current password, then set a new one for your own account."
-            badge="Self-Service"
-            isOpen={expandedCategories.security}
-            onToggle={() => toggleCategory('security')}
-          >
-            <form className="system-settings-form" onSubmit={handleChangePassword}>
-              <label className="settings-field">
-                <span className="settings-field-label">Current Password</span>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  autoComplete="current-password"
-                />
-              </label>
-
-              <label className="settings-field">
-                <span className="settings-field-label">New Password</span>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                />
-                <small className="settings-field-hint">Use at least 8 characters.</small>
-              </label>
-
-              <label className="settings-field settings-field-wide">
-                <span className="settings-field-label">Confirm New Password</span>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                />
-              </label>
-
-              <div className="system-settings-footer settings-field-wide">
-                <p className="muted">
-                  This only changes your own account password.
-                </p>
-
-                <div className="settings-actions-row">
-                  <button
-                    type="submit"
-                    className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-                    disabled={savingPassword}
-                  >
-                    {savingPassword ? 'Saving...' : 'Update Password'}
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            {passwordMessage ? <p className="scan-success">{passwordMessage}</p> : null}
-            {passwordError ? <p className="error-text">{passwordError}</p> : null}
-          </UserSettingsCategorySection>
+            <UserSecuritySection
+              isOpen={expandedCategories.security}
+              currentPassword={currentPassword}
+              newPassword={newPassword}
+              confirmPassword={confirmPassword}
+              savingPassword={savingPassword}
+              passwordMessage={passwordMessage}
+              passwordError={passwordError}
+              onToggle={() => toggleCategory('security')}
+              onCurrentPasswordChange={setCurrentPassword}
+              onNewPasswordChange={setNewPassword}
+              onConfirmPasswordChange={setConfirmPassword}
+              onSubmit={handleChangePassword}
+            />
           </div>
         </div>
       </article>

@@ -63,7 +63,12 @@ export function buildPreviewImageCandidates(
   fileBaseName: string,
   previewImageExtensions: readonly string[],
 ): string[] {
-  const baseNames = [fileBaseName, `${fileBaseName}-poster`, 'poster', 'folder'];
+  const baseNames = [
+    fileBaseName,
+    `${fileBaseName}-poster`,
+    'poster',
+    'folder',
+  ];
 
   return baseNames.flatMap((baseName) =>
     previewImageExtensions.map((extension) =>

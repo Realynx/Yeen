@@ -59,9 +59,7 @@ export function buildProvisionalTorrentMediaItemValue(input: {
     Number.isFinite(input.probeHint.releaseYear)
       ? Math.floor(input.probeHint.releaseYear)
       : null;
-  const estimatedBitRate = estimateProvisionalBitRateValue(
-    input.fileSizeBytes,
-  );
+  const estimatedBitRate = estimateProvisionalBitRateValue(input.fileSizeBytes);
   const durationSeconds = estimateProvisionalDurationSecondsValue(
     input.fileSizeBytes,
     estimatedBitRate,
@@ -158,9 +156,7 @@ export function normalizeProvisionalTagsValue(
  * Estimate bitrate based on file size. Used as a heuristic when
  * the actual media file hasn't been fully probed yet.
  */
-export function estimateProvisionalBitRateValue(
-  fileSizeBytes: number,
-): number {
+export function estimateProvisionalBitRateValue(fileSizeBytes: number): number {
   const gib = fileSizeBytes / (1024 * 1024 * 1024);
   if (gib >= 10) {
     return 18_000_000;

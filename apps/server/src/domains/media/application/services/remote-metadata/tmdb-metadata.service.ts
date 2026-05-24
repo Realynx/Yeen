@@ -89,7 +89,11 @@ export class TmdbMetadataService {
     providerId: string,
     options?: { useCache?: boolean },
   ): Promise<TmdbSeriesEpisodeCatalog | null> {
-    return getSeriesEpisodeCatalogValue(this.seriesContext(), providerId, options);
+    return getSeriesEpisodeCatalogValue(
+      this.seriesContext(),
+      providerId,
+      options,
+    );
   }
 
   warmSeriesEpisodeCatalog(providerId: string): void {
@@ -120,7 +124,8 @@ export class TmdbMetadataService {
       metadataApiCacheStore: this.metadataApiCacheStore,
       seriesCatalogInFlight: this.seriesCatalogInFlight,
       getApiKey: () => this.getApiKey(),
-      fetchJson: (url: string, timeoutMs: number) => this.fetchJson(url, timeoutMs),
+      fetchJson: (url: string, timeoutMs: number) =>
+        this.fetchJson(url, timeoutMs),
     };
   }
 
@@ -138,7 +143,9 @@ export class TmdbMetadataService {
       const response = await fetch(url, { signal: abortController.signal });
       if (!response.ok) {
         const raw = await response.text();
-        throw new Error(`HTTP ${response.status} from TMDB: ${raw.slice(0, 240)}`);
+        throw new Error(
+          `HTTP ${response.status} from TMDB: ${raw.slice(0, 240)}`,
+        );
       }
       return (await response.json()) as unknown;
     } finally {

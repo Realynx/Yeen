@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  extractSubtitle,
   getMedia,
   getPlaybackPlan,
   listPlaybackAudioTracks,
@@ -13,142 +12,26 @@ import {
 import type {
   MediaItem,
   PlaybackAudioTrack,
-  ProgressEntry,
   SubtitleTrack,
 } from '../../shared/services/types';
 import { normalizeShowKey } from '../../media-details/services/mediaDetailsUtils';
+import {
+  pickPreferredAudioStreamIndex,
+  pickPreferredSubtitleTrackId,
+  toSeriesPlaybackPreference,
+} from './playerDataPreferences';
+import type {
+  PlaybackSource,
+  PlayerDataState,
+  PlayerTranscodePreferences,
+} from './playerData.types';
+import { extractSubtitleTrackAndReload } from './playerDataSubtitleExtraction';
 
-interface SeriesPlaybackPreference {
-  key: string;
-  preferredAudioLanguage: string | null;
-  preferredSubtitleLanguage: string | null;
-  subtitlePreferenceEnabled: boolean | null;
-}
-
-function normalizeLanguageCode(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
-}
-
-function findTrackByPreferredLanguage<T extends { language: string | null }>(
-  tracks: readonly T[],
-  preferredLanguage: string | null | undefined,
-): T | null {
-  const normalizedPreferredLanguage = normalizeLanguageCode(preferredLanguage);
-  if (!normalizedPreferredLanguage) {
-    return null;
-  }
-
-  const exactMatch = tracks.find((track) => {
-    return normalizeLanguageCode(track.language) === normalizedPreferredLanguage;
-  });
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const preferredBaseLanguage = normalizedPreferredLanguage.split(/[-_]/)[0];
-  if (!preferredBaseLanguage) {
-    return null;
-  }
-
-  return (
-    tracks.find((track) => {
-      const candidateBaseLanguage = normalizeLanguageCode(track.language).split(/[-_]/)[0];
-      return candidateBaseLanguage === preferredBaseLanguage;
-    }) ?? null
-  );
-}
-
-function pickPreferredAudioStreamIndex(
-  tracks: readonly PlaybackAudioTrack[],
-  preferredLanguage: string | null | undefined,
-): number | null {
-  const preferredTrack = findTrackByPreferredLanguage(tracks, preferredLanguage);
-  return preferredTrack?.streamIndex ?? null;
-}
-
-function pickPreferredSubtitleTrackId(
-  tracks: readonly SubtitleTrack[],
-  preferredLanguage: string | null | undefined,
-): string {
-  const availableTracks = tracks.filter((track) => Boolean(track.url));
-  const preferredTrack = findTrackByPreferredLanguage(availableTracks, preferredLanguage);
-  return preferredTrack?.id ?? '';
-}
-
-function toSeriesPlaybackPreference(
-  entries: readonly ProgressEntry[],
-  seriesPreferenceKey: string | null,
-): SeriesPlaybackPreference | null {
-  const normalizedSeriesPreferenceKey = seriesPreferenceKey?.trim() ?? '';
-  if (!normalizedSeriesPreferenceKey) {
-    return null;
-  }
-
-  for (const entry of entries) {
-    if (entry.seriesPreferenceKey !== normalizedSeriesPreferenceKey) {
-      continue;
-    }
-
-    const hasExplicitPreference =
-      entry.preferredAudioLanguage !== undefined
-      || entry.preferredSubtitleLanguage !== undefined
-      || entry.subtitlePreferenceEnabled !== undefined;
-    if (!hasExplicitPreference) {
-      continue;
-    }
-
-    return {
-      key: normalizedSeriesPreferenceKey,
-      preferredAudioLanguage: entry.preferredAudioLanguage ?? null,
-      preferredSubtitleLanguage: entry.preferredSubtitleLanguage ?? null,
-      subtitlePreferenceEnabled: entry.subtitlePreferenceEnabled ?? null,
-    };
-  }
-
-  return null;
-}
-
-export interface PlaybackSource {
-  url: string;
-  hls: boolean;
-  hlsSessionId: string | null;
-  audioStreamIndex: number | null;
-  maxVideoBitrateKbps: number | null;
-  audioBitrateKbps: number | null;
-  maxOutputHeight: number | null;
-}
-
-export interface PlayerTranscodePreferences {
-  maxVideoBitrateKbps: number | null;
-  audioBitrateKbps: number | null;
-  maxOutputHeight: number | null;
-}
-
-export interface PlayerDataState {
-  media: MediaItem | null;
-  source: PlaybackSource | null;
-  streamTorrentHash: string | null;
-  audioTracks: PlaybackAudioTrack[];
-  selectedAudioStreamIndex: number | null;
-  subtitleTracks: SubtitleTrack[];
-  selectedSubtitleId: string;
-  selectedSubtitle: SubtitleTrack | null;
-  resumeAtSeconds: number;
-  loading: boolean;
-  error: string | null;
-  switchingToHls: boolean;
-  extractingSubtitleTrackId: string | null;
-  setSelectedAudioStreamIndex: (audioStreamIndex: number | null) => void;
-  setSelectedSubtitleId: (subtitleId: string) => void;
-  extractTrack: (track: SubtitleTrack) => Promise<void>;
-  switchToHls: (options?: {
-    forceFresh?: boolean;
-    audioStreamIndex?: number | null;
-    maxVideoBitrateKbps?: number | null;
-    audioBitrateKbps?: number | null;
-    maxOutputHeight?: number | null;
-  }) => Promise<boolean>;
-}
+export type {
+  PlaybackSource,
+  PlayerDataState,
+  PlayerTranscodePreferences,
+} from './playerData.types';
 
 export function usePlayerData(
   token: string,
@@ -483,22 +366,9 @@ export function usePlayerData(
     setExtractingSubtitleTrackId(track.id);
 
     try {
-      const extracted = await extractSubtitle(token, mediaId, track.streamIndex);
-      const tracks = await listSubtitleTracks(token, mediaId);
-      setSubtitleTracks(tracks);
-
-      const extractedTrack = tracks.find((candidate) => {
-        return (
-          typeof candidate.streamIndex === 'number'
-          && candidate.streamIndex === track.streamIndex
-          && Boolean(candidate.url)
-        );
-      })
-        ?? tracks.find((candidate) => candidate.url === extracted.url)
-        ?? tracks.find((candidate) => candidate.id === track.id && Boolean(candidate.url))
-        ?? null;
-
-      setSelectedSubtitleId(extractedTrack?.id ?? '');
+      const result = await extractSubtitleTrackAndReload(token, mediaId, track);
+      setSubtitleTracks(result.tracks);
+      setSelectedSubtitleId(result.selectedSubtitleId);
     } catch (extractError) {
       setError(toApiErrorMessage(extractError, 'Subtitle extraction failed.'));
     } finally {

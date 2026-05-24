@@ -1,7 +1,4 @@
-import {
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -17,9 +14,7 @@ import {
   buildVideoEncoderArgs,
   computeKeyFrameInterval,
 } from '../../infrastructure/hls/hls-ffmpeg-args';
-import {
-  totalSegmentCount,
-} from '../../infrastructure/hls/hls-segment-naming';
+import { totalSegmentCount } from '../../infrastructure/hls/hls-segment-naming';
 
 export interface ResolvedTranscodeProfile {
   maxVideoBitrateKbps: number;
@@ -151,10 +146,7 @@ export async function createSessionValue(
       : `0:${selectedAudioStreamIndex}?`;
 
   const totalDurationSeconds = media.durationSeconds;
-  const totalSegments = totalSegmentCount(
-    totalDurationSeconds,
-    segmentSeconds,
-  );
+  const totalSegments = totalSegmentCount(totalDurationSeconds, segmentSeconds);
 
   return {
     sessionId,

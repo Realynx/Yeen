@@ -5,98 +5,20 @@ import type { SystemSettingsState } from '../services/useSystemSettings';
 import { MediaLocationsCategory } from './system-settings-categories/MediaLocationsCategory';
 import { RuntimeCategory } from './system-settings-categories/RuntimeCategory';
 import { SystemSettingsCategoriesForm } from './system-settings-categories/SystemSettingsCategoriesForm';
+import { SystemSettingsQuickJumpNav } from './SystemSettingsQuickJumpNav';
+import {
+  SYSTEM_SETTINGS_SECTION_IDS,
+  createCollapsedSectionsState,
+  createSystemSettingsNavEntries,
+  type SystemSettingsNavEntry,
+  type SystemSettingsSectionId,
+} from './systemSettingsNavItems';
 
 interface SystemSettingsTabProps {
   token: string;
   systemSettingsState: SystemSettingsState;
   mediaLocationsState: MediaLocationsState;
   phoneFloatingQuickJumpBar?: boolean;
-}
-
-const SYSTEM_SETTINGS_SECTION_IDS = [
-  'system-media-locations',
-  'system-runtime',
-  'system-transcoding',
-  'system-metadata-defaults',
-  'system-torrent-client',
-  'system-torrent-trackers',
-  'system-metadata-commits',
-  'system-maintenance',
-] as const;
-
-type SystemSettingsSectionId = (typeof SYSTEM_SETTINGS_SECTION_IDS)[number];
-
-function createCollapsedSectionsState(
-  defaultOpenSectionId?: SystemSettingsSectionId,
-): Record<SystemSettingsSectionId, boolean> {
-  return SYSTEM_SETTINGS_SECTION_IDS.reduce<
-    Record<SystemSettingsSectionId, boolean>
-  >((state, sectionId) => {
-    state[sectionId] = sectionId === defaultOpenSectionId;
-    return state;
-  }, {} as Record<SystemSettingsSectionId, boolean>);
-}
-
-interface SystemSettingsNavItem {
-  id: SystemSettingsSectionId;
-  label: string;
-  shortLabel?: string;
-  icon:
-    | 'media'
-    | 'runtime'
-    | 'playback'
-    | 'torrent'
-    | 'metadata'
-    | 'maintenance';
-  note?: string;
-}
-
-function renderSystemSettingsNavIcon(icon: SystemSettingsNavItem['icon']) {
-  switch (icon) {
-    case 'media':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 7.5a2 2 0 0 1 2-2h5l1.8 2.2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-        </svg>
-      );
-    case 'runtime':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="4" y="5" width="16" height="14" rx="2" />
-          <path d="M9 12h6M12 9v6" />
-        </svg>
-      );
-    case 'playback':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 5.5v13l11-6.5Z" />
-        </svg>
-      );
-    case 'torrent':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 4v10" />
-          <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
-          <path d="M5 18.5h14" />
-        </svg>
-      );
-    case 'maintenance':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 3.5v2.1M12 18.4v2.1M3.5 12h2.1M18.4 12h2.1M5.9 5.9l1.5 1.5M16.6 16.6l1.5 1.5M18.1 5.9l-1.5 1.5M7.4 16.6l-1.5 1.5" />
-        </svg>
-      );
-    case 'metadata':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" />
-          <path d="M9 9h6M9 12h6M9 15h4" />
-        </svg>
-      );
-    default:
-      return null;
-  }
 }
 
 export function SystemSettingsTab({
@@ -139,59 +61,8 @@ export function SystemSettingsTab({
   const configuredLabel =
     locations.length === 1 ? '1 location' : `${locations.length} locations`;
 
-  const sectionNavItems = useMemo<SystemSettingsNavItem[]>(
-    () => [
-      {
-        id: 'system-media-locations',
-        label: 'Media Locations',
-        shortLabel: 'Media',
-        icon: 'media',
-        note: configuredLabel,
-      },
-      {
-        id: 'system-runtime',
-        label: 'Binaries & Storage',
-        shortLabel: 'Runtime',
-        icon: 'runtime',
-      },
-      {
-        id: 'system-transcoding',
-        label: 'Transcoding & Throughput',
-        shortLabel: 'Transcoding',
-        icon: 'playback',
-      },
-      {
-        id: 'system-metadata-defaults',
-        label: 'Metadata Defaults',
-        shortLabel: 'Metadata',
-        icon: 'metadata',
-      },
-      {
-        id: 'system-torrent-client',
-        label: 'qBittorrent Client',
-        shortLabel: 'qBit',
-        icon: 'torrent',
-      },
-      {
-        id: 'system-torrent-trackers',
-        label: 'Tracker Providers',
-        shortLabel: 'Trackers',
-        icon: 'torrent',
-      },
-      {
-        id: 'system-metadata-commits',
-        label: 'Metadata Commits',
-        shortLabel: 'Commits',
-        icon: 'metadata',
-        note: 'Backup & rollback',
-      },
-      {
-        id: 'system-maintenance',
-        label: 'Maintenance Tools',
-        shortLabel: 'Tools',
-        icon: 'maintenance',
-      },
-    ],
+  const sectionNavItems = useMemo<SystemSettingsNavEntry[]>(
+    () => createSystemSettingsNavEntries(configuredLabel),
     [configuredLabel],
   );
 
@@ -377,66 +248,23 @@ export function SystemSettingsTab({
     scrollFloatingQuickJumpToSection,
   ]);
 
-  function renderQuickJumpNav(additionalClassName?: string, compactLabels = false) {
-    const navClassName = additionalClassName
-      ? `system-settings-nav ${additionalClassName}`
-      : 'system-settings-nav';
+  const handleQuickJumpSelect = useCallback((
+    sectionId: string,
+    options: {
+      fromFloating: boolean;
+    },
+  ) => {
+    const typedSectionId = sectionId as SystemSettingsSectionId;
+    expandSection(typedSectionId);
+    scrollToSection(typedSectionId);
 
-    const useFloatingBarMarkup = compactLabels;
-
-    return (
-      <nav
-        className={navClassName}
-        aria-label="System settings categories"
-      >
-        <p className="settings-section-kicker">Quick Jump</p>
-        <ul
-          ref={useFloatingBarMarkup ? floatingQuickJumpListRef : undefined}
-          className="system-settings-nav-list"
-        >
-          {sectionNavItems.map((item) => {
-            const isActive = activeSectionId === item.id;
-            const label = compactLabels ? item.shortLabel ?? item.label : item.label;
-            const showNote = !compactLabels && Boolean(item.note);
-
-            return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className={`system-settings-nav-button${isActive ? ' is-active' : ''}`}
-                  onClick={() => {
-                    expandSection(item.id);
-                    scrollToSection(item.id);
-                    if (useFloatingBarMarkup) {
-                      // eslint-disable-next-line react-hooks/refs
-                      scrollFloatingQuickJumpToSection(item.id, {
-                        behavior: 'smooth',
-                        center: true,
-                      });
-                    }
-                  }}
-                  aria-current={isActive ? 'location' : undefined}
-                  data-section-id={item.id}
-                >
-                  <span className="system-settings-nav-button-main">
-                    <span className="system-settings-nav-icon">
-                      {renderSystemSettingsNavIcon(item.icon)}
-                    </span>
-                    <span className="system-settings-nav-copy">
-                      <span className="system-settings-nav-label">{label}</span>
-                      {showNote ? (
-                        <span className="system-settings-nav-note">{item.note}</span>
-                      ) : null}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-    );
-  }
+    if (options.fromFloating) {
+      scrollFloatingQuickJumpToSection(typedSectionId, {
+        behavior: 'smooth',
+        center: true,
+      });
+    }
+  }, [expandSection, scrollFloatingQuickJumpToSection]);
 
   const contentGridClassName = phoneFloatingQuickJumpBar
     ? 'settings-content-grid settings-content-grid-phone-float-nav'
@@ -449,7 +277,18 @@ export function SystemSettingsTab({
   return (
     <section className={contentGridClassName}>
       {phoneFloatingQuickJumpBar
-        ? renderQuickJumpNav('system-settings-nav-floating-bar', true)
+        ? (
+          <SystemSettingsQuickJumpNav
+            sectionNavItems={sectionNavItems}
+            activeSectionId={activeSectionId}
+            onSelectSection={(sectionId) => {
+              handleQuickJumpSelect(sectionId, { fromFloating: true });
+            }}
+            additionalClassName="system-settings-nav-floating-bar"
+            compactLabels
+            floatingListRef={floatingQuickJumpListRef}
+          />
+        )
         : null}
 
       <article className="settings-surface settings-surface-full settings-surface-categorized">
@@ -462,7 +301,17 @@ export function SystemSettingsTab({
         </header>
 
         <div className={categoriesClassName}>
-          {phoneFloatingQuickJumpBar ? null : renderQuickJumpNav()}
+          {phoneFloatingQuickJumpBar
+            ? null
+            : (
+              <SystemSettingsQuickJumpNav
+                sectionNavItems={sectionNavItems}
+                activeSectionId={activeSectionId}
+                onSelectSection={(sectionId) => {
+                  handleQuickJumpSelect(sectionId, { fromFloating: false });
+                }}
+              />
+            )}
 
           <div className="system-settings-sections">
             <div className="system-settings-media-runtime-categories">

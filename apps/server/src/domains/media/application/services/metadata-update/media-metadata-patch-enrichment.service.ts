@@ -264,7 +264,9 @@ export class MediaMetadataPatchEnrichmentService {
         ? (originalPatch.description ?? null)
         : null,
     );
-    const remoteOverview = normalizeOptionalString(remoteCandidate?.overview ?? null);
+    const remoteOverview = normalizeOptionalString(
+      remoteCandidate?.overview ?? null,
+    );
 
     const shouldReplaceDescription =
       remoteSelectionChanged ||

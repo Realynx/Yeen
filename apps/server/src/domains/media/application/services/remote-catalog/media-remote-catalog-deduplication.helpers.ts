@@ -32,8 +32,7 @@ export function buildLocalTitleIndexValue(
   const index = new Map<string, Set<number | null>>();
 
   for (const item of items) {
-    const mediaType: 'movie' | 'show' =
-      item.type === 'show' ? 'show' : 'movie';
+    const mediaType: 'movie' | 'show' = item.type === 'show' ? 'show' : 'movie';
     const normalizedTitle = normalizeRemoteTitleForKeyValue(item.title);
     if (!normalizedTitle) {
       continue;
@@ -42,8 +41,7 @@ export function buildLocalTitleIndexValue(
     const key = `${mediaType}:${normalizedTitle}`;
     const years = index.get(key) ?? new Set<number | null>();
     const year =
-      typeof item.releaseYear === 'number' &&
-      Number.isFinite(item.releaseYear)
+      typeof item.releaseYear === 'number' && Number.isFinite(item.releaseYear)
         ? Math.floor(item.releaseYear)
         : null;
 
