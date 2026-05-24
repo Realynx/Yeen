@@ -12,6 +12,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { access, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { AccountsStore } from '../../../auth/infrastructure/stores/accounts.store';
 import {
   MediaService,
   type PlaybackAudioTrack,
@@ -43,26 +44,27 @@ import { totalSegmentCount } from '../../infrastructure/hls/hls-segment-naming';
 import {
   normalizeAudioStreamIndexValue,
   resolveRequestedAudioStreamIndexValue,
-} from './stream-helpers/audio-stream-resolver.helper';
+} from './audio-stream-resolver.helper';
 import {
   resolveActualFilePathValue,
   SourceUnreachableError,
-} from './stream-helpers/media-file-resolver.helper';
+} from './media-file-resolver.helper';
 import {
   listReadySegmentIndicesValue,
   computeContiguousReadySegmentsValue,
-} from './stream-helpers/hls-segment-stats.helper';
+} from './hls-segment-stats.helper';
 import {
   getSegment0ProxyPathValue,
   buildSegment0HeadProxyValue,
   resetStartSegmentArtifactsValue,
-} from './stream-helpers/start-segment-recovery.helper';
+} from './start-segment-recovery.helper';
 import { serveHlsSegmentValue } from './stream-hls-segment.helper';
 import {
   findReusableSessionValue,
   createSessionValue,
   discardSessionValue,
-} from './stream-helpers/hls-session-lifecycle.helper';
+  type ResolvedTranscodeProfile,
+} from './hls-session-lifecycle.helper';
 
 export interface HlsSessionStatsResponse {
   sessionId: string;
@@ -74,6 +76,9 @@ export interface HlsSessionStatsResponse {
   totalDurationSeconds: number;
   totalSegments: number;
   selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
   keyFrameInterval: number;
   torrentHash: string | null;
   readySegments: number;
@@ -92,13 +97,14 @@ export class StreamService implements OnModuleInit {
   private readonly logger = new Logger(StreamService.name);
   private readonly hlsRoot = join(process.cwd(), 'data', 'hls');
   // Bumped to invalidate caches from the previous "long-running ffmpeg + EVENT
-  // playlist" architecture. The current pipeline pre-writes a VOD manifest and
-  // transcodes each segment on demand the first time it's requested.
-  private readonly hlsSessionFormatVersion = 8;
+  // playlist" architecture and to refresh reusable sessions when transcoder
+  // argument semantics change.
+  private readonly hlsSessionFormatVersion = 10;
   private readonly startSegmentRecoverableWindowMs = 30_000;
   private readonly maxStartSegmentRecoverableFailures = 4;
 
   constructor(
+    private readonly accountsStore: AccountsStore,
     private readonly mediaService: MediaService,
     private readonly systemSettingsService: SystemSettingsService,
     private readonly torrentService: TorrentService,
@@ -116,7 +122,14 @@ export class StreamService implements OnModuleInit {
 
   async startHls(
     mediaId: string,
-    options?: { forceFresh?: boolean; audioStreamIndex?: number | null },
+    options?: {
+      forceFresh?: boolean;
+      audioStreamIndex?: number | null;
+      maxVideoBitrateKbps?: number | null;
+      audioBitrateKbps?: number | null;
+      maxOutputHeight?: number | null;
+      accountId?: string;
+    },
   ) {
     const forceFresh = Boolean(options?.forceFresh);
     const requestedAudioStreamIndex = normalizeAudioStreamIndexValue(
@@ -127,11 +140,26 @@ export class StreamService implements OnModuleInit {
       requestedAudioStreamIndex,
       audioTracks,
     );
+    const accountMaxBitrateKbps = await this.resolveAccountMaxBitrateKbps(
+      options?.accountId,
+    );
+    const systemSettings = await this.systemSettingsService.getSettings();
+    const transcodeProfile = this.resolveTranscodeProfile({
+      accountMaxBitrateKbps,
+      systemDefaultVideoBitrateKbps:
+        systemSettings.transcodeDefaultMaxBitrateKbps,
+      systemDefaultAudioBitrateKbps: systemSettings.transcodeAudioBitrateKbps,
+      systemDefaultMaxOutputHeight: systemSettings.transcodeMaxOutputHeight,
+      requestedMaxVideoBitrateKbps: options?.maxVideoBitrateKbps,
+      requestedAudioBitrateKbps: options?.audioBitrateKbps,
+      requestedMaxOutputHeight: options?.maxOutputHeight,
+    });
 
     const reusable = findReusableSessionValue(
       mediaId,
       forceFresh,
       selectedAudioStreamIndex,
+      transcodeProfile,
       this.hlsSessionStore,
       this.hlsSessionFormatVersion,
       this.segmentTranscoder,
@@ -146,9 +174,17 @@ export class StreamService implements OnModuleInit {
       this.hlsRoot,
       this.hlsSessionFormatVersion,
       this.mediaService,
-      this.systemSettingsService,
       this.torrentMediaIndexStore,
       this.logger,
+      {
+        ffmpegPath: systemSettings.ffmpegPath,
+        hlsSegmentSeconds: systemSettings.hlsSegmentSeconds,
+        transcodePreset: systemSettings.transcodePreset,
+        transcodeCrf: systemSettings.transcodeCrf,
+        transcodeRateControlBufferSeconds:
+          systemSettings.transcodeRateControlBufferSeconds,
+      },
+      transcodeProfile,
     );
     await this.manifestService.writeVodManifest({
       manifestPath: session.manifestPath,
@@ -166,6 +202,9 @@ export class StreamService implements OnModuleInit {
       sessionId: session.sessionId,
       manifestUrl: `/api/stream/hls/${session.sessionId}/master.m3u8`,
       selectedAudioStreamIndex: session.selectedAudioStreamIndex,
+      maxVideoBitrateKbps: session.maxVideoBitrateKbps,
+      audioBitrateKbps: session.audioBitrateKbps,
+      maxOutputHeight: session.maxOutputHeight,
     };
   }
 
@@ -217,6 +256,9 @@ export class StreamService implements OnModuleInit {
       totalDurationSeconds: session.totalDurationSeconds,
       totalSegments: session.totalSegments,
       selectedAudioStreamIndex: session.selectedAudioStreamIndex,
+      maxVideoBitrateKbps: session.maxVideoBitrateKbps,
+      audioBitrateKbps: session.audioBitrateKbps,
+      maxOutputHeight: session.maxOutputHeight,
       keyFrameInterval: session.keyFrameInterval,
       torrentHash: session.torrentHash,
       readySegments,
@@ -294,6 +336,72 @@ export class StreamService implements OnModuleInit {
    */
   private async resolveActualFilePath(canonicalPath: string): Promise<string> {
     return resolveActualFilePathValue(canonicalPath, 5_000, this.logger);
+  }
+
+  private async resolveAccountMaxBitrateKbps(
+    accountId: string | undefined,
+  ): Promise<number | null> {
+    const normalizedAccountId = accountId?.trim();
+    if (!normalizedAccountId) {
+      return null;
+    }
+
+    const account = await this.accountsStore.findById(normalizedAccountId);
+    return account?.maxBitrateKbps ?? null;
+  }
+
+  private resolveTranscodeProfile(input: {
+    accountMaxBitrateKbps: number | null;
+    systemDefaultVideoBitrateKbps: number;
+    systemDefaultAudioBitrateKbps: number;
+    systemDefaultMaxOutputHeight: number;
+    requestedMaxVideoBitrateKbps?: number | null;
+    requestedAudioBitrateKbps?: number | null;
+    requestedMaxOutputHeight?: number | null;
+  }): ResolvedTranscodeProfile {
+    const videoBitrateCeilingKbps = this.clampInteger(
+      input.accountMaxBitrateKbps ?? input.systemDefaultVideoBitrateKbps,
+      250,
+      50000,
+    );
+
+    const maxVideoBitrateKbps = this.clampInteger(
+      input.requestedMaxVideoBitrateKbps ?? videoBitrateCeilingKbps,
+      250,
+      videoBitrateCeilingKbps,
+    );
+
+    const audioBitrateKbps = this.clampInteger(
+      input.requestedAudioBitrateKbps ?? input.systemDefaultAudioBitrateKbps,
+      48,
+      384,
+    );
+
+    const maxOutputHeightCeiling = this.clampInteger(
+      input.systemDefaultMaxOutputHeight,
+      240,
+      2160,
+    );
+
+    const maxOutputHeight = this.clampInteger(
+      input.requestedMaxOutputHeight ?? maxOutputHeightCeiling,
+      240,
+      maxOutputHeightCeiling,
+    );
+
+    return {
+      maxVideoBitrateKbps,
+      audioBitrateKbps,
+      maxOutputHeight,
+    };
+  }
+
+  private clampInteger(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value)) {
+      return min;
+    }
+
+    return Math.min(max, Math.max(min, Math.round(value)));
   }
 
   private async resolveReachableSourcePath(

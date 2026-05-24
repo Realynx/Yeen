@@ -5,22 +5,35 @@ import {
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { MediaService } from '../../../../media/application/services/media.service';
-import type { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
-import type { TorrentMediaIndexStore } from '../../../../torrent/infrastructure/stores/torrent-media-index.store';
+import type { MediaService } from '../../../media/application/services/media.service';
+import type { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
 import type {
   HlsSession,
   HlsSessionStore,
-} from '../../../infrastructure/stores/hls-session.store';
-import type { HlsSegmentTranscoder } from '../hls/hls-segment-transcoder.service';
+} from '../../infrastructure/stores/hls-session.store';
+import type { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
 import {
   buildAudioEncoderArgs,
   buildVideoEncoderArgs,
   computeKeyFrameInterval,
-} from '../../../infrastructure/hls/hls-ffmpeg-args';
+} from '../../infrastructure/hls/hls-ffmpeg-args';
 import {
   totalSegmentCount,
-} from '../../../infrastructure/hls/hls-segment-naming';
+} from '../../infrastructure/hls/hls-segment-naming';
+
+export interface ResolvedTranscodeProfile {
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
+}
+
+interface SessionBootstrapSettings {
+  ffmpegPath: string;
+  hlsSegmentSeconds: number;
+  transcodePreset: string;
+  transcodeCrf: number;
+  transcodeRateControlBufferSeconds: number;
+}
 
 /**
  * Attempts to find and return a reusable HLS session for a media ID and audio
@@ -31,6 +44,7 @@ export function findReusableSessionValue(
   mediaId: string,
   forceFresh: boolean,
   selectedAudioStreamIndex: number | null,
+  transcodeProfile: ResolvedTranscodeProfile,
   hlsSessionStore: HlsSessionStore,
   hlsSessionFormatVersion: number,
   segmentTranscoder: HlsSegmentTranscoder,
@@ -38,10 +52,16 @@ export function findReusableSessionValue(
   sessionId: string;
   manifestUrl: string;
   selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
 } | null {
   const existing = hlsSessionStore.findReusableByMediaId(
     mediaId,
     selectedAudioStreamIndex,
+    transcodeProfile.maxVideoBitrateKbps,
+    transcodeProfile.audioBitrateKbps,
+    transcodeProfile.maxOutputHeight,
   );
   if (!existing) {
     return null;
@@ -61,6 +81,9 @@ export function findReusableSessionValue(
     sessionId: existing.sessionId,
     manifestUrl: `/api/stream/hls/${existing.sessionId}/master.m3u8`,
     selectedAudioStreamIndex: existing.selectedAudioStreamIndex,
+    maxVideoBitrateKbps: existing.maxVideoBitrateKbps,
+    audioBitrateKbps: existing.audioBitrateKbps,
+    maxOutputHeight: existing.maxOutputHeight,
   };
 }
 
@@ -75,9 +98,10 @@ export async function createSessionValue(
   hlsRoot: string,
   hlsSessionFormatVersion: number,
   mediaService: MediaService,
-  systemSettingsService: SystemSettingsService,
   torrentMediaIndexStore: TorrentMediaIndexStore,
   logger: Logger,
+  systemSettings: SessionBootstrapSettings,
+  transcodeProfile: ResolvedTranscodeProfile,
 ): Promise<HlsSession> {
   const media = await mediaService.getById(mediaId);
   const torrentIndex = await torrentMediaIndexStore.getByMediaId(mediaId);
@@ -97,7 +121,6 @@ export async function createSessionValue(
     );
   }
 
-  const systemSettings = await systemSettingsService.getSettings();
   const ffmpegPath = systemSettings.ffmpegPath || 'ffmpeg';
   const segmentSeconds = Math.max(systemSettings.hlsSegmentSeconds, 1);
   const keyFrameInterval = computeKeyFrameInterval(
@@ -115,8 +138,13 @@ export async function createSessionValue(
     keyFrameInterval,
     preset: systemSettings.transcodePreset,
     crf: systemSettings.transcodeCrf,
+    maxVideoBitrateKbps: transcodeProfile.maxVideoBitrateKbps,
+    maxOutputHeight: transcodeProfile.maxOutputHeight,
+    rateControlBufferSeconds: systemSettings.transcodeRateControlBufferSeconds,
   });
-  const audioArgs = buildAudioEncoderArgs();
+  const audioArgs = buildAudioEncoderArgs({
+    audioBitrateKbps: transcodeProfile.audioBitrateKbps,
+  });
   const audioMapSpecifier =
     selectedAudioStreamIndex === null
       ? '0:a:0?'
@@ -144,6 +172,9 @@ export async function createSessionValue(
     totalDurationSeconds,
     totalSegments,
     selectedAudioStreamIndex,
+    maxVideoBitrateKbps: transcodeProfile.maxVideoBitrateKbps,
+    audioBitrateKbps: transcodeProfile.audioBitrateKbps,
+    maxOutputHeight: transcodeProfile.maxOutputHeight,
     audioMapSpecifier,
     videoArgs,
     audioArgs,

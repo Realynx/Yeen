@@ -175,6 +175,23 @@
   outline: none;
 }
 
+.admin-page .admin-accounts-role-select-compact {
+  background: rgba(8, 8, 10, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f5f5f7;
+}
+
+.admin-page .admin-accounts-role-select-compact:focus {
+  border-color: rgba(229, 9, 20, 0.7);
+  background: rgba(10, 10, 12, 0.92);
+}
+
+.admin-page .admin-accounts-role-select-compact option,
+.admin-page .admin-accounts-editor-form select option {
+  color: #f5f5f7;
+  background: #101217;
+}
+
 .admin-page .settings-field-label,
 .admin-page .settings-field-hint,
 .admin-page .settings-inline-meta {
@@ -254,6 +271,53 @@
 .admin-page .settings-account-submeta span {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-page .admin-accounts-activity-column {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-page .admin-accounts-activity-item,
+.admin-page .admin-accounts-download-item {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-page .admin-accounts-media-pill {
+  border-color: rgba(145, 199, 255, 0.38);
+  background: rgba(58, 115, 185, 0.28);
+  color: #e0f0ff;
+}
+
+.admin-page .admin-accounts-media-pill.is-downloading {
+  border-color: rgba(112, 213, 197, 0.46);
+  background: rgba(26, 118, 109, 0.28);
+  color: #dcfff8;
+}
+
+.admin-page .admin-accounts-results-pill {
+  color: rgba(255, 255, 255, 0.63);
+  border-color: rgba(255, 255, 255, 0.17);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-page .admin-accounts-edit-chip {
+  border-color: rgba(145, 199, 255, 0.34);
+  background: rgba(58, 115, 185, 0.2);
+  color: #e0f0ff;
+}
+
+.admin-page .admin-accounts-editor-card {
+  border-color: rgba(255, 255, 255, 0.17);
+  background:
+    linear-gradient(150deg, rgba(229, 9, 20, 0.14), rgba(229, 9, 20, 0) 55%),
+    rgba(12, 15, 22, 0.96);
+}
+
+.admin-page .admin-accounts-editor-meta > div {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .admin-page .admin-accounts-results-note {

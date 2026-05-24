@@ -5,7 +5,7 @@ import { MediaService } from '../../../media/application/services/media.service'
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { SubtitleCommandService } from './subtitle-command.service';
 import { SubtitleStorageService } from './subtitle-storage.service';
-import { sanitizeVttFile } from '../../infrastructure/helpers/subtitle-vtt-sanitizer';
+import { sanitizeVttFile } from '../../infrastructure/subtitle-vtt-sanitizer';
 
 @Injectable()
 export class SubtitleExtractionService {

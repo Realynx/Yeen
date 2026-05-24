@@ -1,4 +1,4 @@
-import type { FfprobePayload } from '../../../infrastructure/adapters/media-probe.adapter';
+import type { FfprobePayload } from '../../../infrastructure/media-probe.adapter';
 
 export function resolveDurationSeconds(
   payload: FfprobePayload,

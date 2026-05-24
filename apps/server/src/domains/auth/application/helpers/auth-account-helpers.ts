@@ -9,6 +9,7 @@ export function toSafeAccount(account: AccountRecord) {
     role: account.role,
     invitesRemaining:
       account.role === 'admin' ? null : (account.invitesRemaining ?? 0),
+    maxBitrateKbps: account.maxBitrateKbps ?? null,
     invitedByAccountId: account.invitedByAccountId ?? null,
     createdAt: account.createdAt,
   };

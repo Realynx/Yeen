@@ -6,6 +6,7 @@ interface PlayerDetailsProps {
   totalDuration: number;
   currentTime: number;
   showKeyboardShortcuts?: boolean;
+  onOpenDetails?: () => void;
 }
 
 export function PlayerDetails({
@@ -13,6 +14,7 @@ export function PlayerDetails({
   totalDuration,
   currentTime,
   showKeyboardShortcuts = true,
+  onOpenDetails,
 }: PlayerDetailsProps) {
   if (!media) {
     return null;
@@ -27,7 +29,20 @@ export function PlayerDetails({
   return (
     <section className="player-details">
       <div className="player-details-main">
-        <h2 className="player-details-title">{displayTitle}</h2>
+        <div className="player-details-heading">
+          <h2 className="player-details-title">{displayTitle}</h2>
+          {onOpenDetails ? (
+            <button
+              type="button"
+              className="player-details-open-link"
+              onClick={onOpenDetails}
+              title="Open full details page"
+            >
+              Full Details
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          ) : null}
+        </div>
 
         <div className="player-details-badges">
           <span>{toResolutionBadge(media.width ?? null, media.height ?? null)}</span>

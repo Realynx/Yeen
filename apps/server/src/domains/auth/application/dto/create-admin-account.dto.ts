@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateAdminAccountDto {
@@ -36,4 +37,12 @@ export class CreateAdminAccountDto {
   @Min(0)
   @Max(100000)
   invitesRemaining?: number;
+
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(250)
+  @Max(50000)
+  maxBitrateKbps?: number | null;
 }

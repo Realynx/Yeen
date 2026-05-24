@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { lookup } from 'mime-types';
-import { MediaItem } from '../../../domain/entities/media-item.entity';
+import { MediaItem } from '../../domain/entities/media-item.entity';
 
 @Injectable()
 export class MediaImageStreamService {

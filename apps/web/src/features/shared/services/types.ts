@@ -7,6 +7,44 @@ export type {
   UserRole,
 } from '@yeen/shared-contracts';
 
+export interface AdminAccountMediaActivityItem {
+  mediaId: string;
+  title: string;
+  updatedAt: string;
+  progressPercent: number;
+}
+
+export interface AdminAccountActivityItem {
+  accountId: string;
+  watching: AdminAccountMediaActivityItem[];
+  downloading: AdminAccountMediaActivityItem[];
+  inProgressCount: number;
+  completedCount: number;
+  lastActivityAt: string | null;
+  isRecentlyActive: boolean;
+}
+
+export interface AdminDownloadActivityItem {
+  hash: string;
+  mediaId: string | null;
+  title: string;
+  state: string;
+  progressPercent: number;
+}
+
+export interface AdminAccountsActivityOverview {
+  asOf: string;
+  summary: {
+    activeAccounts: number;
+    activeWatchers: number;
+    activeDownloads: number;
+    watchEntries: number;
+    recentlyActiveAccounts: number;
+  };
+  accounts: AdminAccountActivityItem[];
+  downloads: AdminDownloadActivityItem[];
+}
+
 export type DigitalMediaType = 'video' | 'audio' | 'image' | 'other';
 
 export interface MediaSubtitleDetail {
@@ -120,6 +158,9 @@ export interface HlsStartResponse {
   sessionId: string;
   manifestUrl: string;
   selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
 }
 
 export interface HlsSessionStats {
@@ -131,6 +172,10 @@ export interface HlsSessionStats {
   segmentSeconds: number;
   totalDurationSeconds: number;
   totalSegments: number;
+  selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
   keyFrameInterval: number;
   torrentHash: string | null;
   readySegments: number;
@@ -355,6 +400,10 @@ export interface SystemSettings {
   nyaaSeedingEnabled: boolean;
   transcodePreset: string;
   transcodeCrf: number;
+  transcodeDefaultMaxBitrateKbps: number;
+  transcodeAudioBitrateKbps: number;
+  transcodeMaxOutputHeight: number;
+  transcodeRateControlBufferSeconds: number;
   hlsSegmentSeconds: number;
   subtitleDefaultLanguage: string;
 }

@@ -6,9 +6,15 @@ interface RuntimeCategoryProps {
     SystemSettingsState,
     'systemSettings' | 'loadingSystemSettings' | 'updateSetting'
   >;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-export function RuntimeCategory({ runtimeSettingsState }: RuntimeCategoryProps) {
+export function RuntimeCategory({
+  runtimeSettingsState,
+  isOpen,
+  onToggle,
+}: RuntimeCategoryProps) {
   const { systemSettings, loadingSystemSettings, updateSetting } =
     runtimeSettingsState;
 
@@ -18,6 +24,8 @@ export function RuntimeCategory({ runtimeSettingsState }: RuntimeCategoryProps) 
       kicker="Runtime"
       title="Binaries & Storage"
       description="Core executable and storage paths used for scanning and media processing."
+      isOpen={isOpen}
+      onToggle={onToggle}
     >
       {loadingSystemSettings ? <p className="muted">Loading runtime settings...</p> : null}
 

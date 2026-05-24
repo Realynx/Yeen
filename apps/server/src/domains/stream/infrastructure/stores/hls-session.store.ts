@@ -16,6 +16,9 @@ export interface HlsSession {
   totalDurationSeconds: number;
   totalSegments: number;
   selectedAudioStreamIndex: number | null;
+  maxVideoBitrateKbps: number;
+  audioBitrateKbps: number;
+  maxOutputHeight: number;
   audioMapSpecifier: string;
   videoArgs: string[];
   audioArgs: string[];
@@ -32,11 +35,17 @@ export class HlsSessionStore {
   findReusableByMediaId(
     mediaId: string,
     selectedAudioStreamIndex: number | null,
+    maxVideoBitrateKbps: number,
+    audioBitrateKbps: number,
+    maxOutputHeight: number,
   ): HlsSession | undefined {
     return [...this.sessions.values()].find(
       (session) =>
         session.mediaId === mediaId &&
         session.selectedAudioStreamIndex === selectedAudioStreamIndex &&
+        session.maxVideoBitrateKbps === maxVideoBitrateKbps &&
+        session.audioBitrateKbps === audioBitrateKbps &&
+        session.maxOutputHeight === maxOutputHeight &&
         existsSync(session.manifestPath),
     );
   }

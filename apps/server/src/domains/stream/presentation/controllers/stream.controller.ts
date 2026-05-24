@@ -10,6 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { CurrentUser } from '../../../auth/presentation/decorators/current-user.decorator';
+import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
 import { StreamService } from '../../application/services/stream.service';
 
@@ -21,14 +23,37 @@ export class StreamController {
   @Post(':mediaId/hls/start')
   async startHls(
     @Param('mediaId') mediaId: string,
+    @CurrentUser() user: AuthUser,
     @Req() request: Request,
     @Query('force') force?: string,
     @Query('audioStreamIndex') audioStreamIndex?: string,
+    @Query('maxVideoBitrateKbps') maxVideoBitrateKbps?: string,
+    @Query('audioBitrateKbps') audioBitrateKbps?: string,
+    @Query('maxOutputHeight') maxOutputHeight?: string,
   ) {
     const forceFresh = force === '1' || force === 'true';
     const started = await this.streamService.startHls(mediaId, {
       forceFresh,
       audioStreamIndex: this.parseAudioStreamIndex(audioStreamIndex),
+      maxVideoBitrateKbps: this.parseOptionalInteger(
+        maxVideoBitrateKbps,
+        'maxVideoBitrateKbps',
+        250,
+        50000,
+      ),
+      audioBitrateKbps: this.parseOptionalInteger(
+        audioBitrateKbps,
+        'audioBitrateKbps',
+        48,
+        384,
+      ),
+      maxOutputHeight: this.parseOptionalInteger(
+        maxOutputHeight,
+        'maxOutputHeight',
+        240,
+        2160,
+      ),
+      accountId: user.sub,
     });
     const accessToken = this.extractAccessToken(request);
 
@@ -130,6 +155,27 @@ export class StreamController {
     if (!Number.isInteger(parsed) || parsed < 0) {
       throw new BadRequestException(
         'audioStreamIndex must be a non-negative integer.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private parseOptionalInteger(
+    value: string | undefined,
+    name: string,
+    min: number,
+    max: number,
+  ): number | null {
+    const normalized = value?.trim() ?? '';
+    if (!normalized) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${name} must be an integer between ${min} and ${max}.`,
       );
     }
 

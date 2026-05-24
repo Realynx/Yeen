@@ -36,7 +36,10 @@ select optgroup {
   align-self: start;
   border-radius: 12px;
   border: 1px solid var(--settings-card-border);
-  background: rgba(9, 13, 22, 0.58);
+  background:
+    linear-gradient(145deg, rgba(229, 67, 55, 0.18), rgba(229, 67, 55, 0) 56%),
+    linear-gradient(305deg, rgba(47, 163, 255, 0.2), rgba(47, 163, 255, 0) 62%),
+    rgba(9, 14, 23, 0.84);
   padding: 0.56rem;
   display: grid;
   gap: 0.45rem;
@@ -84,9 +87,9 @@ select optgroup {
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  border: 1px solid rgba(153, 191, 242, 0.38);
-  background: rgba(9, 14, 24, 0.72);
-  color: #c6ddff;
+  border: 1px solid rgba(221, 149, 132, 0.44);
+  background: rgba(24, 18, 24, 0.86);
+  color: #ffd8c8;
   display: inline-grid;
   place-items: center;
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
@@ -103,8 +106,11 @@ select optgroup {
 }
 
 .system-settings-nav-button:hover {
-  border-color: rgba(148, 182, 235, 0.38);
-  background: rgba(73, 122, 182, 0.15);
+  border-color: rgba(223, 157, 138, 0.45);
+  background:
+    linear-gradient(125deg, rgba(226, 91, 72, 0.2), rgba(226, 91, 72, 0) 58%),
+    linear-gradient(295deg, rgba(47, 163, 255, 0.14), rgba(47, 163, 255, 0) 62%),
+    rgba(18, 21, 31, 0.86);
   transform: translateX(1px);
 }
 
@@ -114,17 +120,17 @@ select optgroup {
 }
 
 .system-settings-nav-button.is-active {
-  border-color: rgba(167, 203, 248, 0.5);
+  border-color: rgba(236, 172, 150, 0.56);
   background:
-    linear-gradient(125deg, rgba(255, 142, 34, 0.2), rgba(255, 142, 34, 0) 55%),
-    linear-gradient(285deg, rgba(47, 163, 255, 0.22), rgba(47, 163, 255, 0) 60%),
-    rgba(9, 14, 23, 0.82);
+    linear-gradient(125deg, rgba(255, 123, 95, 0.26), rgba(255, 123, 95, 0) 55%),
+    linear-gradient(285deg, rgba(68, 176, 255, 0.24), rgba(68, 176, 255, 0) 60%),
+    rgba(14, 18, 28, 0.92);
 }
 
 .system-settings-nav-button.is-active .system-settings-nav-icon {
-  border-color: rgba(170, 208, 255, 0.62);
-  background: rgba(14, 21, 34, 0.92);
-  color: #d9ebff;
+  border-color: rgba(249, 191, 168, 0.72);
+  background: rgba(42, 22, 26, 0.9);
+  color: #ffe5db;
 }
 
 .system-settings-nav-label {
@@ -195,6 +201,8 @@ select optgroup {
   margin-top: 0.15rem;
   display: grid;
   gap: 0.72rem;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: start;
 }
 
 .torrent-control-field-compact {
@@ -536,6 +544,104 @@ select optgroup {
   gap: 0.55rem;
 }
 
+.user-settings-layout {
+  margin-top: 0.16rem;
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.user-settings-layout-sidebar {
+  display: grid;
+  gap: 0.72rem;
+  align-content: start;
+}
+
+.user-settings-layout .user-settings-categories {
+  margin-top: 0;
+}
+
+.user-settings-overview-card {
+  border-radius: 12px;
+  border: 1px solid var(--settings-card-border);
+  background:
+    linear-gradient(140deg, rgba(229, 67, 55, 0.1), rgba(229, 67, 55, 0) 56%),
+    linear-gradient(310deg, rgba(47, 163, 255, 0.12), rgba(47, 163, 255, 0) 62%),
+    rgba(8, 12, 20, 0.44);
+  padding: 0.72rem 0.78rem;
+}
+
+.user-settings-overview-left-column {
+  display: grid;
+  gap: 0.62rem;
+  align-content: start;
+}
+
+.user-settings-avatar-preview-shell.user-settings-avatar-preview-shell-large {
+  width: 108px;
+  height: 108px;
+  border-radius: 24px;
+  justify-self: center;
+}
+
+.user-settings-avatar-fallback.user-settings-avatar-fallback-large {
+  width: 70px;
+  height: 70px;
+}
+
+.user-settings-overview-avatar-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.22rem;
+  text-align: center;
+}
+
+.user-settings-overview-avatar-meta .settings-field-label,
+.user-settings-overview-avatar-meta .muted {
+  margin: 0;
+}
+
+.user-settings-overview-details {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.user-settings-overview-details .settings-section-kicker {
+  margin: 0;
+}
+
+.user-settings-overview-details h3,
+.user-settings-overview-details .muted {
+  margin: 0;
+}
+
+.user-settings-profile-summary-overview {
+  margin-top: 0.36rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.user-settings-quick-actions {
+  position: static;
+  top: auto;
+}
+
+.user-settings-quick-actions-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.user-settings-quick-actions .system-settings-nav-button {
+  transform: none;
+}
+
+.user-settings-quick-action-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 200, 180, 0.66);
+  background: linear-gradient(140deg, rgba(255, 138, 94, 0.94), rgba(91, 188, 255, 0.88));
+}
+
 .user-settings-avatar-panel {
   display: flex;
   flex-wrap: wrap;
@@ -763,36 +869,316 @@ select optgroup {
   align-items: start;
 }
 
-.admin-accounts-provision-card {
+.admin-accounts-activity-card {
   grid-column: span 5;
 }
 
 .admin-accounts-manage-card {
   grid-column: span 7;
+  position: relative;
 }
 
-.admin-accounts-manage-toolbar {
+.admin-accounts-activity-layout {
   margin-top: 0.76rem;
   display: grid;
-  gap: 0.56rem;
-  grid-template-columns: minmax(0, 1.7fr) minmax(160px, 0.9fr) auto;
-  align-items: end;
+  gap: 0.64rem;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+  align-items: start;
 }
 
-.admin-accounts-search-field,
-.admin-accounts-filter-field {
+.admin-accounts-activity-column {
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--settings-card-border);
+  background: rgba(8, 12, 20, 0.5);
+  padding: 0.66rem 0.7rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-accounts-activity-heading {
   margin: 0;
+  color: var(--settings-title);
+  font-size: 0.84rem;
+  letter-spacing: 0.02em;
 }
 
-.admin-accounts-results-note {
+.admin-accounts-activity-list,
+.admin-accounts-download-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.46rem;
+}
+
+.admin-accounts-activity-item,
+.admin-accounts-download-item {
+  border-radius: 10px;
+  border: 1px solid var(--settings-card-border);
+  background: rgba(10, 14, 22, 0.56);
+  padding: 0.54rem 0.6rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.admin-accounts-activity-account-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.46rem;
+}
+
+.admin-accounts-activity-account-name,
+.admin-accounts-download-title {
+  margin: 0;
+  color: var(--settings-title);
+  font-size: 0.84rem;
+  font-weight: 620;
+}
+
+.admin-accounts-media-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.24rem 0.3rem;
+}
+
+.admin-accounts-media-pill {
+  border-radius: 999px;
+  border: 1px solid rgba(116, 164, 232, 0.34);
+  background: rgba(16, 33, 57, 0.48);
+  padding: 0.1rem 0.42rem;
+  color: #d9ebff;
+  font-size: 0.68rem;
+}
+
+.admin-accounts-media-pill.is-downloading {
+  border-color: rgba(112, 213, 197, 0.42);
+  background: rgba(23, 85, 79, 0.44);
+  color: #dbfff8;
+}
+
+.admin-accounts-activity-meta,
+.admin-accounts-download-meta,
+.admin-accounts-activity-empty {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.admin-accounts-toolbar-compact {
+  margin-top: 0.76rem;
+  display: grid;
+  gap: 0.54rem;
+  grid-template-columns: minmax(0, 1fr) minmax(144px, 0.38fr) auto;
+  align-items: center;
+}
+
+.admin-accounts-search-input-compact,
+.admin-accounts-role-select-compact {
+  width: 100%;
+}
+
+.admin-accounts-search-input-compact,
+.admin-accounts-role-select-compact {
+  border: 1px solid var(--settings-input-border);
+  border-radius: 11px;
+  background: var(--settings-input-bg);
+  color: var(--settings-title);
+  min-height: 2.16rem;
+  padding: 0.42rem 0.62rem;
+  outline: none;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.admin-accounts-search-input-compact:focus,
+.admin-accounts-role-select-compact:focus {
+  border-color: var(--settings-input-focus);
+  background: var(--settings-input-focus-bg);
+}
+
+.admin-accounts-role-select-compact option,
+.admin-accounts-editor-form select option {
+  color: #102840;
+  background: #ffffff;
+}
+
+.admin-accounts-results-pill {
   margin: 0;
   justify-self: end;
-  font-size: 0.8rem;
+  font-size: 0.77rem;
+  border-radius: 999px;
+  border: 1px solid var(--settings-card-border);
+  background: rgba(9, 16, 27, 0.46);
+  padding: 0.2rem 0.56rem;
   white-space: nowrap;
 }
 
 .admin-accounts-empty-state {
   margin-top: 0.9rem;
+}
+
+.admin-accounts-click-list {
+  margin-top: 0.74rem;
+}
+
+.admin-accounts-click-row {
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.admin-accounts-click-row:hover,
+.admin-accounts-click-row:focus-visible,
+.admin-accounts-click-row.is-selected {
+  border-color: rgba(131, 191, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(131, 191, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.admin-accounts-row-activity {
+  margin: 0.08rem 0 0;
+  font-size: 0.74rem;
+}
+
+.admin-accounts-row-hint {
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: end;
+  align-content: start;
+}
+
+.admin-accounts-edit-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(117, 167, 236, 0.34);
+  background: rgba(15, 30, 52, 0.46);
+  color: #d9ebff;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.48rem;
+}
+
+.admin-accounts-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(6, 10, 16, 0.68);
+}
+
+.admin-accounts-editor-card {
+  width: min(680px, 100%);
+  max-height: min(86vh, 860px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--settings-card-border);
+  background:
+    linear-gradient(155deg, rgba(47, 163, 255, 0.08), rgba(47, 163, 255, 0) 50%),
+    rgba(10, 14, 22, 0.95);
+  box-shadow: 0 30px 58px rgba(0, 0, 0, 0.46);
+  padding: 0.66rem 0.72rem;
+  display: grid;
+  gap: 0.54rem;
+}
+
+.admin-accounts-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.52rem;
+}
+
+.admin-accounts-editor-header h3 {
+  margin: 0.14rem 0 0;
+  color: var(--settings-title);
+  font-size: 1rem;
+}
+
+.admin-accounts-editor-subtitle {
+  margin: 0.1rem 0 0;
+  color: var(--settings-panel-muted);
+  font-size: 0.73rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-accounts-editor-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.38rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-accounts-editor-meta > div {
+  min-width: 0;
+  border-radius: 9px;
+  border: 1px solid var(--settings-card-border);
+  background: rgba(8, 14, 24, 0.5);
+  padding: 0.38rem 0.45rem;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.admin-accounts-editor-meta dt {
+  margin: 0;
+  color: var(--settings-panel-muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-accounts-editor-meta dd {
+  margin: 0;
+  color: var(--settings-title);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-accounts-editor-form {
+  display: grid;
+  gap: 0.48rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-accounts-editor-password-form {
+  display: grid;
+  gap: 0.38rem;
+  padding-top: 0.34rem;
+  border-top: 1px solid var(--settings-card-border);
+}
+
+.admin-accounts-editor-card .settings-field {
+  gap: 0.26rem;
+}
+
+.admin-accounts-editor-card .settings-field-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-accounts-editor-card .settings-field input,
+.admin-accounts-editor-card .settings-field select {
+  border-radius: 10px;
+  min-height: 2rem;
+  padding: 0.46rem 0.64rem;
+}
+
+.admin-accounts-editor-card .settings-field-hint {
+  font-size: 0.7rem;
+}
+
+.admin-accounts-editor-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.admin-accounts-editor-notice {
+  margin: 0;
+  font-size: 0.73rem;
 }
 
 .settings-account-item .settings-actions-row {

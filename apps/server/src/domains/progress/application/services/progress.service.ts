@@ -119,6 +119,15 @@ export class ProgressService {
     return this.progressStore.listForAccount(this.resolveAccountId(user));
   }
 
+  listForAccount(accountId: string) {
+    const normalizedAccountId = accountId.trim();
+    if (!normalizedAccountId) {
+      return Promise.resolve([] as ProgressEntry[]);
+    }
+
+    return this.progressStore.listForAccount(normalizedAccountId);
+  }
+
   get(user: AuthUser, mediaId: string) {
     return this.progressStore.get(this.resolveAccountId(user), mediaId);
   }

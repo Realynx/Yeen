@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MediaLocationsStore } from '../../../infrastructure/stores/media-locations.store';
+import { MediaLocationsStore } from '../../infrastructure/stores/media-locations.store';
 
 @Injectable()
 export class MediaLibraryLocationsService {

@@ -10,6 +10,7 @@ interface CreateAccountInput {
   passwordHash: string;
   role?: 'admin' | 'sailer' | 'user';
   invitesRemaining?: number | null;
+  maxBitrateKbps?: number | null;
   invitedByAccountId?: string | null;
 }
 
@@ -20,6 +21,7 @@ interface UpdateAccountInput {
   avatarDataUrl?: string | null;
   role?: 'admin' | 'sailer' | 'user';
   invitesRemaining?: number | null;
+  maxBitrateKbps?: number | null;
   invitedByAccountId?: string | null;
 }
 
@@ -62,6 +64,7 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
         role === 'admin'
           ? null
           : this.normalizeInviteCount(input.invitesRemaining, 0),
+      maxBitrateKbps: this.normalizeMaxBitrateKbps(input.maxBitrateKbps),
       invitedByAccountId: normalizedInviterId,
       createdAt: new Date().toISOString(),
     };
@@ -115,6 +118,10 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
             : existing.role === 'admin'
               ? 0
               : (existing.invitesRemaining ?? 0),
+      maxBitrateKbps:
+        input.maxBitrateKbps !== undefined
+          ? this.normalizeMaxBitrateKbps(input.maxBitrateKbps)
+          : (existing.maxBitrateKbps ?? null),
       invitedByAccountId:
         input.invitedByAccountId !== undefined
           ? this.asNullableString(input.invitedByAccountId)
@@ -163,6 +170,7 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
         role === 'admin'
           ? null
           : (this.asNonNegativeInteger(entry.invitesRemaining) ?? 0);
+      const maxBitrateKbps = this.normalizeMaxBitrateKbps(entry.maxBitrateKbps);
 
       parsed.push({
         id,
@@ -172,6 +180,7 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
         avatarDataUrl: this.asNullableString(entry.avatarDataUrl),
         role,
         invitesRemaining,
+        maxBitrateKbps,
         invitedByAccountId: this.asNullableString(entry.invitedByAccountId),
         createdAt,
       });
@@ -218,6 +227,19 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
   private normalizeInviteCount(value: unknown, fallback: number): number {
     const normalized = this.asNonNegativeInteger(value);
     return normalized ?? fallback;
+  }
+
+  private normalizeMaxBitrateKbps(value: unknown): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const normalized = this.asNonNegativeInteger(value);
+    if (normalized === null) {
+      return null;
+    }
+
+    return Math.max(250, Math.min(50000, normalized));
   }
 
   private isObject(value: unknown): value is Record<string, unknown> {

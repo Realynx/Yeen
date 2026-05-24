@@ -7,7 +7,6 @@ import {
   isResumableProgress,
   playerHref,
   previewImageUrl,
-  progressPercent,
   qualityLabel,
 } from '../services/mediaDetailsUtils';
 import type {
@@ -72,7 +71,6 @@ export function MediaDetailsHero({
 
   const heroResumeTarget = detailType === 'show' ? nextUpEpisode : current;
   const heroResumeProgress = heroResumeTarget ? progressById.get(heroResumeTarget.id) ?? null : null;
-  const heroResumePercent = progressPercent(heroResumeProgress);
   const canResume = isResumableProgress(heroResumeProgress);
   const playTargetId = heroResumeTarget?.id ?? current.id;
   const playHref = playerHref(playTargetId, heroResumeProgress);
@@ -228,25 +226,22 @@ export function MediaDetailsHero({
         ) : null}
 
         {canPlay && canResume && heroResumeProgress ? (
-          <div className="hero-resume-bar" aria-hidden="true">
-            <div className="hero-resume-fill" style={{ width: `${heroResumePercent}%` }} />
-            <span className="hero-resume-meta">
-              {detailType === 'show' && heroResumeEpisodeTitle ? (
-                <>
-                  <span className="hero-resume-prefix">Resume</span>
-                  <span className="hero-resume-episode" title={heroResumeEpisodeTitle}>
-                    “{heroResumeEpisodeTitle}”
-                  </span>
-                  <span className="hero-resume-suffix">
-                    at {formatTimestamp(heroResumeProgress.positionSeconds)}
-                  </span>
-                </>
-              ) : (
-                <span className="hero-resume-single">
-                  Resume at {formatTimestamp(heroResumeProgress.positionSeconds)} of {formatTimestamp(heroResumeProgress.durationSeconds)}
+          <div className="hero-resume-meta">
+            {detailType === 'show' && heroResumeEpisodeTitle ? (
+              <>
+                <span className="hero-resume-prefix">Resume</span>
+                <span className="hero-resume-episode" title={heroResumeEpisodeTitle}>
+                  “{heroResumeEpisodeTitle}”
                 </span>
-              )}
-            </span>
+                <span className="hero-resume-suffix">
+                  at {formatTimestamp(heroResumeProgress.positionSeconds)}
+                </span>
+              </>
+            ) : (
+              <span className="hero-resume-single">
+                Resume at {formatTimestamp(heroResumeProgress.positionSeconds)} of {formatTimestamp(heroResumeProgress.durationSeconds)}
+              </span>
+            )}
           </div>
         ) : null}
 

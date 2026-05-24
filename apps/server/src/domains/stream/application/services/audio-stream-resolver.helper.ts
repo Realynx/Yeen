@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { PlaybackAudioTrack } from '../../../../media/application/services/media.service';
+import type { PlaybackAudioTrack } from '../../../media/application/services/media.service';
 
 /**
  * Normalizes an audio stream index value, accepting null/undefined and rejecting

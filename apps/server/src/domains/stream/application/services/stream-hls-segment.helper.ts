@@ -24,7 +24,7 @@ import {
   isRecoverableTranscodeInputErrorValue,
   recordStartSegmentRecoverableFailureValue,
   tryRecoverStartSegmentViaProxyValue,
-} from './stream-helpers/start-segment-recovery.helper';
+} from './start-segment-recovery.helper';
 
 interface ServeHlsSegmentInput {
   session: HlsSession;

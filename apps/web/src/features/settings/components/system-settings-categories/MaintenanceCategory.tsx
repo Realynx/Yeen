@@ -8,6 +8,8 @@ interface MaintenanceCategoryProps {
   clearingMetadataIndex: boolean;
   savingSystemSettings: boolean;
   clearingApiCaches: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
 export function MaintenanceCategory({
@@ -17,6 +19,8 @@ export function MaintenanceCategory({
   clearingMetadataIndex,
   savingSystemSettings,
   clearingApiCaches,
+  isOpen,
+  onToggle,
 }: MaintenanceCategoryProps) {
   return (
     <SettingsCategorySection
@@ -25,6 +29,8 @@ export function MaintenanceCategory({
       title="Index & Cache Controls"
       description="Run cleanup actions for metadata and provider caches when you need a fresh rebuild."
       badge="Admin Actions"
+      isOpen={isOpen}
+      onToggle={onToggle}
     >
       <div className="settings-actions-row">
         <button

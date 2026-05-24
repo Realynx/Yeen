@@ -13,8 +13,32 @@ interface SystemSettingsTabProps {
   phoneFloatingQuickJumpBar?: boolean;
 }
 
+const SYSTEM_SETTINGS_SECTION_IDS = [
+  'system-media-locations',
+  'system-runtime',
+  'system-transcoding',
+  'system-metadata-defaults',
+  'system-torrent-client',
+  'system-torrent-trackers',
+  'system-metadata-commits',
+  'system-maintenance',
+] as const;
+
+type SystemSettingsSectionId = (typeof SYSTEM_SETTINGS_SECTION_IDS)[number];
+
+function createCollapsedSectionsState(
+  defaultOpenSectionId?: SystemSettingsSectionId,
+): Record<SystemSettingsSectionId, boolean> {
+  return SYSTEM_SETTINGS_SECTION_IDS.reduce<
+    Record<SystemSettingsSectionId, boolean>
+  >((state, sectionId) => {
+    state[sectionId] = sectionId === defaultOpenSectionId;
+    return state;
+  }, {} as Record<SystemSettingsSectionId, boolean>);
+}
+
 interface SystemSettingsNavItem {
-  id: string;
+  id: SystemSettingsSectionId;
   label: string;
   shortLabel?: string;
   icon:
@@ -131,21 +155,33 @@ export function SystemSettingsTab({
         icon: 'runtime',
       },
       {
-        id: 'system-playback',
-        label: 'Playback Defaults',
-        shortLabel: 'Playback',
+        id: 'system-transcoding',
+        label: 'Transcoding & Throughput',
+        shortLabel: 'Transcoding',
         icon: 'playback',
       },
       {
-        id: 'system-torrent',
-        label: 'Torrent Providers',
-        shortLabel: 'Torrents',
+        id: 'system-metadata-defaults',
+        label: 'Metadata Defaults',
+        shortLabel: 'Metadata',
+        icon: 'metadata',
+      },
+      {
+        id: 'system-torrent-client',
+        label: 'qBittorrent Client',
+        shortLabel: 'qBit',
         icon: 'torrent',
       },
       {
-        id: 'system-metadata',
+        id: 'system-torrent-trackers',
+        label: 'Tracker Providers',
+        shortLabel: 'Trackers',
+        icon: 'torrent',
+      },
+      {
+        id: 'system-metadata-commits',
         label: 'Metadata Commits',
-        shortLabel: 'Metadata',
+        shortLabel: 'Commits',
         icon: 'metadata',
         note: 'Backup & rollback',
       },
@@ -162,7 +198,8 @@ export function SystemSettingsTab({
   const floatingQuickJumpListRef = useRef<HTMLUListElement | null>(null);
 
   const [activeSectionId, setActiveSectionId] = useState(() => {
-    const defaultSectionId = sectionNavItems[0]?.id ?? '';
+    const defaultSectionId =
+      sectionNavItems[0]?.id ?? SYSTEM_SETTINGS_SECTION_IDS[0];
 
     if (typeof window === 'undefined') {
       return defaultSectionId;
@@ -170,9 +207,45 @@ export function SystemSettingsTab({
 
     const hashSectionId = window.location.hash.replace('#', '');
     return sectionNavItems.some((item) => item.id === hashSectionId)
-      ? hashSectionId
+      ? (hashSectionId as SystemSettingsSectionId)
       : defaultSectionId;
   });
+
+  const [expandedSections, setExpandedSections] = useState<
+    Record<SystemSettingsSectionId, boolean>
+  >(() => {
+    if (typeof window === 'undefined') {
+      return createCollapsedSectionsState();
+    }
+
+    const hashSectionId = window.location.hash.replace('#', '');
+    const defaultOpenSectionId = sectionNavItems.find(
+      (item) => item.id === hashSectionId,
+    )?.id;
+
+    return createCollapsedSectionsState(defaultOpenSectionId);
+  });
+
+  const toggleSection = useCallback((sectionId: SystemSettingsSectionId) => {
+    setExpandedSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
+    setActiveSectionId(sectionId);
+  }, []);
+
+  const expandSection = useCallback((sectionId: SystemSettingsSectionId) => {
+    setExpandedSections((current) => {
+      if (current[sectionId]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [sectionId]: true,
+      };
+    });
+  }, []);
 
   useEffect(() => {
     const sectionElements = sectionNavItems
@@ -190,7 +263,7 @@ export function SystemSettingsTab({
           .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
 
         if (visibleEntry) {
-          setActiveSectionId(visibleEntry.target.id);
+          setActiveSectionId(visibleEntry.target.id as SystemSettingsSectionId);
           return;
         }
 
@@ -202,7 +275,7 @@ export function SystemSettingsTab({
           .sort((left, right) => left.distance - right.distance)[0];
 
         if (closestSection) {
-          setActiveSectionId(closestSection.id);
+          setActiveSectionId(closestSection.id as SystemSettingsSectionId);
         }
       },
       {
@@ -218,7 +291,7 @@ export function SystemSettingsTab({
     };
   }, [sectionNavItems]);
 
-  function scrollToSection(sectionId: string) {
+  function scrollToSection(sectionId: SystemSettingsSectionId) {
     const section = document.getElementById(sectionId);
 
     if (!section) {
@@ -236,7 +309,7 @@ export function SystemSettingsTab({
   }
 
   const scrollFloatingQuickJumpToSection = useCallback((
-    sectionId: string,
+    sectionId: SystemSettingsSectionId,
     options: {
       behavior: ScrollBehavior;
       center: boolean;
@@ -332,6 +405,7 @@ export function SystemSettingsTab({
                   type="button"
                   className={`system-settings-nav-button${isActive ? ' is-active' : ''}`}
                   onClick={() => {
+                    expandSection(item.id);
                     scrollToSection(item.id);
                     if (useFloatingBarMarkup) {
                       // eslint-disable-next-line react-hooks/refs
@@ -387,15 +461,6 @@ export function SystemSettingsTab({
           <span className="settings-pill system-settings-title-pill">Categorized Controls</span>
         </header>
 
-        <p className="muted system-settings-title-description">
-          Configure media libraries, runtime paths, playback defaults, and
-          integration settings from grouped sections.
-        </p>
-
-        <p className="settings-inline-meta system-settings-title-meta">
-          Account and invite management is now available from the Accounts tab.
-        </p>
-
         <div className={categoriesClassName}>
           {phoneFloatingQuickJumpBar ? null : renderQuickJumpNav()}
 
@@ -404,11 +469,17 @@ export function SystemSettingsTab({
               <MediaLocationsCategory
                 mediaLocationsState={mediaLocationsState}
                 configuredLabel={configuredLabel}
+                isOpen={expandedSections['system-media-locations']}
+                onToggle={() => toggleSection('system-media-locations')}
                 onAddLocation={handleAddLocation}
                 onScan={handleScan}
               />
 
-              <RuntimeCategory runtimeSettingsState={systemSettingsState} />
+              <RuntimeCategory
+                runtimeSettingsState={systemSettingsState}
+                isOpen={expandedSections['system-runtime']}
+                onToggle={() => toggleSection('system-runtime')}
+              />
             </div>
 
             <SystemSettingsCategoriesForm
@@ -416,6 +487,24 @@ export function SystemSettingsTab({
               systemSettingsState={systemSettingsState}
               onSave={handleSave}
               onClearMetadata={handleClearMetadata}
+              playbackIsOpen={expandedSections['system-transcoding']}
+              onTogglePlayback={() => toggleSection('system-transcoding')}
+              metadataDefaultsIsOpen={expandedSections['system-metadata-defaults']}
+              onToggleMetadataDefaults={() =>
+                toggleSection('system-metadata-defaults')
+              }
+              torrentClientIsOpen={expandedSections['system-torrent-client']}
+              onToggleTorrentClient={() => toggleSection('system-torrent-client')}
+              torrentProvidersIsOpen={expandedSections['system-torrent-trackers']}
+              onToggleTorrentProviders={() =>
+                toggleSection('system-torrent-trackers')
+              }
+              metadataCommitsIsOpen={expandedSections['system-metadata-commits']}
+              onToggleMetadataCommits={() =>
+                toggleSection('system-metadata-commits')
+              }
+              maintenanceIsOpen={expandedSections['system-maintenance']}
+              onToggleMaintenance={() => toggleSection('system-maintenance')}
             />
 
             {systemMessage ? <p className="scan-success">{systemMessage}</p> : null}

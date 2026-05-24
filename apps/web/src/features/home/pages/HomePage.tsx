@@ -28,6 +28,7 @@ import {
   toTagSlug,
 } from '../services/homePageUtils';
 import { HomeFeaturedHero } from '../components/HomeFeaturedHero';
+import { HomeLoadingSkeleton } from '../components/HomeLoadingSkeleton';
 import { HomeMediaShelfRow } from '../components/HomeMediaShelfRow';
 import { HomeTopNav } from '../components/HomeTopNav';
 import type { TaggedMovieRow } from '../services/homePageUtils';
@@ -403,6 +404,7 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
   }, [mediaItems, progressMap]);
 
   const hasRandomDetailsCandidate = randomDetailsCandidates.length > 0;
+  const showInitialHomeSkeleton = loading;
 
   const openRandomDetails = useCallback(() => {
     if (randomDetailsCandidates.length === 0) {
@@ -425,83 +427,79 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
         onLogout={onLogout}
       />
 
-      <HomeFeaturedHero
-        heroBackgroundImage={heroBackgroundImage}
-        featuredItems={featuredItems}
-        featuredItem={featuredItem}
-        activeFeaturedIndex={activeFeaturedIndex}
-        featuredDescription={featuredDescription}
-        featuredPercent={featuredPercent}
-        onShowPrevious={showPreviousFeatured}
-        onShowNext={showNextFeatured}
-        onSelectFeatured={setFeaturedIndex}
-        onPlay={openPlayer}
-        onOpenDetails={openDetails}
-        onManageLibrary={() => navigate('/settings')}
-      />
-
       {error ? <p className="error-text">{error}</p> : null}
-      {loading ? <p className="muted">Loading your media shelf...</p> : null}
+      {showInitialHomeSkeleton ? (
+        <HomeLoadingSkeleton />
+      ) : (
+        <>
+          <HomeFeaturedHero
+            heroBackgroundImage={heroBackgroundImage}
+            featuredItems={featuredItems}
+            featuredItem={featuredItem}
+            activeFeaturedIndex={activeFeaturedIndex}
+            featuredDescription={featuredDescription}
+            featuredPercent={featuredPercent}
+            onShowPrevious={showPreviousFeatured}
+            onShowNext={showNextFeatured}
+            onSelectFeatured={setFeaturedIndex}
+            onPlay={openPlayer}
+            onOpenDetails={openDetails}
+            onManageLibrary={() => navigate('/settings')}
+          />
 
-      {hasContinueWatching ? (
-        <section className="browse-section is-first-row" id="row-continue">
-          <h2 className="section-title">Continue Watching for {firstName}</h2>
-          <MediaRow>
-            {continueWatching.map(({ item, percent }) => (
-              <MediaTile
-                key={item.id}
-                media={item}
-                imageUrl={artworkUrlForMedia(item)}
-                progressPercent={percent}
-                topRightLabel={toSeasonEpisodeLabel(item)}
-                onOpen={openPlayer}
-              />
-            ))}
-          </MediaRow>
-        </section>
-      ) : null}
+          {hasContinueWatching ? (
+            <section className="browse-section is-first-row" id="row-continue">
+              <h2 className="section-title">Continue Watching for {firstName}</h2>
+              <MediaRow>
+                {continueWatching.map(({ item, percent }) => (
+                  <MediaTile
+                    key={item.id}
+                    media={item}
+                    imageUrl={artworkUrlForMedia(item)}
+                    progressPercent={percent}
+                    topRightLabel={toSeasonEpisodeLabel(item)}
+                    onOpen={openPlayer}
+                  />
+                ))}
+              </MediaRow>
+            </section>
+          ) : null}
 
-      <HomeMediaShelfRow
-        className={hasContinueWatching ? 'browse-section' : 'browse-section is-first-row'}
-        id="row-new"
-        title="New on Yeen"
-        items={recentItems}
-        progressMap={progressMap}
-        onOpen={openDetails}
-      />
+          <HomeMediaShelfRow
+            className={hasContinueWatching ? 'browse-section' : 'browse-section is-first-row'}
+            id="row-new"
+            title="New on Yeen"
+            items={recentItems}
+            progressMap={progressMap}
+            onOpen={openDetails}
+          />
 
-      {discoverItems.length > 0 ? (
-        <HomeMediaShelfRow
-          className="browse-section"
-          id="row-discover"
-          title="Discover"
-          items={discoverItems}
-          progressMap={progressMap}
-          onOpen={openDetails}
-        />
-      ) : null}
+          {discoverItems.length > 0 ? (
+            <HomeMediaShelfRow
+              className="browse-section"
+              id="row-discover"
+              title="Discover"
+              items={discoverItems}
+              progressMap={progressMap}
+              onOpen={openDetails}
+            />
+          ) : null}
 
-      {movieRowsByTag.map((row) => (
-        <HomeMediaShelfRow
-          key={row.id}
-          className="browse-section"
-          id={row.id}
-          title={row.label}
-          items={row.items}
-          progressMap={progressMap}
-          onOpen={openDetails}
-        />
-      ))}
+          {movieRowsByTag.map((row) => (
+            <HomeMediaShelfRow
+              key={row.id}
+              className="browse-section"
+              id={row.id}
+              title={row.label}
+              items={row.items}
+              progressMap={progressMap}
+              onOpen={openDetails}
+            />
+          ))}
+        </>
+      )}
 
       <footer className="home-footer" aria-label="Home page footer">
-        <StorageUsageMeter
-          className="home-footer-storage-meter"
-          summary={storageSummary}
-          loading={storageSummaryLoading}
-          error={storageSummaryError}
-          title="Library Storage"
-        />
-
         <div className="home-footer-meta">
           <div className="home-footer-links">
             <NavLink className="home-footer-link" to="/library">
@@ -514,6 +512,16 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
               Settings
             </NavLink>
           </div>
+        </div>
+
+        <div className="home-footer-storage">
+          <StorageUsageMeter
+            className="home-footer-storage-meter"
+            summary={storageSummary}
+            loading={storageSummaryLoading}
+            error={storageSummaryError}
+            title="Library Storage"
+          />
           <p className="home-footer-copy">Your personal streaming shelf, organized your way.</p>
         </div>
       </footer>

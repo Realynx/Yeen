@@ -31,15 +31,6 @@ export function DownloadControlPage({
     <main className="browse-page admin-page settings-page-v2">
       <AdminNav user={user} onLogout={onLogout} />
 
-      <section className="admin-page-header">
-        <p className="eyebrow">{isAdmin ? 'Admin' : 'Sailer'}</p>
-        <h1>Download Control</h1>
-        <p className="muted">
-          Add torrents, manage queue actions, and switch per-torrent order
-          modes for the configured qBittorrent endpoint.
-        </p>
-      </section>
-
       <section className="settings-content-grid">
         {systemSettingsState.systemError ? (
           <p className="error-text">{systemSettingsState.systemError}</p>

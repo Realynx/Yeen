@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { readdir } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { MediaSubtitleDetail } from '../../domain/entities/media-item.entity';
-import { FfprobeStream } from '../adapters/media-probe.adapter';
+import { FfprobeStream } from '../media-probe.adapter';
 
 @Injectable()
 export class MediaSubtitleResolver {

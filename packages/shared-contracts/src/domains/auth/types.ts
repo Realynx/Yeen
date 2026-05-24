@@ -14,6 +14,7 @@ export interface User {
   avatarDataUrl?: string | null;
   role: UserRole;
   invitesRemaining: number | null;
+  maxBitrateKbps: number | null;
   invitedByAccountId: string | null;
   createdAt: string;
 }

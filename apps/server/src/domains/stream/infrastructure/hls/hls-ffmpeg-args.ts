@@ -9,14 +9,31 @@ export interface VideoEncoderConfig {
   keyFrameInterval: number;
   preset: string;
   crf: number;
+  maxVideoBitrateKbps: number;
+  maxOutputHeight: number;
+  rateControlBufferSeconds: number;
 }
 
 export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
+  const maxOutputHeight = Math.max(240, Math.round(config.maxOutputHeight));
+  const maxVideoBitrateKbps = Math.max(
+    250,
+    Math.round(config.maxVideoBitrateKbps),
+  );
+  const rateControlBufferSeconds = Math.max(
+    1,
+    Math.round(config.rateControlBufferSeconds),
+  );
+  const rateControlBufferKbps = Math.max(
+    maxVideoBitrateKbps,
+    maxVideoBitrateKbps * rateControlBufferSeconds,
+  );
+
   return [
     '-c:v',
     'libx264',
     '-vf',
-    'setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p',
+    `setpts=PTS-STARTPTS,scale=-2:${maxOutputHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p`,
     '-pix_fmt',
     'yuv420p',
     '-profile:v',
@@ -33,18 +50,29 @@ export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
     String(config.keyFrameInterval),
     '-sc_threshold',
     '0',
-    // Force a keyframe at the very start of every segment so the segment is
-    // independently decodable by the player.
+    // Force only the first output frame to be a keyframe. Using
+    // `expr:gte(t,0)` would force every frame as keyframe, which collapses
+    // inter-frame compression and causes severe quality artifacts under VBV.
     '-force_key_frames',
-    'expr:gte(t,0)',
+    'expr:eq(n,0)',
     '-preset',
     config.preset,
     '-crf',
     String(config.crf),
+    '-maxrate',
+    `${maxVideoBitrateKbps}k`,
+    '-bufsize',
+    `${rateControlBufferKbps}k`,
   ];
 }
 
-export function buildAudioEncoderArgs(): string[] {
+export interface AudioEncoderConfig {
+  audioBitrateKbps: number;
+}
+
+export function buildAudioEncoderArgs(config: AudioEncoderConfig): string[] {
+  const audioBitrateKbps = Math.max(48, Math.round(config.audioBitrateKbps));
+
   return [
     '-c:a',
     'aac',
@@ -55,7 +83,7 @@ export function buildAudioEncoderArgs(): string[] {
     '-af',
     'asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0',
     '-b:a',
-    '160k',
+    `${audioBitrateKbps}k`,
   ];
 }
 

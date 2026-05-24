@@ -6,6 +6,7 @@ export interface AccountRecord {
   avatarDataUrl: string | null;
   role: 'admin' | 'sailer' | 'user';
   invitesRemaining: number | null;
+  maxBitrateKbps: number | null;
   invitedByAccountId: string | null;
   createdAt: string;
 }

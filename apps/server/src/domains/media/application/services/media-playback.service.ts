@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MediaItem } from '../../../domain/entities/media-item.entity';
-import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
-import { MediaProbeAdapter } from '../../../infrastructure/adapters/media-probe.adapter';
-import { MediaFileResolutionService } from '../path-resolution/media-file-resolution.service';
+import { MediaItem } from '../../domain/entities/media-item.entity';
+import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
+import { MediaProbeAdapter } from '../../infrastructure/media-probe.adapter';
+import { MediaFileResolutionService } from './path-resolution/media-file-resolution.service';
 import {
   TorrentService,
   type TorrentListItem,
-} from '../../../../torrent/application/services/torrent.service';
-import { TorrentMediaIndexStore } from '../../../../torrent/infrastructure/stores/torrent-media-index.store';
+} from '../../../torrent/application/services/torrent.service';
+import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
 
 interface MediaPlaybackAudioTrack {
   streamIndex: number;

@@ -6,7 +6,7 @@ import {
   type MetadataImportPathContext,
 } from '../metadata-io/media-metadata-io.service';
 import { MediaPathResolverService } from './media-path-resolver.service';
-import { MediaLibraryLocationsService } from '../library-locations/media-library-locations.service';
+import { MediaLibraryLocationsService } from '../media-library-locations.service';
 
 @Injectable()
 export class MediaFileResolutionService {

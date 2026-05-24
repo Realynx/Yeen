@@ -113,6 +113,15 @@ export interface PlaybackSource {
   hls: boolean;
   hlsSessionId: string | null;
   audioStreamIndex: number | null;
+  maxVideoBitrateKbps: number | null;
+  audioBitrateKbps: number | null;
+  maxOutputHeight: number | null;
+}
+
+export interface PlayerTranscodePreferences {
+  maxVideoBitrateKbps: number | null;
+  audioBitrateKbps: number | null;
+  maxOutputHeight: number | null;
 }
 
 export interface PlayerDataState {
@@ -135,10 +144,17 @@ export interface PlayerDataState {
   switchToHls: (options?: {
     forceFresh?: boolean;
     audioStreamIndex?: number | null;
+    maxVideoBitrateKbps?: number | null;
+    audioBitrateKbps?: number | null;
+    maxOutputHeight?: number | null;
   }) => Promise<boolean>;
 }
 
-export function usePlayerData(token: string, mediaId: string): PlayerDataState {
+export function usePlayerData(
+  token: string,
+  mediaId: string,
+  transcodePreferences: PlayerTranscodePreferences,
+): PlayerDataState {
   const AUTO_HLS_RESTART_WINDOW_MS = 30000;
   const MAX_AUTO_HLS_RESTARTS_PER_WINDOW = 2;
 
@@ -154,10 +170,19 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
   const [error, setError] = useState<string | null>(null);
   const [switchingToHls, setSwitchingToHls] = useState(false);
   const [extractingSubtitleTrackId, setExtractingSubtitleTrackId] = useState<string | null>(null);
+  const transcodePreferencesRef = useRef(transcodePreferences);
   const autoHlsRestartWindowRef = useRef({
     startedAtMs: 0,
     attempts: 0,
   });
+
+  useEffect(() => {
+    transcodePreferencesRef.current = transcodePreferences;
+  }, [
+    transcodePreferences.audioBitrateKbps,
+    transcodePreferences.maxOutputHeight,
+    transcodePreferences.maxVideoBitrateKbps,
+  ]);
 
   useEffect(() => {
     autoHlsRestartWindowRef.current = {
@@ -181,6 +206,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
   const switchToHls = useCallback(async (options?: {
     forceFresh?: boolean;
     audioStreamIndex?: number | null;
+    maxVideoBitrateKbps?: number | null;
+    audioBitrateKbps?: number | null;
+    maxOutputHeight?: number | null;
   }) => {
     if (!mediaId || switchingToHls) {
       return false;
@@ -191,11 +219,26 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
       options?.audioStreamIndex !== undefined
         ? options.audioStreamIndex
         : selectedAudioStreamIndex;
+    const requestedMaxVideoBitrateKbps =
+      options?.maxVideoBitrateKbps !== undefined
+        ? options.maxVideoBitrateKbps
+        : transcodePreferences.maxVideoBitrateKbps;
+    const requestedAudioBitrateKbps =
+      options?.audioBitrateKbps !== undefined
+        ? options.audioBitrateKbps
+        : transcodePreferences.audioBitrateKbps;
+    const requestedMaxOutputHeight =
+      options?.maxOutputHeight !== undefined
+        ? options.maxOutputHeight
+        : transcodePreferences.maxOutputHeight;
 
     if (
       source?.hls
       && !forceFresh
       && source.audioStreamIndex === requestedAudioStreamIndex
+      && source.maxVideoBitrateKbps === requestedMaxVideoBitrateKbps
+      && source.audioBitrateKbps === requestedAudioBitrateKbps
+      && source.maxOutputHeight === requestedMaxOutputHeight
     ) {
       return false;
     }
@@ -223,6 +266,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
       const hlsSession = await startHlsSession(token, mediaId, {
         forceFresh,
         audioStreamIndex: requestedAudioStreamIndex,
+        maxVideoBitrateKbps: requestedMaxVideoBitrateKbps,
+        audioBitrateKbps: requestedAudioBitrateKbps,
+        maxOutputHeight: requestedMaxOutputHeight,
       });
       const resolvedAudioStreamIndex =
         hlsSession.selectedAudioStreamIndex ?? requestedAudioStreamIndex ?? null;
@@ -232,6 +278,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
         hls: true,
         hlsSessionId: hlsSession.sessionId,
         audioStreamIndex: resolvedAudioStreamIndex,
+        maxVideoBitrateKbps: hlsSession.maxVideoBitrateKbps,
+        audioBitrateKbps: hlsSession.audioBitrateKbps,
+        maxOutputHeight: hlsSession.maxOutputHeight,
       });
       setSelectedAudioStreamIndex(resolvedAudioStreamIndex);
       return true;
@@ -247,6 +296,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
     source,
     switchingToHls,
     token,
+    transcodePreferences.audioBitrateKbps,
+    transcodePreferences.maxOutputHeight,
+    transcodePreferences.maxVideoBitrateKbps,
   ]);
 
   const fetchTracks = useCallback(async (options?: {
@@ -361,10 +413,17 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
             hls: false,
             hlsSessionId: null,
             audioStreamIndex: initialAudioStreamIndex,
+            maxVideoBitrateKbps: null,
+            audioBitrateKbps: null,
+            maxOutputHeight: null,
           });
         } else {
+          const latestTranscodePreferences = transcodePreferencesRef.current;
           const hlsSession = await startHlsSession(token, mediaId, {
             audioStreamIndex: initialAudioStreamIndex,
+            maxVideoBitrateKbps: latestTranscodePreferences.maxVideoBitrateKbps,
+            audioBitrateKbps: latestTranscodePreferences.audioBitrateKbps,
+            maxOutputHeight: latestTranscodePreferences.maxOutputHeight,
           });
           if (cancelled) {
             return;
@@ -380,6 +439,9 @@ export function usePlayerData(token: string, mediaId: string): PlayerDataState {
             hls: true,
             hlsSessionId: hlsSession.sessionId,
             audioStreamIndex: resolvedAudioStreamIndex,
+            maxVideoBitrateKbps: hlsSession.maxVideoBitrateKbps,
+            audioBitrateKbps: hlsSession.audioBitrateKbps,
+            maxOutputHeight: hlsSession.maxOutputHeight,
           });
           setSelectedAudioStreamIndex(resolvedAudioStreamIndex);
         }
