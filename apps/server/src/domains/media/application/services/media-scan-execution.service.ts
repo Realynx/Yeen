@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { basename, relative, resolve, sep } from 'node:path';
-import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
-import { MediaItem } from '../../../domain/entities/media-item.entity';
-import { MediaStore } from '../../../infrastructure/stores/media.store';
-import { MediaScanStore } from '../../../infrastructure/stores/media-scan.store';
-import { MediaScannerService } from '../scanner/media-scanner.service';
-import { MediaIndexRefreshPolicyService } from '../index-refresh/media-index-refresh-policy.service';
-import { MediaIndexedItemMergeService } from '../index-refresh/media-indexed-item-merge.service';
-import { MediaAiMetadataService } from '../ai-metadata/media-ai-metadata.service';
-import { MediaFileResolutionService } from '../path-resolution/media-file-resolution.service';
-import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
+import { normalizeForKey } from '../../infrastructure/helpers/title-normalizer';
+import { MediaItem } from '../../domain/entities/media-item.entity';
+import { MediaStore } from '../../infrastructure/stores/media.store';
+import { MediaScanStore } from '../../infrastructure/stores/media-scan.store';
+import { MediaScannerService } from './scanner/media-scanner.service';
+import { MediaIndexRefreshPolicyService } from './index-refresh/media-index-refresh-policy.service';
+import { MediaIndexedItemMergeService } from './index-refresh/media-indexed-item-merge.service';
+import { MediaAiMetadataService } from './ai-metadata/media-ai-metadata.service';
+import { MediaFileResolutionService } from './path-resolution/media-file-resolution.service';
+import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 
 @Injectable()
 export class MediaScanExecutionService {

@@ -19,6 +19,13 @@ interface UserSettingsTabProps {
 
 type UserSettingsCategoryId = 'profile' | 'picture' | 'invites' | 'security';
 
+const USER_SETTINGS_SECTION_IDS: Record<UserSettingsCategoryId, string> = {
+  profile: 'user-profile-details',
+  picture: 'user-profile-picture',
+  invites: 'user-invites',
+  security: 'user-password-reset',
+};
+
 interface UserSettingsCategorySectionProps {
   id: string;
   kicker: string;
@@ -143,12 +150,19 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
     Record<UserSettingsCategoryId, boolean>
   >({
     profile: true,
-    picture: true,
-    invites: true,
+    picture: false,
+    invites: false,
     security: false,
   });
 
   const availableInvites = isAdmin ? null : Math.max(0, user.invitesRemaining ?? 0);
+  const remainingInvitesLabel = isAdmin
+    ? 'Unlimited'
+    : `${availableInvites ?? 0} remaining`;
+  const maxBitrateLabel =
+    typeof user.maxBitrateKbps === 'number' && Number.isFinite(user.maxBitrateKbps)
+      ? `${user.maxBitrateKbps.toLocaleString()} kbps`
+      : 'No limit';
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -183,6 +197,28 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
       ...current,
       [category]: !current[category],
     }));
+  }
+
+  function openAndScrollToCategory(category: UserSettingsCategoryId) {
+    const sectionId = USER_SETTINGS_SECTION_IDS[category];
+
+    setExpandedCategories((current) => ({
+      ...current,
+      [category]: true,
+    }));
+
+    const section = document.getElementById(sectionId);
+    if (!section) {
+      return;
+    }
+
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const nextHash = `#${sectionId}`;
+    if (window.location.hash !== nextHash) {
+      const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+      window.history.replaceState(null, '', nextUrl);
+    }
   }
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
@@ -349,6 +385,35 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
     }
   }
 
+  const quickActions: Array<{
+    category: UserSettingsCategoryId;
+    label: string;
+    note: string;
+  }> = [
+    {
+      category: 'profile',
+      label: 'Account Details',
+      note: 'Display name and email',
+    },
+    {
+      category: 'picture',
+      label: 'Profile Photo',
+      note: 'Avatar upload and removal',
+    },
+    {
+      category: 'invites',
+      label: 'Invite Links',
+      note: isAdmin
+        ? 'Create unlimited invites'
+        : `${availableInvites ?? 0} invite(s) available`,
+    },
+    {
+      category: 'security',
+      label: 'Password',
+      note: 'Reset your sign-in password',
+    },
+  ];
+
   return (
     <section className="settings-content-grid">
       <article className="settings-surface settings-surface-full settings-surface-categorized">
@@ -360,17 +425,83 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
           <span className="settings-pill user-settings-title-pill">{roleLabel}</span>
         </header>
 
-        <p className="muted user-settings-title-description">
-          Manage your own profile details, password, and account picture. System-wide
-          runtime and library settings remain in the admin System Settings page.
-        </p>
-        <p className="settings-inline-meta user-settings-title-meta">
-          {isAdmin
-            ? 'Admin account: user profile settings are shown here; system controls stay in System Settings.'
-            : 'Personal account controls: profile, invites, avatar, and password.'}
-        </p>
+        <div className="user-settings-layout">
+          <aside className="user-settings-layout-sidebar" aria-label="Profile quick summary">
+            <section className="user-settings-overview-card user-settings-overview-left-column" aria-label="Profile summary">
+              <div className="user-settings-avatar-preview-shell user-settings-avatar-preview-shell-large">
+                {avatarPreviewUrl ? (
+                  <img
+                    src={avatarPreviewUrl}
+                    alt={`${user.name} profile`}
+                    className="user-settings-avatar-preview"
+                  />
+                ) : (
+                  <span className="profile-avatar user-settings-avatar-fallback user-settings-avatar-fallback-large">
+                    {initialForName(user.name)}
+                  </span>
+                )}
+              </div>
 
-        <div className="settings-categories user-settings-categories">
+              <div className="user-settings-overview-details">
+                <p className="settings-section-kicker">Profile Snapshot</p>
+                <h3>{user.name}</h3>
+                <p className="muted">{user.email}</p>
+
+                <dl className="settings-profile-list user-settings-profile-summary user-settings-profile-summary-overview">
+                  <div>
+                    <dt>Role</dt>
+                    <dd>{roleLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Member Since</dt>
+                    <dd>{formatMemberSince(user.createdAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Config Scope</dt>
+                    <dd>{configScopeLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Invites</dt>
+                    <dd>{remainingInvitesLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Max Bitrate</dt>
+                    <dd>{maxBitrateLabel}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <nav className="system-settings-nav user-settings-quick-actions" aria-label="Profile quick actions">
+              <p className="settings-section-kicker">Quick Actions</p>
+
+              <ul className="system-settings-nav-list user-settings-quick-actions-list">
+                {quickActions.map((item) => {
+                  const isActive = expandedCategories[item.category];
+
+                  return (
+                    <li key={item.category}>
+                      <button
+                        type="button"
+                        className={`system-settings-nav-button${isActive ? ' is-active' : ''}`}
+                        onClick={() => openAndScrollToCategory(item.category)}
+                      >
+                        <span className="system-settings-nav-button-main">
+                          <span className="user-settings-quick-action-dot" aria-hidden="true" />
+                          <span className="system-settings-nav-copy">
+                            <span className="system-settings-nav-label">{item.label}</span>
+                            <span className="system-settings-nav-note">{item.note}</span>
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </aside>
+
+          <div className="settings-categories user-settings-categories">
           <UserSettingsCategorySection
             id="user-profile-details"
             kicker="Account"
@@ -400,21 +531,6 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
                   placeholder="you@example.com"
                 />
               </label>
-
-              <dl className="settings-profile-list user-settings-profile-summary settings-field-wide">
-                <div>
-                  <dt>Role</dt>
-                  <dd>{roleLabel}</dd>
-                </div>
-                <div>
-                  <dt>Member Since</dt>
-                  <dd>{formatMemberSince(user.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt>Config Scope</dt>
-                  <dd>{configScopeLabel}</dd>
-                </div>
-              </dl>
 
               <div className="system-settings-footer settings-field-wide">
                 <p className="muted">Changes apply to your account immediately.</p>
@@ -661,6 +777,7 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
             {passwordMessage ? <p className="scan-success">{passwordMessage}</p> : null}
             {passwordError ? <p className="error-text">{passwordError}</p> : null}
           </UserSettingsCategorySection>
+          </div>
         </div>
       </article>
     </section>

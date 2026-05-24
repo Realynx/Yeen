@@ -2,6 +2,7 @@ import type { FormEvent } from 'react';
 import type { SystemSettingsState } from '../../services/useSystemSettings';
 import { MaintenanceCategory } from './MaintenanceCategory';
 import { MetadataCategory } from './MetadataCategory';
+import { MetadataDefaultsCategory } from './MetadataDefaultsCategory';
 import { PlaybackCategory } from './PlaybackCategory';
 import { TorrentCategory } from './TorrentCategory';
 
@@ -10,6 +11,18 @@ interface SystemSettingsCategoriesFormProps {
   systemSettingsState: SystemSettingsState;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   onClearMetadata: () => void;
+  playbackIsOpen: boolean;
+  onTogglePlayback: () => void;
+  metadataDefaultsIsOpen: boolean;
+  onToggleMetadataDefaults: () => void;
+  torrentClientIsOpen: boolean;
+  onToggleTorrentClient: () => void;
+  torrentProvidersIsOpen: boolean;
+  onToggleTorrentProviders: () => void;
+  metadataCommitsIsOpen: boolean;
+  onToggleMetadataCommits: () => void;
+  maintenanceIsOpen: boolean;
+  onToggleMaintenance: () => void;
 }
 
 export function SystemSettingsCategoriesForm({
@@ -17,6 +30,18 @@ export function SystemSettingsCategoriesForm({
   systemSettingsState,
   onSave,
   onClearMetadata,
+  playbackIsOpen,
+  onTogglePlayback,
+  metadataDefaultsIsOpen,
+  onToggleMetadataDefaults,
+  torrentClientIsOpen,
+  onToggleTorrentClient,
+  torrentProvidersIsOpen,
+  onToggleTorrentProviders,
+  metadataCommitsIsOpen,
+  onToggleMetadataCommits,
+  maintenanceIsOpen,
+  onToggleMaintenance,
 }: SystemSettingsCategoriesFormProps) {
   const {
     systemSettings,
@@ -36,11 +61,34 @@ export function SystemSettingsCategoriesForm({
       className="system-settings-form-categories system-settings-form-categories-stacked"
       onSubmit={onSave}
     >
-      <PlaybackCategory systemSettings={systemSettings} updateSetting={updateSetting} />
+      <PlaybackCategory
+        systemSettings={systemSettings}
+        updateSetting={updateSetting}
+        isOpen={playbackIsOpen}
+        onToggle={onTogglePlayback}
+      />
 
-      <TorrentCategory systemSettings={systemSettings} updateSetting={updateSetting} />
+      <MetadataDefaultsCategory
+        systemSettings={systemSettings}
+        updateSetting={updateSetting}
+        isOpen={metadataDefaultsIsOpen}
+        onToggle={onToggleMetadataDefaults}
+      />
 
-      <MetadataCategory token={token} />
+      <TorrentCategory
+        systemSettings={systemSettings}
+        updateSetting={updateSetting}
+        clientIsOpen={torrentClientIsOpen}
+        onToggleClient={onToggleTorrentClient}
+        providersIsOpen={torrentProvidersIsOpen}
+        onToggleProviders={onToggleTorrentProviders}
+      />
+
+      <MetadataCategory
+        token={token}
+        isOpen={metadataCommitsIsOpen}
+        onToggle={onToggleMetadataCommits}
+      />
 
       <MaintenanceCategory
         token={token}
@@ -49,6 +97,8 @@ export function SystemSettingsCategoriesForm({
         clearingMetadataIndex={clearingMetadataIndex}
         savingSystemSettings={savingSystemSettings}
         clearingApiCaches={clearingApiCaches}
+        isOpen={maintenanceIsOpen}
+        onToggle={onToggleMaintenance}
       />
 
       <div className="system-settings-footer">

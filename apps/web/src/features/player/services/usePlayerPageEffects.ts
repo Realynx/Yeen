@@ -15,6 +15,9 @@ interface UsePlayerPageEffectsOptions {
   playbackRate: number;
   theaterMode: boolean;
   subtitleFontPreset: PlayerPreferences['subtitleFontPreset'];
+  preferredVideoBitrateKbps: PlayerPreferences['preferredVideoBitrateKbps'];
+  preferredAudioBitrateKbps: PlayerPreferences['preferredAudioBitrateKbps'];
+  preferredMaxResolutionHeight: PlayerPreferences['preferredMaxResolutionHeight'];
   videoRef: MutableRefObject<HTMLVideoElement | null>;
   sourceUrl: string | null;
   activeSubtitleUrl: string | null;
@@ -256,6 +259,9 @@ export function usePlayerPageEffects({
   playbackRate,
   theaterMode,
   subtitleFontPreset,
+  preferredVideoBitrateKbps,
+  preferredAudioBitrateKbps,
+  preferredMaxResolutionHeight,
   videoRef,
   sourceUrl,
   activeSubtitleUrl,
@@ -299,13 +305,25 @@ export function usePlayerPageEffects({
         playbackRate,
         theaterMode,
         subtitleFontPreset,
+        preferredVideoBitrateKbps,
+        preferredAudioBitrateKbps,
+        preferredMaxResolutionHeight,
       };
 
       window.localStorage.setItem(PLAYER_PREFERENCES_KEY, JSON.stringify(payload));
     } catch {
       // Ignore localStorage persistence errors.
     }
-  }, [muted, playbackRate, subtitleFontPreset, theaterMode, volume]);
+  }, [
+    muted,
+    playbackRate,
+    preferredAudioBitrateKbps,
+    preferredMaxResolutionHeight,
+    preferredVideoBitrateKbps,
+    subtitleFontPreset,
+    theaterMode,
+    volume,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;

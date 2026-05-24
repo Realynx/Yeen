@@ -1,5 +1,17 @@
 @media (max-width: 980px) {
+  .user-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .user-settings-profile-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .user-settings-profile-summary-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-settings-quick-actions-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -31,24 +43,41 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-accounts-provision-card,
+  .admin-accounts-activity-card,
   .admin-accounts-manage-card {
     grid-column: span 12;
   }
 
-  .admin-accounts-manage-toolbar {
+  .admin-accounts-activity-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-accounts-toolbar-compact {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
-  .admin-accounts-results-note {
+  .admin-accounts-results-pill {
     justify-self: start;
     white-space: normal;
+  }
+
+  .admin-accounts-row-hint {
+    justify-items: start;
+  }
+
+  .admin-accounts-editor-meta,
+  .admin-accounts-editor-form {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .torrent-control-action-button {
     padding-left: 0.65rem;
     padding-right: 0.65rem;
+  }
+
+  .torrent-control-categories {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .settings-path-mapping-row {
@@ -94,12 +123,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .user-settings-profile-summary-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-settings-quick-actions-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .system-settings-nav-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-accounts-summary-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-accounts-editor-card {
+    padding: 0.72rem 0.74rem;
   }
 
   .settings-category-toggle-meta .settings-pill {

@@ -1,4 +1,5 @@
 import type {
+  AdminAccountsActivityOverview,
   AdminManagedAccount,
   ApiCacheClearResult,
   AuthResponse,
@@ -138,6 +139,14 @@ export async function listAdminAccounts(token: string) {
   );
 }
 
+export async function listAdminAccountsActivity(token: string) {
+  return request<AdminAccountsActivityOverview>(
+    '/auth/admin/accounts/activity',
+    {},
+    token,
+  );
+}
+
 export async function updateAdminAccountInvites(
   token: string,
   accountId: string,
@@ -168,6 +177,56 @@ export async function updateAdminAccountRole(
   );
 }
 
+export async function updateAdminAccountMaxBitrate(
+  token: string,
+  accountId: string,
+  maxBitrateKbps: number | null,
+) {
+  return request<AdminManagedAccount>(
+    `/auth/admin/accounts/${encodeURIComponent(accountId)}/max-bitrate`,
+    {
+      method: 'PATCH',
+      body: jsonBody({ maxBitrateKbps }),
+    },
+    token,
+  );
+}
+
+export async function updateAdminAccountProfile(
+  token: string,
+  accountId: string,
+  input: {
+    email: string;
+    name: string;
+  },
+) {
+  return request<AdminManagedAccount>(
+    `/auth/admin/accounts/${encodeURIComponent(accountId)}/profile`,
+    {
+      method: 'PATCH',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
+export async function resetAdminAccountPassword(
+  token: string,
+  accountId: string,
+  input: {
+    newPassword: string;
+  },
+) {
+  return request<{ message: string }>(
+    `/auth/admin/accounts/${encodeURIComponent(accountId)}/password/reset`,
+    {
+      method: 'POST',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
 export async function createAdminAccount(
   token: string,
   input: {
@@ -176,6 +235,7 @@ export async function createAdminAccount(
     password: string;
     role?: 'admin' | 'sailer' | 'user';
     invitesRemaining?: number;
+    maxBitrateKbps?: number | null;
   },
 ) {
   return request<AdminManagedAccount>(
@@ -1066,6 +1126,9 @@ export async function startHlsSession(
   options?: {
     forceFresh?: boolean;
     audioStreamIndex?: number | null;
+    maxVideoBitrateKbps?: number | null;
+    audioBitrateKbps?: number | null;
+    maxOutputHeight?: number | null;
   },
 ) {
   const params = new URLSearchParams();
@@ -1079,6 +1142,30 @@ export async function startHlsSession(
     && options.audioStreamIndex >= 0
   ) {
     params.set('audioStreamIndex', String(options.audioStreamIndex));
+  }
+
+  if (
+    typeof options?.maxVideoBitrateKbps === 'number'
+    && Number.isInteger(options.maxVideoBitrateKbps)
+    && options.maxVideoBitrateKbps > 0
+  ) {
+    params.set('maxVideoBitrateKbps', String(options.maxVideoBitrateKbps));
+  }
+
+  if (
+    typeof options?.audioBitrateKbps === 'number'
+    && Number.isInteger(options.audioBitrateKbps)
+    && options.audioBitrateKbps > 0
+  ) {
+    params.set('audioBitrateKbps', String(options.audioBitrateKbps));
+  }
+
+  if (
+    typeof options?.maxOutputHeight === 'number'
+    && Number.isInteger(options.maxOutputHeight)
+    && options.maxOutputHeight > 0
+  ) {
+    params.set('maxOutputHeight', String(options.maxOutputHeight));
   }
 
   const suffix = params.toString() ? `?${params.toString()}` : '';

@@ -4,6 +4,9 @@ export interface PlayerPreferences {
   playbackRate: number;
   theaterMode: boolean;
   subtitleFontPreset: SubtitleFontPreset;
+  preferredVideoBitrateKbps: number | null;
+  preferredAudioBitrateKbps: number | null;
+  preferredMaxResolutionHeight: number | null;
 }
 
 export interface HlsLevelOption {
@@ -55,6 +58,29 @@ export function normalizeSubtitleFontPreset(value: unknown): SubtitleFontPreset 
 export const PLAYER_PREFERENCES_KEY = 'yeen_player_preferences_v1';
 export const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 export const SKIP_SECONDS = 10;
+export const STANDARD_RESOLUTION_HEIGHT_OPTIONS = [360, 480, 720, 1080, 1440, 2160] as const;
+export const STANDARD_VIDEO_BITRATE_OPTIONS_KBPS = [
+  1200,
+  1800,
+  2500,
+  3500,
+  4500,
+  6000,
+  8000,
+  12000,
+  16000,
+  22000,
+] as const;
+export const STANDARD_AUDIO_BITRATE_OPTIONS_KBPS = [64, 96, 128, 160, 192, 256, 320] as const;
+
+const RESOLUTION_RECOMMENDED_VIDEO_BITRATE_KBPS: Record<number, number> = {
+  360: 900,
+  480: 1400,
+  720: 2500,
+  1080: 4500,
+  1440: 8000,
+  2160: 14000,
+};
 
 export function describeMediaError(code: number | undefined): string {
   switch (code) {
@@ -130,6 +156,50 @@ export function toHlsLevelLabel(height?: number, bitrate?: number): string {
   return `${resolution} ${mbps} Mbps`;
 }
 
+export function toResolutionOptionLabel(height: number): string {
+  if (height >= 2160) {
+    return '4K (2160p)';
+  }
+
+  return `${height}p`;
+}
+
+export function toResolutionBitrateHintKbps(height: number): number {
+  return RESOLUTION_RECOMMENDED_VIDEO_BITRATE_KBPS[height] ?? 0;
+}
+
+export function toBitrateLabelKbps(kbps: number | null): string {
+  if (typeof kbps !== 'number' || !Number.isFinite(kbps) || kbps <= 0) {
+    return 'Auto';
+  }
+
+  const mbps = kbps / 1000;
+  if (mbps >= 10) {
+    return `${mbps.toFixed(0)} Mbps`;
+  }
+  if (mbps >= 1) {
+    return `${mbps.toFixed(1)} Mbps`;
+  }
+
+  return `${Math.round(kbps)} kbps`;
+}
+
+function normalizeOptionalInteger(
+  value: unknown,
+  min: number,
+  max: number,
+): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.round(clamp(value, min, max));
+}
+
 export function readPlayerPreferences(): PlayerPreferences {
   const defaults: PlayerPreferences = {
     volume: 0.85,
@@ -137,6 +207,9 @@ export function readPlayerPreferences(): PlayerPreferences {
     playbackRate: 1,
     theaterMode: false,
     subtitleFontPreset: DEFAULT_SUBTITLE_FONT_PRESET,
+    preferredVideoBitrateKbps: null,
+    preferredAudioBitrateKbps: null,
+    preferredMaxResolutionHeight: null,
   };
 
   try {
@@ -157,6 +230,21 @@ export function readPlayerPreferences(): PlayerPreferences {
       theaterMode:
         typeof parsed.theaterMode === 'boolean' ? parsed.theaterMode : defaults.theaterMode,
       subtitleFontPreset: normalizeSubtitleFontPreset(parsed.subtitleFontPreset),
+      preferredVideoBitrateKbps: normalizeOptionalInteger(
+        parsed.preferredVideoBitrateKbps,
+        250,
+        50000,
+      ),
+      preferredAudioBitrateKbps: normalizeOptionalInteger(
+        parsed.preferredAudioBitrateKbps,
+        48,
+        384,
+      ),
+      preferredMaxResolutionHeight: normalizeOptionalInteger(
+        parsed.preferredMaxResolutionHeight,
+        240,
+        2160,
+      ),
     };
   } catch {
     return defaults;

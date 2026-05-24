@@ -36,8 +36,8 @@ import {
 } from '../../../core/infrastructure/shared/media-header-probe';
 import { MediaFsFileOpsService } from './filesystem/media-fs-file-ops.service';
 import { MediaTorrentIndexingService } from './torrent-intake/media-torrent-indexing.service';
-import { MediaLibraryLocationsService } from './library-locations/media-library-locations.service';
-import { MediaStorageSummaryService } from './storage/media-storage-summary.service';
+import { MediaLibraryLocationsService } from './media-library-locations.service';
+import { MediaStorageSummaryService } from './media-storage-summary.service';
 import { MediaIndexedItemRefreshService } from './index-refresh/media-indexed-item-refresh.service';
 import { MediaRemoteCatalogService } from './remote-catalog/media-remote-catalog.service';
 import type { MediaMetadataPatch } from './metadata-update/media-metadata-patch.types';
@@ -47,12 +47,12 @@ import { MediaMetadataArtworkRefreshService } from './metadata-update/media-meta
 import { MediaMetadataIoService } from './metadata-io/media-metadata-io.service';
 import { MediaMetadataImportNormalizerService } from './metadata-io/media-metadata-import-normalizer.service';
 import { MediaFileResolutionService } from './path-resolution/media-file-resolution.service';
-import { MediaImageStreamService } from './image-stream/media-image-stream.service';
-import { MediaScanExecutionService } from './scan-execution/media-scan-execution.service';
+import { MediaImageStreamService } from './media-image-stream.service';
+import { MediaScanExecutionService } from './media-scan-execution.service';
 import { MediaRecycleDeletionsService } from './recycle-deletions/media-recycle-deletions.service';
 import { MediaPermanentDeleteService } from './recycle-deletions/media-permanent-delete.service';
 import { MediaEpisodeCatalogService } from './episode-catalog/media-episode-catalog.service';
-import { MediaPlaybackService } from './playback/media-playback.service';
+import { MediaPlaybackService } from './media-playback.service';
 import {
   exportMetadataValue,
   importMetadataFromJsonValue,

@@ -94,34 +94,40 @@
 /* Extracted from settings-admin-core */
 
 .settings-page-v2.settings-theme-light .system-settings-nav {
-  background: rgba(255, 255, 255, 0.86);
+  background:
+    linear-gradient(145deg, rgba(255, 166, 120, 0.28), rgba(255, 166, 120, 0) 56%),
+    linear-gradient(305deg, rgba(106, 188, 241, 0.24), rgba(106, 188, 241, 0) 62%),
+    rgba(247, 251, 255, 0.94);
 }
 
 .settings-page-v2.settings-theme-light .system-settings-nav-icon {
-  border-color: rgba(90, 140, 193, 0.35);
-  background: rgba(236, 245, 255, 0.9);
-  color: #1f5a8b;
+  border-color: rgba(194, 132, 93, 0.34);
+  background: rgba(255, 244, 238, 0.94);
+  color: #8e432f;
 }
 
 .settings-page-v2.settings-theme-light .system-settings-nav-button:hover {
-  border-color: rgba(94, 141, 191, 0.38);
-  background: rgba(186, 214, 244, 0.36);
+  border-color: rgba(198, 134, 98, 0.42);
+  background:
+    linear-gradient(125deg, rgba(255, 166, 120, 0.22), rgba(255, 166, 120, 0) 58%),
+    linear-gradient(295deg, rgba(106, 188, 241, 0.22), rgba(106, 188, 241, 0) 62%),
+    rgba(244, 250, 255, 0.96);
 }
 
 .settings-page-v2.settings-theme-light .system-settings-nav-button.is-active {
-  border-color: rgba(84, 133, 186, 0.45);
+  border-color: rgba(190, 124, 92, 0.48);
   background:
-    linear-gradient(125deg, rgba(255, 170, 104, 0.24), rgba(255, 170, 104, 0) 55%),
-    linear-gradient(285deg, rgba(106, 188, 241, 0.22), rgba(106, 188, 241, 0) 60%),
-    rgba(236, 245, 255, 0.95);
+    linear-gradient(125deg, rgba(255, 166, 120, 0.28), rgba(255, 166, 120, 0) 55%),
+    linear-gradient(285deg, rgba(106, 188, 241, 0.24), rgba(106, 188, 241, 0) 60%),
+    rgba(240, 248, 255, 0.96);
 }
 
 .settings-page-v2.settings-theme-light
   .system-settings-nav-button.is-active
   .system-settings-nav-icon {
-  border-color: rgba(82, 133, 186, 0.52);
-  background: rgba(224, 239, 255, 0.96);
-  color: #174d79;
+  border-color: rgba(185, 118, 84, 0.48);
+  background: rgba(255, 235, 226, 0.96);
+  color: #843d2a;
 }
 
 .settings-page-v2.settings-theme-light .settings-location-item {
@@ -152,12 +158,37 @@
   background: rgba(255, 255, 255, 0.76);
 }
 
+.settings-page-v2.settings-theme-light .user-settings-overview-card {
+  background:
+    linear-gradient(140deg, rgba(255, 170, 104, 0.22), rgba(255, 170, 104, 0) 56%),
+    linear-gradient(310deg, rgba(106, 188, 241, 0.2), rgba(106, 188, 241, 0) 62%),
+    rgba(255, 255, 255, 0.86);
+}
+
 .settings-page-v2.settings-theme-light .user-settings-avatar-preview-shell {
   background: rgba(240, 248, 255, 0.86);
 }
 
 .settings-page-v2.settings-theme-light .user-settings-upload-box {
   background: rgba(255, 255, 255, 0.78);
+}
+
+.settings-page-v2.settings-theme-light .admin-accounts-role-select-compact,
+.settings-page-v2.settings-theme-light .admin-accounts-editor-form select {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(118, 152, 184, 0.45);
+  color: #102840;
+}
+
+.settings-page-v2.settings-theme-light .admin-accounts-role-select-compact option,
+.settings-page-v2.settings-theme-light .admin-accounts-editor-form select option {
+  color: #102840;
+  background: #ffffff;
+}
+
+.settings-page-v2.settings-theme-light .user-settings-quick-action-dot {
+  border-color: rgba(195, 132, 95, 0.48);
+  background: linear-gradient(140deg, rgba(255, 158, 102, 0.96), rgba(106, 188, 241, 0.9));
 }
 
 .settings-page-v2.settings-theme-light .system-media-runtime-column-right {

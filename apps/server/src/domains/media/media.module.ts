@@ -6,9 +6,9 @@ import { MediaAiTitleProviderService } from './application/services/ai-metadata/
 import { MediaController } from './presentation/controllers/media.controller';
 import { MediaImagesController } from './presentation/controllers/media-images.controller';
 import { MediaLocationsStore } from './infrastructure/stores/media-locations.store';
-import { MediaNfoReader } from './infrastructure/readers/media-nfo.reader';
+import { MediaNfoReader } from './infrastructure/media-nfo.reader';
 import { MediaPreviewResolver } from './infrastructure/resolvers/media-preview.resolver';
-import { MediaProbeAdapter } from './infrastructure/adapters/media-probe.adapter';
+import { MediaProbeAdapter } from './infrastructure/media-probe.adapter';
 import { MediaScannerService } from './application/services/scanner/media-scanner.service';
 import { MediaScanStore } from './infrastructure/stores/media-scan.store';
 import { MediaService } from './application/services/media.service';
@@ -29,8 +29,8 @@ import { MediaTorrentIndexingService } from './application/services/torrent-inta
 import { MediaTorrentIntakePollingService } from './application/services/torrent-intake/media-torrent-intake-polling.service';
 import { MediaTorrentIntakeCandidateService } from './application/services/torrent-intake/media-torrent-intake-candidate.service';
 import { MediaSearchTorrentDownloadService } from './application/services/torrent-intake/media-search-torrent-download.service';
-import { MediaLibraryLocationsService } from './application/services/library-locations/media-library-locations.service';
-import { MediaStorageSummaryService } from './application/services/storage/media-storage-summary.service';
+import { MediaLibraryLocationsService } from './application/services/media-library-locations.service';
+import { MediaStorageSummaryService } from './application/services/media-storage-summary.service';
 import { MediaIndexRefreshPolicyService } from './application/services/index-refresh/media-index-refresh-policy.service';
 import { MediaIndexedItemRefreshService } from './application/services/index-refresh/media-indexed-item-refresh.service';
 import { MediaIndexedItemMergeService } from './application/services/index-refresh/media-indexed-item-merge.service';
@@ -41,9 +41,9 @@ import { MediaMetadataArtworkRefreshService } from './application/services/metad
 import { MediaMetadataIoService } from './application/services/metadata-io/media-metadata-io.service';
 import { MediaMetadataImportNormalizerService } from './application/services/metadata-io/media-metadata-import-normalizer.service';
 import { MediaFileResolutionService } from './application/services/path-resolution/media-file-resolution.service';
-import { MediaImageStreamService } from './application/services/image-stream/media-image-stream.service';
-import { MediaPlaybackService } from './application/services/playback/media-playback.service';
-import { MediaScanExecutionService } from './application/services/scan-execution/media-scan-execution.service';
+import { MediaImageStreamService } from './application/services/media-image-stream.service';
+import { MediaPlaybackService } from './application/services/media-playback.service';
+import { MediaScanExecutionService } from './application/services/media-scan-execution.service';
 import { MediaRecycleDeletionsService } from './application/services/recycle-deletions/media-recycle-deletions.service';
 import { MediaPermanentDeleteService } from './application/services/recycle-deletions/media-permanent-delete.service';
 import { MediaEpisodeCatalogService } from './application/services/episode-catalog/media-episode-catalog.service';

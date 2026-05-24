@@ -13,6 +13,8 @@ import {
   SKIP_SECONDS,
   SPEED_OPTIONS,
   SUBTITLE_FONT_OPTIONS,
+  toBitrateLabelKbps,
+  toResolutionOptionLabel,
   type HlsLevelOption,
   type SubtitleFontPreset,
 } from '../services/playerUtils';
@@ -92,6 +94,16 @@ interface PlayerVideoPanelProps {
   estimatedBandwidthBps: number | null;
   hlsLevels: HlsLevelOption[];
   qualityMode: 'auto' | number;
+  videoBitrateQuotaKbps: number;
+  videoBitrateOptionsKbps: number[];
+  audioBitrateOptionsKbps: number[];
+  resolutionHeightOptions: number[];
+  preferredVideoBitrateKbps: number | null;
+  preferredAudioBitrateKbps: number | null;
+  preferredMaxResolutionHeight: number | null;
+  appliedVideoBitrateKbps: number | null;
+  appliedAudioBitrateKbps: number | null;
+  appliedMaxOutputHeight: number | null;
   showNerdStats: boolean;
   streamSessionId: string | null;
   streamUrl: string | null;
@@ -115,6 +127,9 @@ interface PlayerVideoPanelProps {
   onPlaybackRateChange: (nextRate: number) => void;
   onSubtitleFontPresetChange: (nextSubtitleFontPreset: SubtitleFontPreset) => void;
   onQualityModeChange: (nextQualityMode: 'auto' | number) => void;
+  onPreferredVideoBitrateChange: (nextVideoBitrateKbps: number | null) => void;
+  onPreferredAudioBitrateChange: (nextAudioBitrateKbps: number | null) => void;
+  onPreferredResolutionChange: (nextMaxResolutionHeight: number | null) => void;
   onClearSeekPreview: () => void;
   onSeekPreview: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onSeekInputChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -263,6 +278,16 @@ export function PlayerVideoPanel({
   estimatedBandwidthBps,
   hlsLevels,
   qualityMode,
+  videoBitrateQuotaKbps,
+  videoBitrateOptionsKbps,
+  audioBitrateOptionsKbps,
+  resolutionHeightOptions,
+  preferredVideoBitrateKbps,
+  preferredAudioBitrateKbps,
+  preferredMaxResolutionHeight,
+  appliedVideoBitrateKbps,
+  appliedAudioBitrateKbps,
+  appliedMaxOutputHeight,
   showNerdStats,
   streamSessionId,
   streamUrl,
@@ -286,6 +311,9 @@ export function PlayerVideoPanel({
   onPlaybackRateChange,
   onSubtitleFontPresetChange,
   onQualityModeChange,
+  onPreferredVideoBitrateChange,
+  onPreferredAudioBitrateChange,
+  onPreferredResolutionChange,
   onClearSeekPreview,
   onSeekPreview,
   onSeekInputChange,
@@ -665,7 +693,7 @@ export function PlayerVideoPanel({
                 <dd>{downloadingTorrent?.state ?? 'n/a'}</dd>
               </div>
               <div>
-                <dt>Bandwidth Usage</dt>
+                <dt>Effective Stream Throughput</dt>
                 <dd>{isHlsSource ? formatBandwidthUsage(estimatedBandwidthBps) : 'n/a'}</dd>
               </div>
               <div>
@@ -823,7 +851,7 @@ export function PlayerVideoPanel({
                 </button>
 
                 {openMenu === 'audio' ? (
-                  <div className="player-menu" role="menu" aria-label="Audio tracks">
+                  <div className="player-menu player-menu-unified" role="menu" aria-label="Audio tracks">
                     <p className="player-menu-heading">Audio</p>
 
                     {audioTracks.length === 0 ? (
@@ -876,7 +904,7 @@ export function PlayerVideoPanel({
                 </button>
 
                 {openMenu === 'subs' ? (
-                  <div className="player-menu" role="menu" aria-label="Subtitles">
+                  <div className="player-menu player-menu-unified" role="menu" aria-label="Subtitles">
                     <p className="player-menu-heading">Subtitles</p>
 
                     <button
@@ -979,7 +1007,7 @@ export function PlayerVideoPanel({
                 </button>
 
                 {openMenu === 'settings' ? (
-                  <div className="player-menu" role="menu" aria-label="Playback settings">
+                  <div className="player-menu player-menu-unified player-menu-settings" role="menu" aria-label="Playback settings">
                     <p className="player-menu-heading">Speed</p>
                     <div className="player-menu-chiprow">
                       {SPEED_OPTIONS.map((speed) => (
@@ -1004,6 +1032,82 @@ export function PlayerVideoPanel({
                           onClick={() => onSubtitleFontPresetChange(option.id)}
                         >
                           {option.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="player-menu-heading">Transcode Profile</p>
+                    <section className="player-transcode-profile-card" aria-label="Transcode profile status">
+                      <p className="player-transcode-profile-kicker">Video Quota Ceiling</p>
+                      <p className="player-transcode-profile-value">
+                        {toBitrateLabelKbps(videoBitrateQuotaKbps)}
+                      </p>
+                      <p className="player-transcode-profile-copy">
+                        {isHlsSource
+                          ? `Applied: ${toBitrateLabelKbps(appliedVideoBitrateKbps)} V | ${toBitrateLabelKbps(appliedAudioBitrateKbps)} A | ${appliedMaxOutputHeight ? toResolutionOptionLabel(appliedMaxOutputHeight) : 'Auto res'}`
+                          : 'Used automatically when transcoding starts.'}
+                      </p>
+                    </section>
+
+                    <p className="player-menu-heading">Resolution Ceiling</p>
+                    <div className="player-menu-chiprow player-menu-chiprow-grid">
+                      <button
+                        type="button"
+                        className={`player-menu-chip ${preferredMaxResolutionHeight === null ? 'is-active' : ''}`}
+                        onClick={() => onPreferredResolutionChange(null)}
+                      >
+                        Auto
+                      </button>
+                      {resolutionHeightOptions.map((height) => (
+                        <button
+                          key={`resolution-${height}`}
+                          type="button"
+                          className={`player-menu-chip ${preferredMaxResolutionHeight === height ? 'is-active' : ''}`}
+                          onClick={() => onPreferredResolutionChange(height)}
+                        >
+                          {toResolutionOptionLabel(height)}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="player-menu-heading">Video Bitrate</p>
+                    <div className="player-menu-chiprow player-menu-chiprow-grid">
+                      <button
+                        type="button"
+                        className={`player-menu-chip ${preferredVideoBitrateKbps === null ? 'is-active' : ''}`}
+                        onClick={() => onPreferredVideoBitrateChange(null)}
+                      >
+                        Auto
+                      </button>
+                      {videoBitrateOptionsKbps.map((bitrateKbps) => (
+                        <button
+                          key={`video-bitrate-${bitrateKbps}`}
+                          type="button"
+                          className={`player-menu-chip ${preferredVideoBitrateKbps === bitrateKbps ? 'is-active' : ''}`}
+                          onClick={() => onPreferredVideoBitrateChange(bitrateKbps)}
+                        >
+                          {toBitrateLabelKbps(bitrateKbps)}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="player-menu-heading">Audio Bitrate</p>
+                    <div className="player-menu-chiprow player-menu-chiprow-grid">
+                      <button
+                        type="button"
+                        className={`player-menu-chip ${preferredAudioBitrateKbps === null ? 'is-active' : ''}`}
+                        onClick={() => onPreferredAudioBitrateChange(null)}
+                      >
+                        Auto
+                      </button>
+                      {audioBitrateOptionsKbps.map((bitrateKbps) => (
+                        <button
+                          key={`audio-bitrate-${bitrateKbps}`}
+                          type="button"
+                          className={`player-menu-chip ${preferredAudioBitrateKbps === bitrateKbps ? 'is-active' : ''}`}
+                          onClick={() => onPreferredAudioBitrateChange(bitrateKbps)}
+                        >
+                          {toBitrateLabelKbps(bitrateKbps)}
                         </button>
                       ))}
                     </div>

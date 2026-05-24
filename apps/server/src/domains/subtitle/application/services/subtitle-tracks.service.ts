@@ -6,7 +6,7 @@ import { basename, dirname, extname, join } from 'node:path';
 import { SubtitleTrack } from '../../domain/entities/subtitle-track.entity';
 import { SubtitleCommandService } from './subtitle-command.service';
 import { SubtitleStorageService } from './subtitle-storage.service';
-import { sanitizeVttFile } from '../../infrastructure/helpers/subtitle-vtt-sanitizer';
+import { sanitizeVttFile } from '../../infrastructure/subtitle-vtt-sanitizer';
 
 interface FfprobeStream {
   index: number;

@@ -219,53 +219,36 @@
   margin-top: 0.9rem;
 }
 
-.hero-resume-bar {
-  margin-top: 0.95rem;
-  position: relative;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: visible;
-  max-width: 460px;
-}
-
-.hero-resume-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--orange), #ffb482);
-  box-shadow: 0 0 12px rgba(255, 138, 31, 0.5);
-}
-
 .hero-resume-meta {
   display: flex;
-  align-items: center;
-  gap: 0.32rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.28rem;
   min-width: 0;
-  margin-top: 0.45rem;
+  margin-top: 0.95rem;
+  max-width: 68ch;
   color: #b6c5dd;
   font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .hero-resume-prefix,
 .hero-resume-suffix {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .hero-resume-episode {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hero-resume-single {
   display: block;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .show-stats-strip {

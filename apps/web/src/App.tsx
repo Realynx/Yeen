@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import type { ReactElement } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { AuthPanel } from './features/auth/components/AuthPanel';
 import { InviteSignupPanel } from './features/auth/components/InviteSignupPanel';
 import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
@@ -11,62 +11,20 @@ import { HomePage } from './features/home/pages/HomePage';
 import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePage';
 import { HomePagePhone } from './features/home/pages/HomePagePhone';
 import { MediaExplorePagePhone } from './features/media-explore/pages/MediaExplorePagePhone';
-
-const MediaLibraryPage = lazy(async () => ({
-  default: (await import('./features/library/pages/MediaLibraryPage')).MediaLibraryPage,
-}));
-
-const MediaLibraryPagePhone = lazy(async () => ({
-  default: (await import('./features/library/pages/MediaLibraryPagePhone')).MediaLibraryPagePhone,
-}));
-
-const MediaDetailsPage = lazy(async () => ({
-  default: (await import('./features/media-details/pages/MediaDetailsPage')).MediaDetailsPage,
-}));
-
-const MediaDetailsPagePhone = lazy(async () => ({
-  default: (await import('./features/media-details/pages/MediaDetailsPagePhone')).MediaDetailsPagePhone,
-}));
-
-const SettingsPage = lazy(async () => ({
-  default: (await import('./features/settings/pages/SettingsPage')).SettingsPage,
-}));
-
-const SettingsPagePhone = lazy(async () => ({
-  default: (await import('./features/settings/pages/SettingsPagePhone')).SettingsPagePhone,
-}));
-
-const SystemSettingsPage = lazy(async () => ({
-  default: (await import('./features/settings/pages/SystemSettingsPage')).SystemSettingsPage,
-}));
-
-const SystemSettingsPagePhone = lazy(async () => ({
-  default: (await import('./features/settings/pages/SystemSettingsPagePhone')).SystemSettingsPagePhone,
-}));
-
-const AccountAccessPage = lazy(async () => ({
-  default: (await import('./features/settings/pages/AccountAccessPage')).AccountAccessPage,
-}));
-
-const AccountAccessPagePhone = lazy(async () => ({
-  default: (await import('./features/settings/pages/AccountAccessPagePhone')).AccountAccessPagePhone,
-}));
-
-const DownloadControlPage = lazy(async () => ({
-  default: (await import('./features/settings/pages/DownloadControlPage')).DownloadControlPage,
-}));
-
-const DownloadControlPagePhone = lazy(async () => ({
-  default: (await import('./features/settings/pages/DownloadControlPagePhone')).DownloadControlPagePhone,
-}));
-
-const PlayerPage = lazy(async () => ({
-  default: (await import('./features/player/pages/PlayerPage')).PlayerPage,
-}));
-
-const PlayerPagePhone = lazy(async () => ({
-  default: (await import('./features/player/pages/PlayerPagePhone')).PlayerPagePhone,
-}));
+import { MediaLibraryPage } from './features/library/pages/MediaLibraryPage';
+import { MediaLibraryPagePhone } from './features/library/pages/MediaLibraryPagePhone';
+import { MediaDetailsPage } from './features/media-details/pages/MediaDetailsPage';
+import { MediaDetailsPagePhone } from './features/media-details/pages/MediaDetailsPagePhone';
+import { SettingsPage } from './features/settings/pages/SettingsPage';
+import { SettingsPagePhone } from './features/settings/pages/SettingsPagePhone';
+import { SystemSettingsPage } from './features/settings/pages/SystemSettingsPage';
+import { SystemSettingsPagePhone } from './features/settings/pages/SystemSettingsPagePhone';
+import { AccountAccessPage } from './features/settings/pages/AccountAccessPage';
+import { AccountAccessPagePhone } from './features/settings/pages/AccountAccessPagePhone';
+import { DownloadControlPage } from './features/settings/pages/DownloadControlPage';
+import { DownloadControlPagePhone } from './features/settings/pages/DownloadControlPagePhone';
+import { PlayerPage } from './features/player/pages/PlayerPage';
+import { PlayerPagePhone } from './features/player/pages/PlayerPagePhone';
 
 interface ExperienceRouteDefinition {
   path: string;
@@ -149,15 +107,21 @@ function RouteTitleManager() {
   return null;
 }
 
-function RouteLoadingFallback() {
-  return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <p className="eyebrow">Yeen Streaming</p>
-        <h1>Loading page...</h1>
-      </section>
-    </main>
-  );
+function RouteScrollManager({ enabled }: { enabled: boolean }) {
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+
+  useLayoutEffect(() => {
+    if (!enabled || hash || navigationType === 'POP') {
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [enabled, hash, navigationType, pathname]);
+
+  return null;
 }
 
 function App() {
@@ -319,37 +283,36 @@ function App() {
   return (
     <BrowserRouter>
       <RouteTitleManager />
-      <Suspense fallback={<RouteLoadingFallback />}>
-        <Routes>
-          {experienceRoutes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={routeElementForExperience(isPhoneExperience, route)}
-            />
-          ))}
-
-          {guardedExperienceRoutes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={route.allowed
-                ? routeElementForExperience(isPhoneExperience, route)
-                : <Navigate to={route.redirectTo} replace />}
-            />
-          ))}
-
+      <RouteScrollManager enabled={!isPhoneExperience} />
+      <Routes>
+        {experienceRoutes.map((route) => (
           <Route
-            path="/admin/download-control"
-            element={<Navigate to="/admin/downloads" replace />}
+            key={route.path}
+            path={route.path}
+            element={routeElementForExperience(isPhoneExperience, route)}
           />
+        ))}
+
+        {guardedExperienceRoutes.map((route) => (
           <Route
-            path="/admin/metadata"
-            element={<Navigate to="/admin/system#system-metadata" replace />}
+            key={route.path}
+            path={route.path}
+            element={route.allowed
+              ? routeElementForExperience(isPhoneExperience, route)
+              : <Navigate to={route.redirectTo} replace />}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+        ))}
+
+        <Route
+          path="/admin/download-control"
+          element={<Navigate to="/admin/downloads" replace />}
+        />
+        <Route
+          path="/admin/metadata"
+          element={<Navigate to="/admin/system#system-metadata-commits" replace />}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }

@@ -2,14 +2,14 @@ import { Logger } from '@nestjs/common';
 import { existsSync } from 'node:fs';
 import { rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { HlsSession } from '../../../infrastructure/stores/hls-session.store';
-import { HlsSegmentTranscoder } from '../hls/hls-segment-transcoder.service';
+import type { HlsSession } from '../../infrastructure/stores/hls-session.store';
+import { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
 import {
   readMediaFileHeader,
   readMediaFileHeaderCached,
   readMediaFileHeaderUnbuffered,
   scoreMediaHeader as scoreSharedMediaHeader,
-} from '../../../../core/infrastructure/shared/media-header-probe';
+} from '../../../core/infrastructure/shared/media-header-probe';
 
 /**
  * Classifies a transcode error message as recoverable (temporary input issue)

@@ -65,6 +65,8 @@ export function EpisodesSection({
             const episodePercent = progressPercent(episodeProgress);
             const watched = Boolean(episodeProgress?.completed);
             const inProgress = isResumableProgress(episodeProgress);
+            const showProgressBar = watched || inProgress;
+            const progressWidth = watched ? 100 : episodePercent;
 
             return (
               <div
@@ -93,9 +95,9 @@ export function EpisodesSection({
                   {watched ? (
                     <span className="episode-watched-badge">✓ Watched</span>
                   ) : null}
-                  {inProgress ? (
+                  {showProgressBar ? (
                     <div className="episode-progress" aria-hidden="true">
-                      <div style={{ width: `${episodePercent}%` }} />
+                      <div style={{ width: `${progressWidth}%` }} />
                     </div>
                   ) : null}
                 </div>

@@ -26,15 +26,6 @@ export function AccountAccessPage({
     <main className="browse-page admin-page settings-page-v2 admin-accounts-page">
       <AdminNav user={user} onLogout={onLogout} />
 
-      <section className="admin-page-header">
-        <p className="eyebrow">Admin</p>
-        <h1>Accounts & Access</h1>
-        <p className="muted">
-          Manage account creation, admin assignment, and invite balances from one
-          dedicated control surface.
-        </p>
-      </section>
-
       <AdminAccountsPanel adminAccountsState={adminAccountsState} />
     </main>
   );

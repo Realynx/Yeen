@@ -80,11 +80,15 @@ textarea {
 }
 
 .browse-page,
-.player-page,
 .media-details-page {
   min-height: 100vh;
   padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
   animation: rise-in 540ms ease;
+}
+
+.player-page {
+  min-height: 100vh;
+  padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
 }
 
 .prepare-stream-page {

@@ -14,8 +14,11 @@ import { AccountsStore } from '../../infrastructure/stores/accounts.store';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { CreateAdminAccountDto } from '../dto/create-admin-account.dto';
 import { LoginDto } from '../dto/login.dto';
+import { ResetAccountPasswordDto } from '../dto/reset-account-password.dto';
 import { RegisterDto } from '../dto/register.dto';
+import { UpdateAdminAccountProfileDto } from '../dto/update-admin-account-profile.dto';
 import { UpdateAccountInvitesDto } from '../dto/update-account-invites.dto';
+import { UpdateAccountMaxBitrateDto } from '../dto/update-account-max-bitrate.dto';
 import { UpdateAccountRoleDto } from '../dto/update-account-role.dto';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity';
@@ -135,12 +138,37 @@ export class AuthService implements OnModuleInit {
     return this.authAdminAccountService.listAccountsForAdmin();
   }
 
+  async listAccountsActivityForAdmin() {
+    return this.authAdminAccountService.listAccountsActivityForAdmin();
+  }
+
   async setAccountInvites(accountId: string, dto: UpdateAccountInvitesDto) {
     return this.authAdminAccountService.setAccountInvites(accountId, dto);
   }
 
+  async setAccountProfile(
+    accountId: string,
+    dto: UpdateAdminAccountProfileDto,
+  ) {
+    return this.authAdminAccountService.setAccountProfile(accountId, dto);
+  }
+
+  async resetAccountPassword(
+    accountId: string,
+    dto: ResetAccountPasswordDto,
+  ) {
+    return this.authAdminAccountService.resetAccountPassword(accountId, dto);
+  }
+
   async setAccountRole(accountId: string, dto: UpdateAccountRoleDto) {
     return this.authAdminAccountService.setAccountRole(accountId, dto);
+  }
+
+  async setAccountMaxBitrate(
+    accountId: string,
+    dto: UpdateAccountMaxBitrateDto,
+  ) {
+    return this.authAdminAccountService.setAccountMaxBitrate(accountId, dto);
   }
 
   async createAccountAsAdmin(dto: CreateAdminAccountDto) {

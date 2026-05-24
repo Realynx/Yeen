@@ -11,6 +11,8 @@ import {
 interface MediaLocationsCategoryProps {
   mediaLocationsState: MediaLocationsState;
   configuredLabel: string;
+  isOpen: boolean;
+  onToggle: () => void;
   onAddLocation: (event: FormEvent<HTMLFormElement>) => void;
   onScan: (event: FormEvent<HTMLFormElement>) => void;
 }
@@ -18,6 +20,8 @@ interface MediaLocationsCategoryProps {
 export function MediaLocationsCategory({
   mediaLocationsState,
   configuredLabel,
+  isOpen,
+  onToggle,
   onAddLocation,
   onScan,
 }: MediaLocationsCategoryProps) {
@@ -48,6 +52,8 @@ export function MediaLocationsCategory({
       title="Media Locations"
       description="Configure global media folders for the whole server. These locations are shared by every user account."
       badge={configuredLabel}
+      isOpen={isOpen}
+      onToggle={onToggle}
     >
       <div className="system-media-runtime-column">
         <form className="settings-input-row" onSubmit={onAddLocation}>

@@ -741,19 +741,10 @@ export function TorrentControlPanel({
       <header className="settings-surface-header torrent-control-title-panel">
         <div className="torrent-control-title-copy">
           <p className="settings-section-kicker">Download Control</p>
-          <h2>qBittorrent</h2>
+          <h2>Torrents</h2>
         </div>
         <span className="settings-pill torrent-control-title-pill">Categorized Controls</span>
       </header>
-
-      <p className="muted torrent-control-title-description">
-        Add, start, stop, restart, and delete torrents. Intake is simplified to
-        magnet or .torrent file, and new torrents always start immediately.
-      </p>
-
-      <p className="settings-inline-meta torrent-control-title-meta">
-        Default add mode is <strong>{defaultOrderMode}</strong>. Use status groups to focus queue operations.
-      </p>
 
       <div className="settings-categories torrent-control-categories">
         <TorrentPanelSection

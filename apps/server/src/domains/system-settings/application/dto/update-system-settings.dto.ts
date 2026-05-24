@@ -162,6 +162,34 @@ export class UpdateSystemSettingsDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(250)
+  @Max(50000)
+  transcodeDefaultMaxBitrateKbps?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(48)
+  @Max(384)
+  transcodeAudioBitrateKbps?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(240)
+  @Max(2160)
+  transcodeMaxOutputHeight?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  transcodeRateControlBufferSeconds?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
   @Max(20)
   hlsSegmentSeconds?: number;

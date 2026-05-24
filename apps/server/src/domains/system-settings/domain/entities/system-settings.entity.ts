@@ -35,6 +35,10 @@ export interface SystemSettings {
   openSubtitlesApiKey: string;
   transcodePreset: string;
   transcodeCrf: number;
+  transcodeDefaultMaxBitrateKbps: number;
+  transcodeAudioBitrateKbps: number;
+  transcodeMaxOutputHeight: number;
+  transcodeRateControlBufferSeconds: number;
   hlsSegmentSeconds: number;
   subtitleDefaultLanguage: string;
 }

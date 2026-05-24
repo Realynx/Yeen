@@ -321,6 +321,13 @@
   animation: none;
 }
 
+.phone-page-shell .phone-player-page .player-controls-right .player-menu.player-menu-unified {
+  width: min(94vw, 22rem);
+  min-width: min(94vw, 17.8rem);
+  max-height: min(78vh, 30rem);
+  overflow-y: auto;
+}
+
 .phone-page-shell .phone-player-page .player-menu-heading {
   margin: 0.26rem 0.34rem 0.12rem;
   font-size: 0.62rem;
@@ -344,10 +351,37 @@
   padding: 0.16rem 0.24rem 0.3rem;
 }
 
+.phone-page-shell .phone-player-page .player-menu-chiprow-grid {
+  grid-template-columns: repeat(auto-fit, minmax(4.8rem, 1fr));
+  gap: 0.26rem;
+}
+
+.phone-page-shell .phone-player-page .player-menu.player-menu-settings .player-menu-chiprow-grid {
+  grid-template-columns: repeat(auto-fit, minmax(4.25rem, 1fr));
+}
+
 .phone-page-shell .phone-player-page .player-menu-chip {
   min-height: 1.68rem;
   font-size: 0.68rem;
   padding: 0.2rem 0.48rem;
+}
+
+.phone-page-shell .phone-player-page .player-transcode-profile-card {
+  margin: 0.14rem 0.24rem 0.34rem;
+  padding: 0.4rem 0.44rem 0.48rem;
+  border-radius: 0.72rem;
+}
+
+.phone-page-shell .phone-player-page .player-transcode-profile-kicker {
+  font-size: 0.58rem;
+}
+
+.phone-page-shell .phone-player-page .player-transcode-profile-value {
+  font-size: 0.86rem;
+}
+
+.phone-page-shell .phone-player-page .player-transcode-profile-copy {
+  font-size: 0.64rem;
 }
 
 .phone-page-shell .phone-player-page .player-context-menu {
@@ -392,6 +426,17 @@
 
 .phone-page-shell .phone-player-page .player-details-title {
   font-size: clamp(1rem, 4.4vw, 1.24rem);
+}
+
+.phone-page-shell .phone-player-page .player-details-heading {
+  gap: 0.4rem 0.58rem;
+}
+
+.phone-page-shell .phone-player-page .player-details-open-link {
+  min-height: 1.72rem;
+  padding: 0.16rem 0.56rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
 }
 
 .phone-page-shell .phone-player-page .player-details-description {

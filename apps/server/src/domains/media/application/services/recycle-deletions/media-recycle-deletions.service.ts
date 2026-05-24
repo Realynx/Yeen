@@ -3,7 +3,7 @@ import type { Dirent } from 'node:fs';
 import { readdir, rm, stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import { MediaFsFileOpsService } from '../filesystem/media-fs-file-ops.service';
-import { MediaLibraryLocationsService } from '../library-locations/media-library-locations.service';
+import { MediaLibraryLocationsService } from '../media-library-locations.service';
 import {
   buildRecyclePurgeMessage,
   collectDriveRoots,

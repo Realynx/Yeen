@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { MediaItem } from '../../../domain/entities/media-item.entity';
 import { MediaPathResolverService } from '../path-resolution/media-path-resolver.service';
-import { MediaLibraryLocationsService } from '../library-locations/media-library-locations.service';
+import { MediaLibraryLocationsService } from '../media-library-locations.service';
 import {
   extractImportedImageAssetsValue,
   extractImportedItemsValue,

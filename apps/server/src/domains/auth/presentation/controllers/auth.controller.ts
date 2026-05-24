@@ -17,8 +17,11 @@ import { CurrentUser } from '../decorators/current-user.decorator';
 import { ChangePasswordDto } from '../../application/dto/change-password.dto';
 import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto';
 import { LoginDto } from '../../application/dto/login.dto';
+import { ResetAccountPasswordDto } from '../../application/dto/reset-account-password.dto';
 import { RegisterDto } from '../../application/dto/register.dto';
+import { UpdateAdminAccountProfileDto } from '../../application/dto/update-admin-account-profile.dto';
 import { UpdateAccountInvitesDto } from '../../application/dto/update-account-invites.dto';
+import { UpdateAccountMaxBitrateDto } from '../../application/dto/update-account-max-bitrate.dto';
 import { UpdateAccountRoleDto } from '../../application/dto/update-account-role.dto';
 import { UpdateProfileDto } from '../../application/dto/update-profile.dto';
 import type { AuthUser } from '../../domain/entities/auth-user.entity';
@@ -56,6 +59,12 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/accounts/activity')
+  listAccountActivityForAdmin() {
+    return this.authService.listAccountsActivityForAdmin();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('admin/accounts')
   createAccountAsAdmin(@Body() dto: CreateAdminAccountDto) {
     return this.authService.createAccountAsAdmin(dto);
@@ -71,12 +80,39 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/accounts/:accountId/profile')
+  setAccountProfile(
+    @Param('accountId') accountId: string,
+    @Body() dto: UpdateAdminAccountProfileDto,
+  ) {
+    return this.authService.setAccountProfile(accountId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('admin/accounts/:accountId/password/reset')
+  resetAccountPassword(
+    @Param('accountId') accountId: string,
+    @Body() dto: ResetAccountPasswordDto,
+  ) {
+    return this.authService.resetAccountPassword(accountId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('admin/accounts/:accountId/role')
   setAccountRole(
     @Param('accountId') accountId: string,
     @Body() dto: UpdateAccountRoleDto,
   ) {
     return this.authService.setAccountRole(accountId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/accounts/:accountId/max-bitrate')
+  setAccountMaxBitrate(
+    @Param('accountId') accountId: string,
+    @Body() dto: UpdateAccountMaxBitrateDto,
+  ) {
+    return this.authService.setAccountMaxBitrate(accountId, dto);
   }
 
   @UseGuards(JwtAuthGuard)

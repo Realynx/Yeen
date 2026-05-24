@@ -1,10 +1,47 @@
-import Hls from 'hls.js';
+import Hls, { type FragLoadedData } from 'hls.js';
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { PlaybackSource } from './usePlayerData';
 import { toHlsLevelLabel, type HlsLevelOption } from './playerUtils';
 import { createHlsInstance } from './hls/createHls';
 import { attachHlsErrorRecovery } from './hls/useHlsErrorRecovery';
+
+const THROUGHPUT_SAMPLE_WINDOW_MS = 16000;
+const THROUGHPUT_SAMPLE_LIMIT = 12;
+
+interface ThroughputSample {
+  bitsLoaded: number;
+  mediaDurationSeconds: number;
+  completedAtMs: number;
+}
+
+function toThroughputSample(data: FragLoadedData): ThroughputSample | null {
+  const segment = data.part ?? data.frag;
+  const stats = segment.stats;
+
+  const bytesLoaded =
+    Number.isFinite(stats.total) && stats.total > 0
+      ? stats.total
+      : stats.loaded;
+  const mediaDurationSeconds =
+    typeof segment.duration === 'number' && Number.isFinite(segment.duration)
+      ? segment.duration
+      : null;
+
+  if (!Number.isFinite(bytesLoaded) || bytesLoaded <= 0) {
+    return null;
+  }
+
+  if (mediaDurationSeconds === null || mediaDurationSeconds <= 0) {
+    return null;
+  }
+
+  return {
+    bitsLoaded: bytesLoaded * 8,
+    mediaDurationSeconds,
+    completedAtMs: Date.now(),
+  };
+}
 
 interface UsePlayerMediaSourceOptions {
   videoRef: MutableRefObject<HTMLVideoElement | null>;
@@ -104,14 +141,40 @@ export function usePlayerMediaSource({
       if (Hls.isSupported()) {
         const hls = createHlsInstance();
         hlsRef.current = hls;
+        const throughputSamples: ThroughputSample[] = [];
 
-        const publishBandwidthEstimate = () => {
-          const estimate = hls.bandwidthEstimate;
-          if (!Number.isFinite(estimate) || estimate <= 0) {
+        const publishMeasuredThroughput = () => {
+          const cutoffMs = Date.now() - THROUGHPUT_SAMPLE_WINDOW_MS;
+
+          while (throughputSamples.length > 0 && throughputSamples[0].completedAtMs < cutoffMs) {
+            throughputSamples.shift();
+          }
+
+          while (throughputSamples.length > THROUGHPUT_SAMPLE_LIMIT) {
+            throughputSamples.shift();
+          }
+
+          if (throughputSamples.length === 0) {
+            setEstimatedBandwidthBps(null);
             return;
           }
 
-          setEstimatedBandwidthBps(Math.round(estimate));
+          const totalBits = throughputSamples.reduce((sum, sample) => {
+            return sum + sample.bitsLoaded;
+          }, 0);
+
+          const totalMediaDurationSeconds = throughputSamples.reduce((sum, sample) => {
+            return sum + sample.mediaDurationSeconds;
+          }, 0);
+
+          if (totalBits <= 0 || totalMediaDurationSeconds <= 0) {
+            setEstimatedBandwidthBps(null);
+            return;
+          }
+
+          // Effective stream throughput is based on media time, not burst download
+          // speed, so it aligns with transcoder bitrate caps in Stats for Nerds.
+          setEstimatedBandwidthBps(Math.round(totalBits / totalMediaDurationSeconds));
         };
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -121,17 +184,18 @@ export function usePlayerMediaSource({
               label: toHlsLevelLabel(level.height, level.bitrate),
             })),
           );
-
-          publishBandwidthEstimate();
         });
 
         hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
           setCurrentAutoLevel(data.level);
-          publishBandwidthEstimate();
         });
 
-        hls.on(Hls.Events.FRAG_LOADED, () => {
-          publishBandwidthEstimate();
+        hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
+          const sample = toThroughputSample(data);
+          if (sample) {
+            throughputSamples.push(sample);
+          }
+          publishMeasuredThroughput();
         });
 
         attachHlsErrorRecovery({

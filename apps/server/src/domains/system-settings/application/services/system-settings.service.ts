@@ -122,6 +122,22 @@ export class SystemSettingsService {
         this.configService.get<string>('TRANSCODE_CRF'),
         22,
       ),
+      transcodeDefaultMaxBitrateKbps: this.parseIntWithFallback(
+        this.configService.get<string>('TRANSCODE_DEFAULT_MAX_BITRATE_KBPS'),
+        4500,
+      ),
+      transcodeAudioBitrateKbps: this.parseIntWithFallback(
+        this.configService.get<string>('TRANSCODE_AUDIO_BITRATE_KBPS'),
+        160,
+      ),
+      transcodeMaxOutputHeight: this.parseIntWithFallback(
+        this.configService.get<string>('TRANSCODE_MAX_OUTPUT_HEIGHT'),
+        1080,
+      ),
+      transcodeRateControlBufferSeconds: this.parseIntWithFallback(
+        this.configService.get<string>('TRANSCODE_RATE_CONTROL_BUFFER_SECONDS'),
+        3,
+      ),
       hlsSegmentSeconds: this.parseIntWithFallback(
         this.configService.get<string>('HLS_SEGMENT_SECONDS'),
         4,
@@ -187,6 +203,30 @@ export class SystemSettingsService {
       openSubtitlesApiKey: input.openSubtitlesApiKey?.trim() || '',
       transcodePreset: input.transcodePreset?.trim() || 'veryfast',
       transcodeCrf: this.clampInteger(input.transcodeCrf, 12, 40, 22),
+      transcodeDefaultMaxBitrateKbps: this.clampInteger(
+        input.transcodeDefaultMaxBitrateKbps,
+        250,
+        50000,
+        4500,
+      ),
+      transcodeAudioBitrateKbps: this.clampInteger(
+        input.transcodeAudioBitrateKbps,
+        48,
+        384,
+        160,
+      ),
+      transcodeMaxOutputHeight: this.clampInteger(
+        input.transcodeMaxOutputHeight,
+        240,
+        2160,
+        1080,
+      ),
+      transcodeRateControlBufferSeconds: this.clampInteger(
+        input.transcodeRateControlBufferSeconds,
+        1,
+        30,
+        3,
+      ),
       hlsSegmentSeconds: this.clampInteger(input.hlsSegmentSeconds, 1, 20, 4),
       subtitleDefaultLanguage: input.subtitleDefaultLanguage?.trim() || 'en',
     };

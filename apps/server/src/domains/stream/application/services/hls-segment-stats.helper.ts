@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { parseSegmentIndex } from '../../../infrastructure/hls/hls-segment-naming';
+import { parseSegmentIndex } from '../../infrastructure/hls/hls-segment-naming';
 
 /**
  * Lists all ready segment indices in an HLS session output directory by parsing
