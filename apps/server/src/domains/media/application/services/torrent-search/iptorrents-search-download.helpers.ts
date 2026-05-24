@@ -62,7 +62,9 @@ function isIptorrentsHost(hostname: string): boolean {
   );
 }
 
-function parseFileNameFromContentDisposition(header: string | null): string | null {
+function parseFileNameFromContentDisposition(
+  header: string | null,
+): string | null {
   if (!header) {
     return null;
   }

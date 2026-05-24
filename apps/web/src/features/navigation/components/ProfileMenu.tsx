@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../../shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
+import { useBroadcast } from '../../broadcast/services/broadcast-context';
 import './profile-menu.css';
 
 interface ProfileMenuProps {
@@ -11,6 +12,7 @@ interface ProfileMenuProps {
 
 export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   const navigate = useNavigate();
+  const broadcast = useBroadcast();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const isAdmin = isAdminRole(user.role);
@@ -78,6 +80,15 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
     onLogout();
   }
 
+  const viewerCountLabel =
+    broadcast.viewerCount === 1
+      ? '1 viewer'
+      : `${broadcast.viewerCount} viewers`;
+
+  function handleToggleBroadcast() {
+    void broadcast.toggleEnabled();
+  }
+
   return (
     <div className="profile-menu" ref={rootRef}>
       <button
@@ -126,6 +137,18 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
               Download Control
             </button>
           ) : null}
+
+          <button
+            className={`profile-dropdown-item broadcast-toggle ${broadcast.isEnabled ? 'is-live' : ''}`}
+            type="button"
+            onClick={handleToggleBroadcast}
+            disabled={broadcast.updatingEnabled || broadcast.loading}
+            aria-pressed={broadcast.isEnabled}
+          >
+            {broadcast.updatingEnabled
+              ? 'Updating Broadcast Mode...'
+              : `Broadcast Mode: ${broadcast.isEnabled ? 'On' : 'Off'} (${viewerCountLabel})`}
+          </button>
 
           <button className="profile-dropdown-item" type="button" onClick={handleSignOut}>
             Sign Out

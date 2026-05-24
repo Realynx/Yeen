@@ -174,7 +174,11 @@ export class MediaFsRollbackService {
     }
 
     if (op.type === 'updateDbPath') {
-      await this.mediaStore.updateFilePath(op.mediaId, op.from, op.fromRelative);
+      await this.mediaStore.updateFilePath(
+        op.mediaId,
+        op.from,
+        op.fromRelative,
+      );
       return 1;
     }
 

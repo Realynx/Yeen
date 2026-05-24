@@ -20,8 +20,12 @@ export interface MediaTorrentIndexingContext {
     remove(hash: string): Promise<void>;
   };
   torrentService: {
-    getTorrentPaths(hash: string): Promise<{ savePath: string | null; contentPath: string | null }>;
-    getTorrentFiles(hash: string): Promise<Array<{ name: string; size: number }>>;
+    getTorrentPaths(
+      hash: string,
+    ): Promise<{ savePath: string | null; contentPath: string | null }>;
+    getTorrentFiles(
+      hash: string,
+    ): Promise<Array<{ name: string; size: number }>>;
     getKnownTorrentFiles(hash: string): Promise<TorrentFileHint[]>;
     getKnownTorrentTitleHint(hash: string): Promise<string | null>;
     getKnownTorrentMediaHint(hash: string): Promise<{
@@ -41,28 +45,50 @@ export interface MediaTorrentIndexingContext {
     }): string[];
   };
   scanner: {
-    probeFile(filePath: string, libraryRoot: string, probeHint?: MediaProbeHint): Promise<MediaItem>;
+    probeFile(
+      filePath: string,
+      libraryRoot: string,
+      probeHint?: MediaProbeHint,
+    ): Promise<MediaItem>;
   };
   fileExists(filePath: string): Promise<boolean>;
-  tryTorrentRead<T>(hash: string, phase: 'paths' | 'files', read: () => Promise<T>): Promise<T | null>;
+  tryTorrentRead<T>(
+    hash: string,
+    phase: 'paths' | 'files',
+    read: () => Promise<T>,
+  ): Promise<T | null>;
   mergeTorrentFileHints(
     qbFiles: Array<{ name: string; size: number }>,
     hintedFiles: TorrentFileHint[],
   ): Array<{ name: string; size: number }>;
-  rankTorrentVideoCandidates(files: Array<{ name: string; size: number }>): Array<{ name: string; size: number }>;
-  findIndexedMediaByFilePathCandidates(absoluteFileCandidates: string[]): Promise<MediaItem | null>;
+  rankTorrentVideoCandidates(
+    files: Array<{ name: string; size: number }>,
+  ): Array<{ name: string; size: number }>;
+  findIndexedMediaByFilePathCandidates(
+    absoluteFileCandidates: string[],
+  ): Promise<MediaItem | null>;
   findAllocatedTorrentFileCandidate(absoluteFileCandidates: string[]): Promise<{
     canonicalPath: string;
     probePath: string;
     fileStats: import('node:fs').Stats;
   } | null>;
   shouldAttemptFallbackWalk(hash: string, minIntervalMs: number): boolean;
-  collectTorrentSearchRoots(input: { savePath: string; contentPath: string | null }): string[];
+  collectTorrentSearchRoots(input: {
+    savePath: string;
+    contentPath: string | null;
+  }): string[];
   discoverTorrentFileByWalk(
     searchRoots: string[],
     expectedBasename: string,
-  ): Promise<{ canonicalPath: string; probePath: string; fileStats: import('node:fs').Stats } | null>;
-  resolveLibraryRootForFile(absoluteFilePath: string, fallbackRoot: string): Promise<string>;
+  ): Promise<{
+    canonicalPath: string;
+    probePath: string;
+    fileStats: import('node:fs').Stats;
+  } | null>;
+  resolveLibraryRootForFile(
+    absoluteFilePath: string,
+    fallbackRoot: string,
+  ): Promise<string>;
   buildProvisionalTorrentMediaItem(input: {
     canonicalPath: string;
     libraryRoot: string;
@@ -91,15 +117,21 @@ export interface MediaTorrentIndexingContext {
 export async function indexTorrentFileValue(
   context: MediaTorrentIndexingContext,
   hash: string,
-): Promise<{ status: 'indexed'; media: MediaItem } | { status: 'pending'; reason: string }> {
+): Promise<
+  | { status: 'indexed'; media: MediaItem }
+  | { status: 'pending'; reason: string }
+> {
   const normalizedHash = hash.trim();
   if (!normalizedHash) {
     throw new BadRequestException('Torrent hash is required.');
   }
 
-  const previouslyIndexed = await context.torrentMediaIndexStore.get(normalizedHash);
+  const previouslyIndexed =
+    await context.torrentMediaIndexStore.get(normalizedHash);
   if (previouslyIndexed) {
-    const cachedMedia = await context.mediaStore.findById(previouslyIndexed.mediaId);
+    const cachedMedia = await context.mediaStore.findById(
+      previouslyIndexed.mediaId,
+    );
     if (cachedMedia) {
       const stillOnDisk = await context.fileExists(cachedMedia.filePath);
       if (stillOnDisk) {
@@ -114,16 +146,23 @@ export async function indexTorrentFileValue(
     }
   }
 
-  const torrentPaths = await context.tryTorrentRead(normalizedHash, 'paths', () =>
-    context.torrentService.getTorrentPaths(normalizedHash),
+  const torrentPaths = await context.tryTorrentRead(
+    normalizedHash,
+    'paths',
+    () => context.torrentService.getTorrentPaths(normalizedHash),
   );
   if (!torrentPaths) {
     return { status: 'pending', reason: context.torrentUnavailableReason };
   }
 
-  const savePath = torrentPaths.savePath ?? (torrentPaths.contentPath ? dirname(torrentPaths.contentPath) : null);
+  const savePath =
+    torrentPaths.savePath ??
+    (torrentPaths.contentPath ? dirname(torrentPaths.contentPath) : null);
   if (!savePath) {
-    return { status: 'pending', reason: 'qBittorrent has not assigned a save path to this torrent yet.' };
+    return {
+      status: 'pending',
+      reason: 'qBittorrent has not assigned a save path to this torrent yet.',
+    };
   }
 
   const qbFiles = await context.tryTorrentRead(normalizedHash, 'files', () =>
@@ -138,15 +177,30 @@ export async function indexTorrentFileValue(
     await context.torrentService.getKnownTorrentFiles(normalizedHash),
   );
   if (files.length === 0) {
-    return { status: 'pending', reason: 'qBittorrent has not reported any files for this torrent yet.' };
+    return {
+      status: 'pending',
+      reason: 'qBittorrent has not reported any files for this torrent yet.',
+    };
   }
 
-  const videoExtensions = new Set(['.mp4', '.m4v', '.mkv', '.mov', '.avi', '.webm']);
+  const videoExtensions = new Set([
+    '.mp4',
+    '.m4v',
+    '.mkv',
+    '.mov',
+    '.avi',
+    '.webm',
+  ]);
   const candidateFiles = context.rankTorrentVideoCandidates(
-    files.filter((file) => videoExtensions.has(extname(file.name).toLowerCase())),
+    files.filter((file) =>
+      videoExtensions.has(extname(file.name).toLowerCase()),
+    ),
   );
   if (candidateFiles.length === 0) {
-    return { status: 'pending', reason: 'No playable video file detected inside the torrent.' };
+    return {
+      status: 'pending',
+      reason: 'No playable video file detected inside the torrent.',
+    };
   }
 
   const [titleHint, mediaHint] = await Promise.all([
@@ -159,7 +213,9 @@ export async function indexTorrentFileValue(
         title: mediaHint.title || titleHint || undefined,
         normalizedTitle: mediaHint.normalizedTitle || titleHint || undefined,
         tags: Array.isArray(mediaHint.tags)
-          ? mediaHint.tags.filter((tag): tag is string => typeof tag === 'string')
+          ? mediaHint.tags.filter(
+              (tag): tag is string => typeof tag === 'string',
+            )
           : undefined,
       }
     : titleHint
@@ -175,25 +231,38 @@ export async function indexTorrentFileValue(
     const isPrimaryCandidate = i === 0;
     const candidateBaseName = basename(candidate.name);
     const candidateFileName = basename(candidate.name, extname(candidate.name));
-    const candidateDetection = detectFromFilenameAndPath(candidateFileName, candidate.name);
+    const candidateDetection = detectFromFilenameAndPath(
+      candidateFileName,
+      candidate.name,
+    );
 
-    const absoluteFileCandidates = context.mediaPathResolver.buildTorrentAbsoluteFileCandidates({
-      savePath,
-      contentPath: torrentPaths.contentPath,
-      torrentRelativePath: candidate.name,
-    });
+    const absoluteFileCandidates =
+      context.mediaPathResolver.buildTorrentAbsoluteFileCandidates({
+        savePath,
+        contentPath: torrentPaths.contentPath,
+        torrentRelativePath: candidate.name,
+      });
 
-    const existing = await context.findIndexedMediaByFilePathCandidates(absoluteFileCandidates);
+    const existing = await context.findIndexedMediaByFilePathCandidates(
+      absoluteFileCandidates,
+    );
     if (existing) {
       if (isPrimaryCandidate) {
         const existingStats = await stat(existing.filePath).catch(() => null);
         if (!existingStats || !existingStats.isFile()) {
-          primaryPendingReason = 'Waiting for the first episode file to become readable on disk.';
+          primaryPendingReason =
+            'Waiting for the first episode file to become readable on disk.';
           continue;
         }
 
-        const existingHeader = await context.readFileHeader(existing.filePath, 16);
-        const existingHeaderScore = context.scoreMediaHeader(existingHeader, existingStats.size);
+        const existingHeader = await context.readFileHeader(
+          existing.filePath,
+          16,
+        );
+        const existingHeaderScore = context.scoreMediaHeader(
+          existingHeader,
+          existingStats.size,
+        );
         if (existingHeaderScore < 100) {
           primaryPendingReason =
             existingHeader === null
@@ -210,14 +279,22 @@ export async function indexTorrentFileValue(
       continue;
     }
 
-    let allocated = await context.findAllocatedTorrentFileCandidate(absoluteFileCandidates);
+    let allocated = await context.findAllocatedTorrentFileCandidate(
+      absoluteFileCandidates,
+    );
 
-    if (!allocated && context.shouldAttemptFallbackWalk(normalizedHash, 10_000)) {
+    if (
+      !allocated &&
+      context.shouldAttemptFallbackWalk(normalizedHash, 10_000)
+    ) {
       const searchRoots = context.collectTorrentSearchRoots({
         savePath,
         contentPath: torrentPaths.contentPath,
       });
-      const discovered = await context.discoverTorrentFileByWalk(searchRoots, candidateBaseName);
+      const discovered = await context.discoverTorrentFileByWalk(
+        searchRoots,
+        candidateBaseName,
+      );
 
       if (discovered) {
         context.logger.log(
@@ -239,7 +316,10 @@ export async function indexTorrentFileValue(
     }
 
     let { canonicalPath, probePath, fileStats } = allocated;
-    const libraryRoot = await context.resolveLibraryRootForFile(canonicalPath, savePath);
+    const libraryRoot = await context.resolveLibraryRootForFile(
+      canonicalPath,
+      savePath,
+    );
 
     const upsertProvisional = async (): Promise<MediaItem> => {
       const provisional = context.buildProvisionalTorrentMediaItem({
@@ -260,7 +340,9 @@ export async function indexTorrentFileValue(
     };
 
     const minBytesForProbe = Math.min(
-      candidate.size > 0 ? Math.max(4 * 1024 * 1024, candidate.size * 0.01) : 4 * 1024 * 1024,
+      candidate.size > 0
+        ? Math.max(4 * 1024 * 1024, candidate.size * 0.01)
+        : 4 * 1024 * 1024,
       32 * 1024 * 1024,
     );
     if (fileStats.size < minBytesForProbe) {
@@ -277,14 +359,26 @@ export async function indexTorrentFileValue(
     let headerBytes = await context.readFileHeader(probePath, 16);
     let headerScore = context.scoreMediaHeader(headerBytes, fileStats.size);
 
-    if (headerScore <= 0 && context.shouldAttemptFallbackWalk(normalizedHash, 10_000)) {
+    if (
+      headerScore <= 0 &&
+      context.shouldAttemptFallbackWalk(normalizedHash, 10_000)
+    ) {
       const searchRoots = context.collectTorrentSearchRoots({
         savePath,
         contentPath: torrentPaths.contentPath,
       });
-      const discovered = await context.discoverTorrentFileByWalk(searchRoots, candidateBaseName);
-      if (discovered && !arePathsEquivalentValue(discovered.probePath, probePath)) {
-        const discoveredHeaderBytes = await context.readFileHeader(discovered.probePath, 16);
+      const discovered = await context.discoverTorrentFileByWalk(
+        searchRoots,
+        candidateBaseName,
+      );
+      if (
+        discovered &&
+        !arePathsEquivalentValue(discovered.probePath, probePath)
+      ) {
+        const discoveredHeaderBytes = await context.readFileHeader(
+          discovered.probePath,
+          16,
+        );
         const discoveredHeaderScore = context.scoreMediaHeader(
           discoveredHeaderBytes,
           discovered.fileStats.size,
@@ -328,10 +422,16 @@ export async function indexTorrentFileValue(
 
     let probed: MediaItem;
     try {
-      probed = await context.scanner.probeFile(probePath, libraryRoot, probeHint);
+      probed = await context.scanner.probeFile(
+        probePath,
+        libraryRoot,
+        probeHint,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      context.logger.warn(`Probe failed for torrent file ${probePath}: ${message}`);
+      context.logger.warn(
+        `Probe failed for torrent file ${probePath}: ${message}`,
+      );
 
       if (headerScore > 0 && context.isRecoverableTorrentProbeError(message)) {
         if (isPrimaryCandidate) {
@@ -348,14 +448,18 @@ export async function indexTorrentFileValue(
         continue;
       }
 
-      const shortMessage = message.length > 220 ? `${message.slice(0, 220)}…` : message;
+      const shortMessage =
+        message.length > 220 ? `${message.slice(0, 220)}…` : message;
       if (isPrimaryCandidate) {
         primaryPendingReason = `Video header is not yet readable; waiting for more data. (probe: ${shortMessage})`;
       }
       continue;
     }
 
-    if (!Number.isFinite(probed.durationSeconds) || probed.durationSeconds <= 0) {
+    if (
+      !Number.isFinite(probed.durationSeconds) ||
+      probed.durationSeconds <= 0
+    ) {
       if (isPrimaryCandidate) {
         primaryPendingReason =
           'Probed first episode does not yet expose a duration; waiting for more data.';
@@ -386,7 +490,10 @@ export async function indexTorrentFileValue(
   }
 
   if (primaryReadyMedia) {
-    await context.rememberTorrentMediaMapping(normalizedHash, primaryReadyMedia);
+    await context.rememberTorrentMediaMapping(
+      normalizedHash,
+      primaryReadyMedia,
+    );
     return { status: 'indexed', media: primaryReadyMedia };
   }
 
@@ -401,6 +508,7 @@ export async function indexTorrentFileValue(
 
   return {
     status: 'pending',
-    reason: 'Waiting for the first episode in this torrent to become readable on disk.',
+    reason:
+      'Waiting for the first episode in this torrent to become readable on disk.',
   };
 }

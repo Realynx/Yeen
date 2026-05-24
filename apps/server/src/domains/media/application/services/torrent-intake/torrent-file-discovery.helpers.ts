@@ -3,7 +3,10 @@ import { readdir, stat } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { detectFromFilenameAndPath } from '../../../infrastructure/helpers/filename-metadata';
-import { readFileHeaderValue, scoreMediaHeaderValue } from './media-header-probe.helpers';
+import {
+  readFileHeaderValue,
+  scoreMediaHeaderValue,
+} from './media-header-probe.helpers';
 
 /**
  * Depth-limited breadth-first walk that finds files whose name matches the
@@ -232,9 +235,7 @@ export function mergeTorrentFileHintsValue(
     }
 
     const key = normalizedName.toLowerCase();
-    const safeSize = Number.isFinite(size)
-      ? Math.max(0, Math.floor(size))
-      : 0;
+    const safeSize = Number.isFinite(size) ? Math.max(0, Math.floor(size)) : 0;
     const existing = merged.get(key);
     if (!existing || safeSize > existing.size) {
       merged.set(key, {

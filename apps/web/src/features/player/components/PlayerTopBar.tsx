@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import type { User } from '../../shared/services/types';
@@ -39,6 +40,8 @@ export function PlayerTopBar({
         <p className="brand-mark">YEEN</p>
         <p className="page-nav-title" title={title}>{title}</p>
       </div>
+
+      <BroadcastNavBadge />
 
       <div className="top-nav-right">
         <LibrarySearchForm

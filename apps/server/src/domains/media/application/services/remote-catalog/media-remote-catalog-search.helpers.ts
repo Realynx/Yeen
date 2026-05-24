@@ -85,13 +85,12 @@ export async function collectTmdbRemoteTagCandidatesValue(
   const candidates: TmdbRemoteCandidate[] = [];
 
   for (const tag of tags) {
-    const payload =
-      await tmdbMetadataService.searchRemoteCandidatesByTag({
-        tag,
-        limit: providerLimit,
-        useCache,
-        page,
-      });
+    const payload = await tmdbMetadataService.searchRemoteCandidatesByTag({
+      tag,
+      limit: providerLimit,
+      useCache,
+      page,
+    });
     candidates.push(...payload);
   }
 

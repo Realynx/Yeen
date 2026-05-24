@@ -60,10 +60,11 @@ export async function scanValue(
     return existing;
   }
 
-  const sourcePaths = await context.mediaFileResolutionService.resolveScanLocations(
-    libraryPath,
-    libraryPaths,
-  );
+  const sourcePaths =
+    await context.mediaFileResolutionService.resolveScanLocations(
+      libraryPath,
+      libraryPaths,
+    );
 
   if (sourcePaths.length === 0) {
     throw new NotFoundException(
@@ -98,7 +99,9 @@ export function getTorrentDownloadProgressByMediaIdsValue(
   context: MediaPlaybackOpsContext,
   mediaIds: string[],
 ): Promise<{ items: MediaTorrentDownloadProgressItem[] }> {
-  return context.mediaPlaybackService.getTorrentDownloadProgressByMediaIds(mediaIds);
+  return context.mediaPlaybackService.getTorrentDownloadProgressByMediaIds(
+    mediaIds,
+  );
 }
 
 export async function streamPreviewImageValue(
@@ -126,5 +129,9 @@ export async function streamChapterThumbnailValue(
   response: Response,
 ): Promise<void> {
   const item = await context.getById(mediaId);
-  await context.mediaImageStreamService.streamChapterThumbnail(item, index, response);
+  await context.mediaImageStreamService.streamChapterThumbnail(
+    item,
+    index,
+    response,
+  );
 }

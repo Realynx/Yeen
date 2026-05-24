@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { AssignToShowDialog } from '../../media-management/components/AssignToShowDialog';
 import { EditMetadataDialog } from '../../media-management/components/EditMetadataDialog';
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
@@ -226,6 +227,8 @@ export function MediaDetailsPage({
             <p className="brand-mark">YEEN</p>
             <p className="page-nav-title" title={current.title}>{current.title}</p>
           </div>
+
+          <BroadcastNavBadge />
 
           <div className="top-nav-right">
             <LibrarySearchForm

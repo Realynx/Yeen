@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import {
-  indexTorrentMedia,
   searchIptorrents,
   startIptorrentsDownload,
   toApiErrorMessage,
@@ -16,6 +15,7 @@ import {
   persistPendingRemoteStreamTarget,
   type PendingLocalStreamTarget,
 } from './pendingRemoteStream';
+import { usePendingTorrentIndexing } from './usePendingTorrentIndexing';
 
 export type IptorrentStartActionMode = 'stream' | 'download';
 
@@ -146,122 +146,17 @@ export function useIptorrentsFlow(
     persistPendingRemoteStreamTarget(pendingLocalStreamTarget);
   }, [pendingLocalStreamTarget]);
 
-  // Poll the per-torrent index endpoint while waiting for enough of the
-  // download to land on disk to probe and add a single media entry. This
-  // effect also owns the user-facing "waiting for..." status text so we never
-  // race against a stale fallback message.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (
-      !pendingLocalStreamTarget ||
-      pendingLocalStreamTarget.remoteMediaId !== mediaId
-    ) {
-      return;
-    }
-
-    if (pendingAction) {
-      // Initial start request is still in flight; handleStartAction owns the
-      // message until the server responds.
-      return;
-    }
-
-    const localStreamTarget = pendingLocalStreamTarget;
-    const torrentHash = localStreamTarget.torrentHash;
-
-    if (!torrentHash) {
-      // We persisted a pending target but never received a hash from
-      // qBittorrent (or it was a session from before the response landed).
-      // Surface a clear, non-static message and clear the dead target so the
-      // user isn't stuck on the generic "Waiting for local indexing..." text.
-      setActionError(
-        'Lost track of the in-progress torrent (no qBittorrent hash). '
-          + 'Please click Stream or Download again to retry.',
-      );
-      setActionSuccess(null);
-      setPendingLocalStreamTarget(null);
-      return;
-    }
-
-    let cancelled = false;
-    let indexInFlight = false;
-
-    const waitingText =
-      localStreamTarget.intent === 'stream'
-        ? 'Waiting for local indexing while the torrent downloads in the background.'
-        : 'Waiting for enough of the torrent to download before indexing into the library.';
-
-    // Seed an initial message so the user always sees current status, but
-    // don't clobber a more specific message set by handleStartAction.
-    setActionSuccess((previous) => previous ?? waitingText);
-
-    async function attemptIndex() {
-      if (cancelled || indexInFlight) {
-        return;
-      }
-
-      indexInFlight = true;
-
-      try {
-        const result = await indexTorrentMedia(token, torrentHash!);
-        if (cancelled) {
-          return;
-        }
-
-        if (result.status === 'pending') {
-          // Always overwrite so the server's reason is what the user sees.
-          setActionSuccess(result.reason);
-          setActionError(null);
-          return;
-        }
-
-        const indexedMatch = result.media;
-
-        setPendingLocalStreamTarget(null);
-        setPendingAction(null);
-        setActionError(null);
-
-        if (localStreamTarget.intent === 'stream') {
-          setActionSuccess(
-            `Indexed "${indexedMatch.title}". Opening player...`,
-          );
-          // Navigate directly to the player. Going through /details first and
-          // then setTimeout-ing into /player runs afoul of this effect's
-          // cleanup (state change + URL change re-trigger the effect, which
-          // would clear the pending timer before it fires).
-          navigate(`/player/${indexedMatch.id}`);
-        } else {
-          setActionSuccess(
-            `Indexed "${indexedMatch.title}" into your library. Download continues in qBittorrent.`,
-          );
-        }
-      } catch (indexError) {
-        if (!cancelled) {
-          // Surface the failure but KEEP polling — qBittorrent or the bridge
-          // may simply be temporarily unreachable and recover shortly.
-          setActionError(
-            toApiErrorMessage(
-              indexError,
-              'Failed to index downloading torrent file.',
-            ),
-          );
-        }
-      } finally {
-        indexInFlight = false;
-      }
-    }
-
-    void attemptIndex();
-
-    const pollIntervalId = window.setInterval(() => {
-      void attemptIndex();
-    }, 4_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(pollIntervalId);
-    };
-  }, [mediaId, navigate, pendingAction, pendingLocalStreamTarget, token]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  usePendingTorrentIndexing({
+    token,
+    mediaId,
+    navigate,
+    pendingAction,
+    pendingLocalStreamTarget,
+    setPendingLocalStreamTarget,
+    setPendingAction,
+    setActionSuccess,
+    setActionError,
+  });
 
   const handleStartAction = useCallback(
     async (

@@ -28,7 +28,9 @@ export function resolveNyaaTorrentFileName(
   return sanitizeTorrentFileName(fallbackFileName || 'nyaa-download');
 }
 
-function parseFileNameFromContentDisposition(header: string | null): string | null {
+function parseFileNameFromContentDisposition(
+  header: string | null,
+): string | null {
   if (!header) {
     return null;
   }

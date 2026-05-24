@@ -54,7 +54,10 @@ function parseSearchResults(
       cells.eq(0).find('img').first().attr('alt') ?? 'Unknown',
     );
     const nameCell = cells.eq(1);
-    const titleLink = nameCell.find('a[href^="/view/"]').not('.comments').first();
+    const titleLink = nameCell
+      .find('a[href^="/view/"]')
+      .not('.comments')
+      .first();
     const title = cleanText(titleLink.text());
     if (!title) {
       return;

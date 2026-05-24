@@ -25,9 +25,7 @@ import {
   readFileHeaderValue,
   scoreMediaHeaderValue,
 } from './media-header-probe.helpers';
-import {
-  buildProvisionalTorrentMediaItemValue,
-} from './provisional-media-builder.helpers';
+import { buildProvisionalTorrentMediaItemValue } from './provisional-media-builder.helpers';
 import {
   discoverTorrentFileByWalkValue,
   mergeTorrentFileHintsValue,
@@ -59,7 +57,9 @@ export class MediaTorrentIndexingService {
     private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
   ) {}
 
-  async indexTorrentFile(hash: string): Promise<
+  async indexTorrentFile(
+    hash: string,
+  ): Promise<
     | { status: 'indexed'; media: MediaItem }
     | { status: 'pending'; reason: string }
   > {
@@ -76,27 +76,36 @@ export class MediaTorrentIndexingService {
       mediaPathResolver: this.mediaPathResolver,
       scanner: this.scanner,
       fileExists: (filePath) => fileExistsValue(filePath),
-      tryTorrentRead: (hash, phase, read) => this.tryTorrentRead(hash, phase, read),
+      tryTorrentRead: (hash, phase, read) =>
+        this.tryTorrentRead(hash, phase, read),
       mergeTorrentFileHints: (
         qbFiles: Array<{ name: string; size: number }>,
         hintedFiles: TorrentFileHint[],
       ) => mergeTorrentFileHintsValue(qbFiles, hintedFiles),
-      rankTorrentVideoCandidates: (files) => rankTorrentVideoCandidatesValue(files),
+      rankTorrentVideoCandidates: (files) =>
+        rankTorrentVideoCandidatesValue(files),
       findIndexedMediaByFilePathCandidates: (absoluteFileCandidates) =>
         this.findIndexedMediaByFilePathCandidates(absoluteFileCandidates),
       findAllocatedTorrentFileCandidate: (absoluteFileCandidates) =>
         this.findAllocatedTorrentFileCandidate(absoluteFileCandidates),
       shouldAttemptFallbackWalk: (hash, minIntervalMs) =>
         this.shouldAttemptFallbackWalk(hash, minIntervalMs),
-      collectTorrentSearchRoots: (input) => collectTorrentSearchRootsValue(input),
+      collectTorrentSearchRoots: (input) =>
+        collectTorrentSearchRootsValue(input),
       discoverTorrentFileByWalk: (searchRoots, expectedBasename) =>
-        discoverTorrentFileByWalkValue(searchRoots, expectedBasename, this.logger),
+        discoverTorrentFileByWalkValue(
+          searchRoots,
+          expectedBasename,
+          this.logger,
+        ),
       resolveLibraryRootForFile: (absoluteFilePath, fallbackRoot) =>
         this.resolveLibraryRootForFile(absoluteFilePath, fallbackRoot),
       buildProvisionalTorrentMediaItem: (input) =>
         buildProvisionalTorrentMediaItemValue(input),
-      readFileHeader: (filePath, byteCount) => readFileHeaderValue(filePath, byteCount),
-      scoreMediaHeader: (header, fileSize) => scoreMediaHeaderValue(header, fileSize),
+      readFileHeader: (filePath, byteCount) =>
+        readFileHeaderValue(filePath, byteCount),
+      scoreMediaHeader: (header, fileSize) =>
+        scoreMediaHeaderValue(header, fileSize),
       logHeadGateDiagnostic: (input) => this.logHeadGateDiagnostic(input),
       isRecoverableTorrentProbeError: (message) =>
         isRecoverableTorrentProbeErrorValue(message),
@@ -136,7 +145,8 @@ export class MediaTorrentIndexingService {
         error instanceof BadGatewayException ||
         error instanceof GatewayTimeoutException
       ) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
           `qBittorrent unreachable during torrent index poll (${phase}). hash=${hash}: ${message}`,
         );
@@ -147,7 +157,10 @@ export class MediaTorrentIndexingService {
     }
   }
 
-  private shouldAttemptFallbackWalk(hash: string, minIntervalMs: number): boolean {
+  private shouldAttemptFallbackWalk(
+    hash: string,
+    minIntervalMs: number,
+  ): boolean {
     const now = Date.now();
     const lastAttempt = this.lastFallbackWalkAtMsByHash.get(hash) ?? 0;
     if (now - lastAttempt < minIntervalMs) {
@@ -172,8 +185,16 @@ export class MediaTorrentIndexingService {
 
   private async findAllocatedTorrentFileCandidate(
     absoluteFileCandidates: string[],
-  ): Promise<{ canonicalPath: string; probePath: string; fileStats: Stats } | null> {
-    const allocated: Array<{ canonicalPath: string; probePath: string; fileStats: Stats }> = [];
+  ): Promise<{
+    canonicalPath: string;
+    probePath: string;
+    fileStats: Stats;
+  } | null> {
+    const allocated: Array<{
+      canonicalPath: string;
+      probePath: string;
+      fileStats: Stats;
+    }> = [];
 
     for (const absoluteFilePath of absoluteFileCandidates) {
       try {
@@ -212,7 +233,11 @@ export class MediaTorrentIndexingService {
       return allocated[0];
     }
 
-    let best: { canonicalPath: string; probePath: string; fileStats: Stats } | null = null;
+    let best: {
+      canonicalPath: string;
+      probePath: string;
+      fileStats: Stats;
+    } | null = null;
     let bestScore = -1;
 
     for (const candidate of allocated) {

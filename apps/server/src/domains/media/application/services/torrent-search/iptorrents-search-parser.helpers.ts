@@ -15,7 +15,9 @@ export function parseIptSearchResults(
       return;
     }
 
-    const category = cleanText(cells.eq(0).find('img').first().attr('alt') ?? 'Unknown');
+    const category = cleanText(
+      cells.eq(0).find('img').first().attr('alt') ?? 'Unknown',
+    );
     const nameCell = cells.eq(1);
     const titleLink = nameCell.find('a.hv').first();
     const title = cleanText(titleLink.text());

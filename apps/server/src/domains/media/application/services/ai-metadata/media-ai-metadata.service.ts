@@ -205,11 +205,12 @@ export class MediaAiMetadataService {
     const remainingMs = Math.max(1_000, deadlineMs - Date.now());
 
     try {
-      const batchResults = await this.mediaAiTitleProviderService.requestAiTitleBatch(
-        settings,
-        batch,
-        remainingMs,
-      );
+      const batchResults =
+        await this.mediaAiTitleProviderService.requestAiTitleBatch(
+          settings,
+          batch,
+          remainingMs,
+        );
       for (const [rawName, aiTitle] of batchResults.entries()) {
         normalizedByRaw.set(rawName, aiTitle);
       }

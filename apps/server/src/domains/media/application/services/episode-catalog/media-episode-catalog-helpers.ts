@@ -6,7 +6,9 @@ export interface EpisodeCatalogLink {
   providerId: string;
 }
 
-export function resolveEpisodeCatalogLink(item: MediaItem): EpisodeCatalogLink | null {
+export function resolveEpisodeCatalogLink(
+  item: MediaItem,
+): EpisodeCatalogLink | null {
   const linkedSource = normalizeEpisodeCatalogSource(
     normalizeOptionalString(item.episodeCatalogSource),
   );
@@ -60,11 +62,14 @@ export function collectSeriesItemsForEpisodeTracker(
 
   const normalizedTitle = normalizeForKey(current.title);
   return items.filter(
-    (item) => item.type === 'show' && normalizeForKey(item.title) === normalizedTitle,
+    (item) =>
+      item.type === 'show' && normalizeForKey(item.title) === normalizedTitle,
   );
 }
 
-export function coercePositiveEpisodeNumber(value: number | null): number | null {
+export function coercePositiveEpisodeNumber(
+  value: number | null,
+): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
   }

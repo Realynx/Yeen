@@ -153,10 +153,7 @@ export class AuthService implements OnModuleInit {
     return this.authAdminAccountService.setAccountProfile(accountId, dto);
   }
 
-  async resetAccountPassword(
-    accountId: string,
-    dto: ResetAccountPasswordDto,
-  ) {
+  async resetAccountPassword(accountId: string, dto: ResetAccountPasswordDto) {
     return this.authAdminAccountService.resetAccountPassword(accountId, dto);
   }
 

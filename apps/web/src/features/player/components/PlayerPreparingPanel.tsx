@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import {
@@ -170,6 +171,9 @@ export function PlayerPreparingPanel({
               Preparing stream
             </p>
           </div>
+
+          <BroadcastNavBadge />
+
           <div className="top-nav-right">
             <LibrarySearchForm
               query={query}

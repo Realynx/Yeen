@@ -74,7 +74,9 @@ export class AuthAdminAccountService {
 
   async listAccountsForAdmin() {
     const accounts = await this.accountsStore.list();
-    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    const accountsById = new Map(
+      accounts.map((account) => [account.id, account]),
+    );
 
     const normalized = accounts
       .slice()
@@ -254,12 +256,12 @@ export class AuthAdminAccountService {
     return toSafeAccount(updated);
   }
 
-  async resetAccountPassword(
-    accountId: string,
-    dto: ResetAccountPasswordDto,
-  ) {
+  async resetAccountPassword(accountId: string, dto: ResetAccountPasswordDto) {
     const account = await this.requireAccount(accountId);
-    const matchesCurrent = await bcrypt.compare(dto.newPassword, account.passwordHash);
+    const matchesCurrent = await bcrypt.compare(
+      dto.newPassword,
+      account.passwordHash,
+    );
     if (matchesCurrent) {
       throw new BadRequestException(
         'New password must be different from current password.',
@@ -311,10 +313,14 @@ export class AuthAdminAccountService {
 
     if (account.role === 'admin' && nextRole !== 'admin') {
       const accounts = await this.accountsStore.list();
-      const adminCount = accounts.filter((entry) => entry.role === 'admin').length;
+      const adminCount = accounts.filter(
+        (entry) => entry.role === 'admin',
+      ).length;
 
       if (adminCount <= 1) {
-        throw new BadRequestException('At least one admin account is required.');
+        throw new BadRequestException(
+          'At least one admin account is required.',
+        );
       }
     }
 
@@ -414,7 +420,10 @@ export class AuthAdminAccountService {
     const title = mediaTitles.get(entry.mediaId) ?? entry.mediaId;
     const progressFraction =
       entry.durationSeconds > 0
-        ? Math.max(0, Math.min(1, entry.positionSeconds / entry.durationSeconds))
+        ? Math.max(
+            0,
+            Math.min(1, entry.positionSeconds / entry.durationSeconds),
+          )
         : 0;
 
     return {

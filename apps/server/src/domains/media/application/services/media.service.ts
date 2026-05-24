@@ -1,18 +1,7 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
 import { readdir, rm, unlink } from 'node:fs/promises';
-import {
-  basename,
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  parse,
-} from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, parse } from 'node:path';
 import { MediaItem } from '../../domain/entities/media-item.entity';
 import { MediaScanProgress } from '../../domain/entities/media-scan-progress.entity';
 import { MediaScanStore } from '../../infrastructure/stores/media-scan.store';
@@ -157,7 +146,8 @@ export class MediaService {
   }
 
   async getStorageSummary(): Promise<MediaStorageSummary> {
-    const scanLocations = await this.mediaFileResolutionService.resolveScanLocations();
+    const scanLocations =
+      await this.mediaFileResolutionService.resolveScanLocations();
     return this.mediaStorageSummaryService.summarizeStorage(scanLocations);
   }
 
@@ -370,7 +360,11 @@ export class MediaService {
     mediaId: string,
     response: Response,
   ): Promise<void> {
-    await streamBackdropImageValue(this.playbackOpsContext(), mediaId, response);
+    await streamBackdropImageValue(
+      this.playbackOpsContext(),
+      mediaId,
+      response,
+    );
   }
 
   async streamChapterThumbnail(
@@ -391,11 +385,15 @@ export class MediaService {
       getById: (mediaId) => this.getById(mediaId),
       mediaStore: this.mediaStore,
       mediaMetadataIoService: this.mediaMetadataIoService,
-      mediaMetadataImportNormalizerService: this.mediaMetadataImportNormalizerService,
-      mediaMetadataPatchEnrichmentService: this.mediaMetadataPatchEnrichmentService,
-      mediaMetadataPatchApplicationService: this.mediaMetadataPatchApplicationService,
+      mediaMetadataImportNormalizerService:
+        this.mediaMetadataImportNormalizerService,
+      mediaMetadataPatchEnrichmentService:
+        this.mediaMetadataPatchEnrichmentService,
+      mediaMetadataPatchApplicationService:
+        this.mediaMetadataPatchApplicationService,
       mediaEpisodeCatalogService: this.mediaEpisodeCatalogService,
-      mediaMetadataArtworkRefreshService: this.mediaMetadataArtworkRefreshService,
+      mediaMetadataArtworkRefreshService:
+        this.mediaMetadataArtworkRefreshService,
       resolveMediaFilePath: (
         filePath: string,
         relativePath: string,
@@ -430,6 +428,3 @@ export class MediaService {
     };
   }
 }
-
-
-

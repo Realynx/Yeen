@@ -175,9 +175,7 @@ function isLikelyAnimeTitle(title: string): boolean {
     return false;
   }
 
-  if (
-    /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(cleaned)
-  ) {
+  if (/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(cleaned)) {
     return true;
   }
 

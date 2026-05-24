@@ -1,4 +1,7 @@
-import { type IptorrentsMediaType, type IptorrentsSearchItem } from './iptorrents-search.service';
+import {
+  type IptorrentsMediaType,
+  type IptorrentsSearchItem,
+} from './iptorrents-search.service';
 
 const MAX_RESULTS = 40;
 

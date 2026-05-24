@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { AssignToShowDialog } from '../../media-management/components/AssignToShowDialog';
 import { DeleteMediaDialog } from '../../media-management/components/DeleteMediaDialog';
 import { EditMetadataDialog } from '../../media-management/components/EditMetadataDialog';
@@ -255,6 +256,8 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
             </NavLink>
           </nav>
         </div>
+
+        <BroadcastNavBadge />
 
         <div className="top-nav-right">
           <LibrarySearchForm

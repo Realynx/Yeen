@@ -41,7 +41,12 @@ export class JikanMetadataService {
   private readonly minRequestIntervalMs = 2_200;
   private readonly defaultRateLimitCooldownMs = 60_000;
   private readonly maxRateLimitCooldownMs = 5 * 60_000;
-  private readonly genreFilters = ['genres', 'explicit_genres', 'themes', 'demographics'] as const;
+  private readonly genreFilters = [
+    'genres',
+    'explicit_genres',
+    'themes',
+    'demographics',
+  ] as const;
   private readonly genreCatalogCacheTtlMs = 6 * 60 * 60 * 1000;
   private nextRequestAllowedAt = 0;
   private rateLimitedUntil = 0;
@@ -78,7 +83,9 @@ export class JikanMetadataService {
     return searchCandidatesByTagValue(this.searchContext(), input);
   }
 
-  async getRemoteDetails(providerId: string): Promise<JikanRemoteCandidate | null> {
+  async getRemoteDetails(
+    providerId: string,
+  ): Promise<JikanRemoteCandidate | null> {
     return getRemoteDetailsValue(this.searchContext(), providerId);
   }
 
@@ -90,7 +97,11 @@ export class JikanMetadataService {
     if (!resolvedId) {
       return null;
     }
-    return getSeriesEpisodeCatalogValue(this.seriesContext(), resolvedId, options);
+    return getSeriesEpisodeCatalogValue(
+      this.seriesContext(),
+      resolvedId,
+      options,
+    );
   }
 
   warmSeriesEpisodeCatalog(providerId: string): void {
@@ -101,7 +112,9 @@ export class JikanMetadataService {
       }
 
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.debug(`Jikan series episode warmup failed for ${providerId}: ${message}`);
+      this.logger.debug(
+        `Jikan series episode warmup failed for ${providerId}: ${message}`,
+      );
     });
   }
 
@@ -112,7 +125,8 @@ export class JikanMetadataService {
       metadataApiCacheStore: this.metadataApiCacheStore,
       isRateLimited: () => this.isRateLimited(),
       fetchJson: (url, timeoutMs) => this.fetchJson(url, timeoutMs),
-      applyRateLimitCooldown: (ms, title) => this.applyRateLimitCooldown(ms, title),
+      applyRateLimitCooldown: (ms, title) =>
+        this.applyRateLimitCooldown(ms, title),
       logger: this.logger,
       resolveGenreId: (tag, useCache) => this.resolveGenreId(tag, useCache),
     };
@@ -124,8 +138,10 @@ export class JikanMetadataService {
       metadataApiCacheStore: this.metadataApiCacheStore,
       seriesCatalogInFlight: this.seriesCatalogInFlight,
       isRateLimited: () => this.isRateLimited(),
-      fetchJson: (url: string, timeoutMs: number) => this.fetchJson(url, timeoutMs),
-      applyRateLimitCooldown: (ms: number, title: string) => this.applyRateLimitCooldown(ms, title),
+      fetchJson: (url: string, timeoutMs: number) =>
+        this.fetchJson(url, timeoutMs),
+      applyRateLimitCooldown: (ms: number, title: string) =>
+        this.applyRateLimitCooldown(ms, title),
       logger: this.logger,
     };
   }
@@ -134,7 +150,10 @@ export class JikanMetadataService {
     return Date.now() < this.rateLimitedUntil;
   }
 
-  private async resolveGenreId(tag: string, useCache: boolean): Promise<number | null> {
+  private async resolveGenreId(
+    tag: string,
+    useCache: boolean,
+  ): Promise<number | null> {
     const normalizedTag = this.normalizeGenreLabel(tag);
     if (!normalizedTag) {
       return null;
@@ -151,7 +170,8 @@ export class JikanMetadataService {
         if (error instanceof JikanRateLimitError) {
           this.applyRateLimitCooldown(error.retryAfterMs, `genre:${tag}`);
         } else {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.warn(`Jikan genre catalog refresh failed: ${message}`);
         }
       }
@@ -205,18 +225,26 @@ export class JikanMetadataService {
       let payload: JikanGenreCatalogResponse | undefined;
 
       if (useCache) {
-        payload = await this.metadataApiCacheStore.get<JikanGenreCatalogResponse>(
-          this.cacheProvider,
-          requestKey,
-        );
+        payload =
+          await this.metadataApiCacheStore.get<JikanGenreCatalogResponse>(
+            this.cacheProvider,
+            requestKey,
+          );
       }
 
       if (payload === undefined) {
         const url = `https://api.jikan.moe/v4/genres/anime?${params.toString()}`;
-        payload = (await this.fetchJson(url, 15000)) as JikanGenreCatalogResponse;
+        payload = (await this.fetchJson(
+          url,
+          15000,
+        )) as JikanGenreCatalogResponse;
 
         if (useCache) {
-          await this.metadataApiCacheStore.set(this.cacheProvider, requestKey, payload);
+          await this.metadataApiCacheStore.set(
+            this.cacheProvider,
+            requestKey,
+            payload,
+          );
         }
       }
 
@@ -229,7 +257,10 @@ export class JikanMetadataService {
     }
   }
 
-  private ingestGenreCatalogEntries(bucket: Map<string, number>, entries: unknown[] | undefined): void {
+  private ingestGenreCatalogEntries(
+    bucket: Map<string, number>,
+    entries: unknown[] | undefined,
+  ): void {
     if (!Array.isArray(entries)) {
       return;
     }
@@ -284,12 +315,17 @@ export class JikanMetadataService {
         const retryAfterMs = this.normalizeCooldownMs(
           this.parseRetryAfterMs(response.headers.get('retry-after')),
         );
-        throw new JikanRateLimitError(`HTTP 429 from Jikan: ${raw.slice(0, 240)}`, retryAfterMs);
+        throw new JikanRateLimitError(
+          `HTTP 429 from Jikan: ${raw.slice(0, 240)}`,
+          retryAfterMs,
+        );
       }
 
       if (!response.ok) {
         const raw = await response.text();
-        throw new Error(`HTTP ${response.status} from Jikan: ${raw.slice(0, 240)}`);
+        throw new Error(
+          `HTTP ${response.status} from Jikan: ${raw.slice(0, 240)}`,
+        );
       }
 
       return (await response.json()) as unknown;
@@ -311,7 +347,10 @@ export class JikanMetadataService {
     this.nextRequestAllowedAt = Date.now() + this.minRequestIntervalMs;
   }
 
-  private applyRateLimitCooldown(requestedCooldownMs: number, attemptedTitle: string): void {
+  private applyRateLimitCooldown(
+    requestedCooldownMs: number,
+    attemptedTitle: string,
+  ): void {
     const cooldownMs = this.normalizeCooldownMs(requestedCooldownMs);
     const now = Date.now();
     this.rateLimitedUntil = Math.max(this.rateLimitedUntil, now + cooldownMs);
@@ -322,7 +361,10 @@ export class JikanMetadataService {
     }
 
     this.lastRateLimitWarningAt = now;
-    const waitSeconds = Math.max(1, Math.ceil((this.rateLimitedUntil - now) / 1000));
+    const waitSeconds = Math.max(
+      1,
+      Math.ceil((this.rateLimitedUntil - now) / 1000),
+    );
     this.logger.warn(
       `Jikan rate limit reached while searching "${attemptedTitle}". Pausing Jikan lookups for ~${waitSeconds}s.`,
     );
@@ -354,6 +396,9 @@ export class JikanMetadataService {
     }
 
     const rounded = Math.round(value);
-    return Math.max(this.minRequestIntervalMs, Math.min(this.maxRateLimitCooldownMs, rounded));
+    return Math.max(
+      this.minRequestIntervalMs,
+      Math.min(this.maxRateLimitCooldownMs, rounded),
+    );
   }
 }

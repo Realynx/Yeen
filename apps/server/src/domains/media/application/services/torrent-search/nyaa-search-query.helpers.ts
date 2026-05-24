@@ -77,7 +77,9 @@ export function normalizeNyaaPage(page: number | undefined): number {
   return Math.max(1, Math.min(MAX_PAGE, Math.floor(page)));
 }
 
-export function normalizeNyaaSortField(sortBy: string | undefined): NyaaSortField {
+export function normalizeNyaaSortField(
+  sortBy: string | undefined,
+): NyaaSortField {
   if (sortBy === 'size' || sortBy === 'seeders' || sortBy === 'leechers') {
     return sortBy;
   }

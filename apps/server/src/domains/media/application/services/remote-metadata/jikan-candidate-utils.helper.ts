@@ -134,7 +134,8 @@ export function pickBestCandidate(
     const posterScore = candidate.posterUrl ? 0.15 : 0;
     const backdropScore = candidate.backdropUrl ? 0.08 : 0;
     const detailScore = candidate.overview ? 0.08 : 0;
-    const score = yearScore + qualityScore + posterScore + backdropScore + detailScore;
+    const score =
+      yearScore + qualityScore + posterScore + backdropScore + detailScore;
 
     if (score > bestScore) {
       best = candidate;
@@ -182,17 +183,23 @@ function extractYear(value: Record<string, unknown>): number | null {
 
 function extractPosterUrl(value: Record<string, unknown>): string | null {
   const images =
-    typeof value.images === 'object' && value.images !== null && !Array.isArray(value.images)
+    typeof value.images === 'object' &&
+    value.images !== null &&
+    !Array.isArray(value.images)
       ? (value.images as Record<string, unknown>)
       : null;
   if (!images) return null;
 
   const jpg =
-    typeof images.jpg === 'object' && images.jpg !== null && !Array.isArray(images.jpg)
+    typeof images.jpg === 'object' &&
+    images.jpg !== null &&
+    !Array.isArray(images.jpg)
       ? (images.jpg as Record<string, unknown>)
       : null;
   const webp =
-    typeof images.webp === 'object' && images.webp !== null && !Array.isArray(images.webp)
+    typeof images.webp === 'object' &&
+    images.webp !== null &&
+    !Array.isArray(images.webp)
       ? (images.webp as Record<string, unknown>)
       : null;
 
@@ -207,7 +214,9 @@ function extractPosterUrl(value: Record<string, unknown>): string | null {
 
 function extractBackdropUrl(value: Record<string, unknown>): string | null {
   const trailer =
-    typeof value.trailer === 'object' && value.trailer !== null && !Array.isArray(value.trailer)
+    typeof value.trailer === 'object' &&
+    value.trailer !== null &&
+    !Array.isArray(value.trailer)
       ? (value.trailer as Record<string, unknown>)
       : null;
   const images =
@@ -255,17 +264,22 @@ export function toRemoteCandidate(item: unknown): JikanRemoteCandidate | null {
 }
 
 function resolveMediaType(value: Record<string, unknown>): 'movie' | 'show' {
-  const type = typeof value.type === 'string' ? value.type.trim().toLowerCase() : '';
+  const type =
+    typeof value.type === 'string' ? value.type.trim().toLowerCase() : '';
   return type === 'movie' ? 'movie' : 'show';
 }
 
-export function extractProviderId(value: Record<string, unknown>): string | null {
+export function extractProviderId(
+  value: Record<string, unknown>,
+): string | null {
   return sharedExtractNumericStringId(value.mal_id);
 }
 
 function extractDurationSeconds(value: Record<string, unknown>): number | null {
   const duration =
-    typeof value.duration === 'string' ? value.duration.trim().toLowerCase() : '';
+    typeof value.duration === 'string'
+      ? value.duration.trim().toLowerCase()
+      : '';
   if (!duration) return null;
 
   const hourMatch = duration.match(/(\d+)\s*(?:hour|hr|h)/);
@@ -294,7 +308,9 @@ export function normalizeSeriesEpisodeCatalog(
   if (episodes.length === 0) return null;
 
   const normalizedEpisodes = dedupeSeriesEpisodes(episodes);
-  const totalEpisodeCount = sharedExtractPositiveInteger(source.totalEpisodeCount);
+  const totalEpisodeCount = sharedExtractPositiveInteger(
+    source.totalEpisodeCount,
+  );
   const updatedAt = getNullableString(source.updatedAt);
 
   return {
@@ -323,9 +339,12 @@ export function extractSeriesEpisodes(value: unknown): JikanSeriesEpisode[] {
       getTitleString(row.title_romanji) ??
       getTitleString(row.title_japanese) ??
       `Episode ${episodeNumber}`;
-    const airedAt = getNullableString(row.aired) ?? getNullableString(row.premiered) ?? null;
+    const airedAt =
+      getNullableString(row.aired) ?? getNullableString(row.premiered) ?? null;
     const synopsis =
-      getNullableString(row.synopsis) ?? getNullableString(row.description) ?? null;
+      getNullableString(row.synopsis) ??
+      getNullableString(row.description) ??
+      null;
 
     episodes.push({ episodeNumber, title, airedAt, synopsis });
   }
@@ -353,14 +372,20 @@ export function dedupeSeriesEpisodes(
     });
   }
 
-  return [...deduped.values()].sort((left, right) => left.episodeNumber - right.episodeNumber);
+  return [...deduped.values()].sort(
+    (left, right) => left.episodeNumber - right.episodeNumber,
+  );
 }
 
 export function hasNextEpisodePage(
   pagination: unknown,
   currentPage: number,
 ): boolean {
-  if (typeof pagination !== 'object' || pagination === null || Array.isArray(pagination)) {
+  if (
+    typeof pagination !== 'object' ||
+    pagination === null ||
+    Array.isArray(pagination)
+  ) {
     return false;
   }
 

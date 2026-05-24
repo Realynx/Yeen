@@ -1,6 +1,6 @@
 import Hls, { type FragLoadedData } from 'hls.js';
 import { useEffect, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { PlaybackSource } from './usePlayerData';
 import { toHlsLevelLabel, type HlsLevelOption } from './playerUtils';
 import { createHlsInstance } from './hls/createHls';
@@ -59,7 +59,7 @@ interface UsePlayerMediaSourceOptions {
 interface UsePlayerMediaSourceResult {
   hlsLevels: HlsLevelOption[];
   qualityMode: 'auto' | number;
-  setQualityMode: (value: 'auto' | number) => void;
+  setQualityMode: Dispatch<SetStateAction<'auto' | number>>;
   currentAutoLevel: number | null;
   estimatedBandwidthBps: number | null;
   attemptedHlsFallbackRef: MutableRefObject<boolean>;

@@ -1,37 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { MediaRow } from '../../library/components/MediaRow';
-import { MediaTile } from '../../library/components/MediaTile';
-import { StorageUsageMeter } from '../../library/components/StorageUsageMeter';
+import { useNavigate } from 'react-router-dom';
 import type { MediaItem, User } from '../../shared/services/types';
 import { useMediaStorageSummary } from '../../library/services/useMediaStorageSummary';
 import {
   artworkUrlForMedia,
   consolidateShowSearchResults,
   isEpisodeEntry,
-  MAX_TAG_ROW_ITEMS,
-  MIN_TAG_ROW_ITEMS,
-  normalizeHomeMovieTagKey,
-  normalizeTags,
   seededHash,
   shouldReplaceTagRowRepresentative,
   toFeaturedDedupKey,
-  toHomeMovieTagLabel,
   toProgressMap,
   toProgressPercent,
   toRandomizedItems,
   toRandomShowRepresentative,
   toRepresentativeTimestamp,
-  toSeasonEpisodeLabel,
   toTagRowMediaKey,
-  toTagSlug,
 } from '../services/homePageUtils';
+import { buildHomeTaggedMovieRows } from '../services/homeTaggedRows';
 import { HomeFeaturedHero } from '../components/HomeFeaturedHero';
+import { HomeContinueWatchingSection } from '../components/HomeContinueWatchingSection';
+import { HomeDiscoverSections } from '../components/HomeDiscoverSections';
+import { HomeFooter } from '../components/HomeFooter';
 import { HomeLoadingSkeleton } from '../components/HomeLoadingSkeleton';
 import { HomeMediaShelfRow } from '../components/HomeMediaShelfRow';
 import { HomeTopNav } from '../components/HomeTopNav';
-import type { TaggedMovieRow } from '../services/homePageUtils';
 import { toLibrarySearchPath } from '../../library/services/librarySearchUtils';
 import { normalizeShowKey } from '../../media-details/services/mediaDetailsUtils';
 import { useHomeFeed } from '../services/useHomeFeed';
@@ -60,12 +53,7 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
   const [query, setQuery] = useState('');
   const [randomRowSeed] = useState(() => Math.floor(Math.random() * 2_147_483_647));
   const [featuredIndex, setFeaturedIndex] = useState(0);
-  const {
-    mediaItems,
-    progressItems,
-    loading,
-    error,
-  } = useHomeFeed(token, {
+  const { mediaItems, progressItems, loading, error } = useHomeFeed(token, {
     initialErrorMessage: 'Failed to load media library.',
     refreshIntervalMs: 5000,
   });
@@ -244,94 +232,7 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
   }, [featuredItems.length, showNextFeatured]);
 
   const movieRowsByTag = useMemo(() => {
-    const rows = new Map<
-      string,
-      {
-        key: string;
-        label: string;
-        itemByMediaKey: Map<string, MediaItem>;
-      }
-    >();
-
-    for (const item of mediaItems) {
-      if (item.digitalMediaType !== 'video') {
-        continue;
-      }
-
-      const tags = normalizeTags(item.tags);
-      for (const tag of tags) {
-        const key = normalizeHomeMovieTagKey(tag);
-        const label = toHomeMovieTagLabel(tag);
-        const mediaKey = toTagRowMediaKey(item);
-        const existing = rows.get(key);
-
-        if (!existing) {
-          rows.set(key, {
-            key,
-            label,
-            itemByMediaKey: new Map<string, MediaItem>([[mediaKey, item]]),
-          });
-          continue;
-        }
-
-        const existingItem = existing.itemByMediaKey.get(mediaKey);
-        if (!existingItem) {
-          existing.itemByMediaKey.set(mediaKey, item);
-          continue;
-        }
-
-        if (shouldReplaceTagRowRepresentative(existingItem, item)) {
-          existing.itemByMediaKey.set(mediaKey, item);
-        }
-      }
-    }
-
-    const orderedRows = [...rows.values()].sort((left, right) => {
-      if (right.itemByMediaKey.size !== left.itemByMediaKey.size) {
-        return right.itemByMediaKey.size - left.itemByMediaKey.size;
-      }
-
-      return left.label.localeCompare(right.label, undefined, {
-        sensitivity: 'base',
-      });
-    });
-
-    const usedTagRowMediaKeys = new Set<string>();
-    const builtRows: TaggedMovieRow[] = [];
-
-    for (const row of orderedRows) {
-      const randomizedItems = toRandomizedItems(
-        [...row.itemByMediaKey.values()],
-        seededHash(`${randomRowSeed}:tag:${row.key}`),
-      );
-
-      const rowItems: MediaItem[] = [];
-      for (const item of randomizedItems) {
-        const mediaKey = toTagRowMediaKey(item);
-        if (usedTagRowMediaKeys.has(mediaKey)) {
-          continue;
-        }
-
-        usedTagRowMediaKeys.add(mediaKey);
-        rowItems.push(item);
-
-        if (rowItems.length >= MAX_TAG_ROW_ITEMS) {
-          break;
-        }
-      }
-
-      if (rowItems.length < MIN_TAG_ROW_ITEMS) {
-        continue;
-      }
-
-      builtRows.push({
-        id: `row-tag-${toTagSlug(row.label)}`,
-        label: row.label,
-        items: rowItems,
-      });
-    }
-
-    return builtRows;
+    return buildHomeTaggedMovieRows(mediaItems, randomRowSeed);
   }, [mediaItems, randomRowSeed]);
 
   const featuredDescription = useMemo(() => {
@@ -448,21 +349,11 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
           />
 
           {hasContinueWatching ? (
-            <section className="browse-section is-first-row" id="row-continue">
-              <h2 className="section-title">Continue Watching for {firstName}</h2>
-              <MediaRow>
-                {continueWatching.map(({ item, percent }) => (
-                  <MediaTile
-                    key={item.id}
-                    media={item}
-                    imageUrl={artworkUrlForMedia(item)}
-                    progressPercent={percent}
-                    topRightLabel={toSeasonEpisodeLabel(item)}
-                    onOpen={openPlayer}
-                  />
-                ))}
-              </MediaRow>
-            </section>
+            <HomeContinueWatchingSection
+              firstName={firstName}
+              continueWatching={continueWatching}
+              onOpenPlayer={openPlayer}
+            />
           ) : null}
 
           <HomeMediaShelfRow
@@ -474,57 +365,20 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             onOpen={openDetails}
           />
 
-          {discoverItems.length > 0 ? (
-            <HomeMediaShelfRow
-              className="browse-section"
-              id="row-discover"
-              title="Discover"
-              items={discoverItems}
-              progressMap={progressMap}
-              onOpen={openDetails}
-            />
-          ) : null}
-
-          {movieRowsByTag.map((row) => (
-            <HomeMediaShelfRow
-              key={row.id}
-              className="browse-section"
-              id={row.id}
-              title={row.label}
-              items={row.items}
-              progressMap={progressMap}
-              onOpen={openDetails}
-            />
-          ))}
+          <HomeDiscoverSections
+            discoverItems={discoverItems}
+            movieRowsByTag={movieRowsByTag}
+            progressMap={progressMap}
+            onOpenDetails={openDetails}
+          />
         </>
       )}
 
-      <footer className="home-footer" aria-label="Home page footer">
-        <div className="home-footer-meta">
-          <div className="home-footer-links">
-            <NavLink className="home-footer-link" to="/library">
-              Library
-            </NavLink>
-            <NavLink className="home-footer-link" to="/explore">
-              Explore
-            </NavLink>
-            <NavLink className="home-footer-link" to="/settings">
-              Settings
-            </NavLink>
-          </div>
-        </div>
-
-        <div className="home-footer-storage">
-          <StorageUsageMeter
-            className="home-footer-storage-meter"
-            summary={storageSummary}
-            loading={storageSummaryLoading}
-            error={storageSummaryError}
-            title="Library Storage"
-          />
-          <p className="home-footer-copy">Your personal streaming shelf, organized your way.</p>
-        </div>
-      </footer>
+      <HomeFooter
+        storageSummary={storageSummary}
+        storageSummaryLoading={storageSummaryLoading}
+        storageSummaryError={storageSummaryError}
+      />
     </main>
   );
 }

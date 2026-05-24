@@ -221,7 +221,10 @@ export class MediaPreviewResolver {
 
       try {
         const raw = await readFile(candidatePath, 'utf8');
-        const extracted = extractDescriptionFromNfo(raw, this.nfoDescriptionTags);
+        const extracted = extractDescriptionFromNfo(
+          raw,
+          this.nfoDescriptionTags,
+        );
         if (extracted) {
           return extracted;
         }

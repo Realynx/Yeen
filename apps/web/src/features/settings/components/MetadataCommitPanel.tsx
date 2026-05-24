@@ -15,24 +15,14 @@ import {
   rollbackToMetadataCommit,
   toApiErrorMessage,
 } from '../../shared/services/api';
+import { MetadataCommitHistorySection } from './MetadataCommitHistorySection';
+import { MetadataCommitBackupSection } from './MetadataCommitBackupSection';
+import { MetadataCommitPlanSection } from './MetadataCommitPlanSection';
+import { MetadataCommitReportSection } from './MetadataCommitReportSection';
 
 interface MetadataCommitPanelProps {
   token: string;
   embedded?: boolean;
-}
-
-function formatTimestamp(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}
-
-function relativeName(path: string): string {
-  const parts = path.split(/[\\/]/);
-  const last = parts[parts.length - 1];
-  return last || path;
 }
 
 function triggerJsonDownload(payload: unknown, exportedAt: string): string {
@@ -274,8 +264,6 @@ export function MetadataCommitPanel({
     }
   }
 
-  const planChanges = plan ? plan.changes.filter((change) => change.willMove) : [];
-
   return (
     <article
       className={
@@ -303,58 +291,18 @@ export function MetadataCommitPanel({
         recorded so you can roll it back.
       </p>
 
-      <section className="commit-backup-panel">
-        <div className="commit-subheader">
-          <div>
-            <p className="settings-section-kicker">Metadata Backup</p>
-            <h3>Export / Import Metadata</h3>
-          </div>
-        </div>
-        <p className="muted commit-backup-copy">
-          Export your current metadata index to a JSON file and re-import it
-          later on this server.
-        </p>
-
-        <div className="commit-toolbar commit-toolbar-tight">
-          <label className="commit-toggle">
-            <input
-              type="checkbox"
-              checked={replaceOnImport}
-              onChange={(event) => setReplaceOnImport(event.target.checked)}
-              disabled={importing || exporting || planning || committing}
-            />
-            <span>Replace existing metadata during import</span>
-          </label>
-
-          <div className="commit-toolbar-spacer" />
-
-          <button
-            className="ghost-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-            type="button"
-            onClick={() => void handleExportMetadata()}
-            disabled={exporting || importing || planning || committing}
-          >
-            {exporting ? 'Exporting...' : 'Export Metadata JSON'}
-          </button>
-
-          <button
-            className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-            type="button"
-            onClick={openImportDialog}
-            disabled={importing || exporting || planning || committing}
-          >
-            {importing ? 'Importing...' : 'Import Metadata JSON'}
-          </button>
-
-          <input
-            ref={importInputRef}
-            className="commit-import-input"
-            type="file"
-            accept=".json,application/json"
-            onChange={(event) => void handleImportFileSelected(event)}
-          />
-        </div>
-      </section>
+      <MetadataCommitBackupSection
+        replaceOnImport={replaceOnImport}
+        importing={importing}
+        exporting={exporting}
+        planning={planning}
+        committing={committing}
+        importInputRef={importInputRef}
+        onSetReplaceOnImport={setReplaceOnImport}
+        onExport={() => void handleExportMetadata()}
+        onOpenImportDialog={openImportDialog}
+        onImportFileSelected={(event) => void handleImportFileSelected(event)}
+      />
 
       <div className="commit-toolbar">
         <label className="commit-toggle">
@@ -406,274 +354,23 @@ export function MetadataCommitPanel({
         </div>
       ) : null}
 
-      {plan ? (
-        <section className="settings-scan-progress" aria-live="polite">
-          <div className="settings-scan-progress-head">
-            <strong>
-              Plan: {plan.summary.movableItems} of {plan.summary.totalItems}{' '}
-              item(s) will move
-            </strong>
-          </div>
+      <MetadataCommitPlanSection plan={plan} />
 
-          <div className="commit-summary-grid">
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Files</span>
-              <span className="commit-summary-cell-value">
-                {plan.summary.movableItems}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Sidecars</span>
-              <span className="commit-summary-cell-value">
-                {plan.summary.sidecars}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">NFO</span>
-              <span className="commit-summary-cell-value">
-                {plan.summary.nfoFiles}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Skipped</span>
-              <span className="commit-summary-cell-value">
-                {plan.summary.skippedItems}
-              </span>
-            </div>
-          </div>
+      <MetadataCommitReportSection report={report} />
 
-          {planChanges.length > 0 ? (
-            <div className="commit-changes-list">
-              {planChanges.map((change) => (
-                <div key={change.mediaId} className="commit-change-row">
-                  <div className="commit-change-title">{change.title}</div>
-                  <div className="commit-change-paths">
-                    <div className="commit-change-path-row">
-                      <span className="commit-change-path-label">From</span>
-                      <code>{relativeName(change.currentPath)}</code>
-                    </div>
-                    <div className="commit-change-path-row">
-                      <span className="commit-change-path-label">To</span>
-                      <code>{change.targetPath}</code>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {plan.skipped.length > 0 ? (
-            <details className="commit-skipped">
-              <summary>{plan.skipped.length} skipped item(s)</summary>
-              <ul>
-                {plan.skipped.map((change) => (
-                  <li key={change.mediaId}>
-                    <strong>{change.title}</strong> — {change.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-        </section>
-      ) : null}
-
-      {report ? (
-        <section className="settings-scan-progress" aria-live="polite">
-          <div className="settings-scan-progress-head">
-            <strong>Change Report</strong>
-            <span>commit {report.commitId.slice(0, 8)}</span>
-          </div>
-
-          <div className="commit-summary-grid">
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Renamed</span>
-              <span className="commit-summary-cell-value">
-                {report.summary.filesRenamed}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Sidecars</span>
-              <span className="commit-summary-cell-value">
-                {report.summary.sidecarsMoved}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">NFO</span>
-              <span className="commit-summary-cell-value">
-                {report.summary.nfoFilesWritten}
-              </span>
-            </div>
-            <div className="commit-summary-cell">
-              <span className="commit-summary-cell-label">Errors</span>
-              <span className="commit-summary-cell-value">
-                {report.summary.errors}
-              </span>
-            </div>
-          </div>
-
-          {report.changes.length > 0 ? (
-            <div className="commit-changes-list">
-              {report.changes.map((change) => (
-                <div key={change.mediaId} className="commit-change-row">
-                  <div className="commit-change-title">{change.title}</div>
-                  <div className="commit-change-paths">
-                    <div className="commit-change-path-row">
-                      <span className="commit-change-path-label">From</span>
-                      <code>{relativeName(change.from)}</code>
-                    </div>
-                    <div className="commit-change-path-row">
-                      <span className="commit-change-path-label">To</span>
-                      <code>{relativeName(change.to)}</code>
-                    </div>
-                    {change.sidecarCount > 0 || change.nfoWritten || change.error ? (
-                      <div className="commit-change-meta">
-                        {change.sidecarCount > 0
-                          ? `+${change.sidecarCount} sidecar${change.sidecarCount === 1 ? '' : 's'}`
-                          : null}
-                        {change.sidecarCount > 0 && change.nfoWritten ? ' · ' : ''}
-                        {change.nfoWritten ? '+ NFO' : ''}
-                        {change.error ? (
-                          <span className="error-text"> — {change.error}</span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      <div className="commit-subheader">
-        <div>
-          <p className="settings-section-kicker">History</p>
-          <h3>Recent Commits</h3>
-        </div>
-        <button
-          className="ghost-button small !rounded-lg !px-3 !py-1.5"
-          type="button"
-          onClick={() => void loadHistory()}
-          disabled={loadingHistory || importing || exporting}
-        >
-          {loadingHistory ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
-
-      {history.length === 0 ? (
-        <p className="muted" style={{ marginTop: '0.5rem' }}>
-          {loadingHistory ? 'Loading commit history…' : 'No commits yet.'}
-        </p>
-      ) : (
-        <ul className="commit-history-list">
-          {history.map((entry) => (
-            <li
-              key={entry.id}
-              className={
-                entry.rolledBackAt
-                  ? 'commit-history-item is-rolled-back'
-                  : 'commit-history-item'
-              }
-            >
-              <div className="commit-history-info">
-                <span className="commit-history-title">
-                  {formatTimestamp(entry.createdAt)}
-                </span>
-                <span className="commit-history-meta">
-                  {entry.summary.filesRenamed} renamed ·{' '}
-                  {entry.summary.sidecarsMoved} sidecars ·{' '}
-                  {entry.summary.nfoFilesWritten} NFO ·{' '}
-                  {entry.summary.errors} error
-                  {entry.summary.errors === 1 ? '' : 's'}
-                </span>
-                {entry.rolledBackAt ? (
-                  <span className="commit-history-rolledback">
-                    Rolled back {formatTimestamp(entry.rolledBackAt)}
-                  </span>
-                ) : null}
-              </div>
-              <div className="commit-history-actions">
-                <button
-                  type="button"
-                  className="ghost-button small !rounded-lg !px-3 !py-1.5"
-                  onClick={() => void handleRollback(entry.id)}
-                  disabled={
-                    !!entry.rolledBackAt ||
-                    rollingBackId === entry.id ||
-                    !!rollingBackToId ||
-                    committing ||
-                    importing ||
-                    exporting
-                  }
-                >
-                  {entry.rolledBackAt
-                    ? 'Rolled Back'
-                    : rollingBackId === entry.id
-                      ? 'Rolling Back...'
-                      : 'Rollback'}
-                </button>
-                {!entry.rolledBackAt ? (
-                  <button
-                    type="button"
-                    className="ghost-button small !rounded-lg !px-3 !py-1.5"
-                    title="Roll back this commit and all newer commits in order"
-                    onClick={() => void handleRollbackTo(entry.id, entry.createdAt)}
-                    disabled={
-                      !!rollingBackToId ||
-                      !!rollingBackId ||
-                      committing ||
-                      importing ||
-                      exporting
-                    }
-                  >
-                    {rollingBackToId === entry.id
-                      ? 'Rolling Back...'
-                      : 'Rollback to here'}
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {chainResult ? (
-        <section className="settings-scan-progress" aria-live="polite">
-          <div className="settings-scan-progress-head">
-            <strong>Chain Rollback Results</strong>
-            <span>
-              {chainResult.completed}/{chainResult.totalToRollback} completed
-            </span>
-          </div>
-          <ul className="commit-changes-list">
-            {chainResult.results.map((r) => (
-              <li key={r.commitId} className="commit-change-row">
-                <div className="commit-change-title">
-                  <code>{r.commitId.slice(0, 8)}</code>
-                  {r.success ? (
-                    <span style={{ color: 'var(--color-success, #4ade80)', marginLeft: '0.5rem' }}>
-                      ✓ {r.reverted} op(s) reverted
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--color-error, #f87171)', marginLeft: '0.5rem' }}>
-                      ✗ stopped here
-                    </span>
-                  )}
-                </div>
-                {r.errors.length > 0 ? (
-                  <ul className="commit-change-paths">
-                    {r.errors.map((e, i) => (
-                      <li key={i} className="error-text" style={{ fontSize: '0.8rem' }}>
-                        {e}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <MetadataCommitHistorySection
+        history={history}
+        loadingHistory={loadingHistory}
+        importing={importing}
+        exporting={exporting}
+        committing={committing}
+        rollingBackId={rollingBackId}
+        rollingBackToId={rollingBackToId}
+        chainResult={chainResult}
+        onRefreshHistory={loadHistory}
+        onRollback={handleRollback}
+        onRollbackTo={handleRollbackTo}
+      />
     </article>
   );
 }

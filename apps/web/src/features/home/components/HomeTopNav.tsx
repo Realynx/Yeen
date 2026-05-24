@@ -1,5 +1,6 @@
 import type { FormEventHandler } from 'react';
 import { NavLink } from 'react-router-dom';
+import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import type { User } from '../../shared/services/types';
@@ -49,6 +50,8 @@ export function HomeTopNav({
           </NavLink>
         </nav>
       </div>
+
+      <BroadcastNavBadge />
 
       <div className="top-nav-right">
         <LibrarySearchForm

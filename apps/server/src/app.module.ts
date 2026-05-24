@@ -9,6 +9,7 @@ import { InvitePageController } from './domains/core/presentation/controllers/in
 import { MediaModule } from './domains/media/media.module';
 import { ProgressModule } from './domains/progress/progress.module';
 import { StreamModule } from './domains/stream/stream.module';
+import { BroadcastModule } from './domains/broadcast/broadcast.module';
 import { SubtitleModule } from './domains/subtitle/subtitle.module';
 import { SystemSettingsModule } from './domains/system-settings/system-settings.module';
 import { TorrentModule } from './domains/torrent/torrent.module';
@@ -26,6 +27,7 @@ import { TorrentModule } from './domains/torrent/torrent.module';
     MediaModule,
     SystemSettingsModule,
     StreamModule,
+    BroadcastModule,
     SubtitleModule,
     ProgressModule,
     TorrentModule,

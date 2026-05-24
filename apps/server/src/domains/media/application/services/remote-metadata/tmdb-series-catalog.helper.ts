@@ -1,6 +1,4 @@
-import {
-  extractPositiveInteger as sharedExtractPositiveInteger,
-} from './remote-metadata-normalization';
+import { extractPositiveInteger as sharedExtractPositiveInteger } from './remote-metadata-normalization';
 import {
   dedupeSeriesEpisodes,
   extractNumericId,
@@ -75,10 +73,11 @@ async function loadSeriesEpisodeCatalog(
   let detailsPayload: TmdbDetailsResponse | undefined;
 
   if (useCache) {
-    detailsPayload = await context.metadataApiCacheStore.get<TmdbDetailsResponse>(
-      context.cacheProvider,
-      detailsKey,
-    );
+    detailsPayload =
+      await context.metadataApiCacheStore.get<TmdbDetailsResponse>(
+        context.cacheProvider,
+        detailsKey,
+      );
   }
 
   if (detailsPayload === undefined) {
@@ -164,7 +163,11 @@ function resolveSeriesSeasonNumbers(value: unknown): number[] {
 
   if (Array.isArray(details.seasons)) {
     for (const season of details.seasons) {
-      if (typeof season !== 'object' || season === null || Array.isArray(season)) {
+      if (
+        typeof season !== 'object' ||
+        season === null ||
+        Array.isArray(season)
+      ) {
         continue;
       }
 
@@ -264,7 +267,12 @@ function normalizeSeriesEpisodeCatalog(
       ? source.updatedAt.trim()
       : new Date().toISOString();
 
-  return { providerId, totalEpisodeCount, episodes: normalizedEpisodes, updatedAt };
+  return {
+    providerId,
+    totalEpisodeCount,
+    episodes: normalizedEpisodes,
+    updatedAt,
+  };
 }
 
 function toSeriesEpisode(value: unknown): TmdbSeriesEpisode | null {

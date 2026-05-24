@@ -23,7 +23,10 @@ export interface JikanSearchContext {
   };
   isRateLimited: () => boolean;
   fetchJson: (url: string, timeoutMs: number) => Promise<unknown>;
-  applyRateLimitCooldown: (requestedCooldownMs: number, attemptedTitle: string) => void;
+  applyRateLimitCooldown: (
+    requestedCooldownMs: number,
+    attemptedTitle: string,
+  ) => void;
   logger: { warn(message: string): void };
   resolveGenreId: (tag: string, useCache: boolean) => Promise<number | null>;
 }
@@ -63,7 +66,9 @@ export async function lookupValue(
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`Jikan lookup failed for "${cleanedTitle}": ${message}`);
+    context.logger.warn(
+      `Jikan lookup failed for "${cleanedTitle}": ${message}`,
+    );
     context.cache.delete(key);
     return null;
   }
@@ -102,7 +107,11 @@ export async function searchCandidatesValue(
       payload = (await context.fetchJson(url, 15000)) as JikanSearchResponse;
 
       if (useCache) {
-        await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+        await context.metadataApiCacheStore.set(
+          context.cacheProvider,
+          requestKey,
+          payload,
+        );
       }
     }
 
@@ -125,7 +134,9 @@ export async function searchCandidatesValue(
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`Jikan remote search failed for "${cleanedTitle}": ${message}`);
+    context.logger.warn(
+      `Jikan remote search failed for "${cleanedTitle}": ${message}`,
+    );
     return [];
   }
 }
@@ -181,7 +192,11 @@ export async function searchCandidatesByTagValue(
         payload = (await context.fetchJson(url, 15000)) as JikanSearchResponse;
 
         if (useCache) {
-          await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+          await context.metadataApiCacheStore.set(
+            context.cacheProvider,
+            requestKey,
+            payload,
+          );
         }
       }
 
@@ -211,7 +226,9 @@ export async function searchCandidatesByTagValue(
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`Jikan remote tag search failed for "${cleanedTag}": ${message}`);
+    context.logger.warn(
+      `Jikan remote tag search failed for "${cleanedTag}": ${message}`,
+    );
     return [];
   }
 }
@@ -228,10 +245,11 @@ export async function getRemoteDetailsValue(
   const requestKey = `remote:details:${resolvedId}`;
 
   try {
-    const cachedPayload = await context.metadataApiCacheStore.get<JikanDetailsResponse>(
-      context.cacheProvider,
-      requestKey,
-    );
+    const cachedPayload =
+      await context.metadataApiCacheStore.get<JikanDetailsResponse>(
+        context.cacheProvider,
+        requestKey,
+      );
 
     let payload: JikanDetailsResponse;
     if (cachedPayload !== undefined) {
@@ -239,7 +257,11 @@ export async function getRemoteDetailsValue(
     } else {
       const url = `https://api.jikan.moe/v4/anime/${resolvedId}/full`;
       payload = (await context.fetchJson(url, 15000)) as JikanDetailsResponse;
-      await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+      await context.metadataApiCacheStore.set(
+        context.cacheProvider,
+        requestKey,
+        payload,
+      );
     }
 
     return toRemoteCandidate(payload.data);
@@ -250,7 +272,9 @@ export async function getRemoteDetailsValue(
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    context.logger.warn(`Jikan remote details lookup failed for ${resolvedId}: ${message}`);
+    context.logger.warn(
+      `Jikan remote details lookup failed for ${resolvedId}: ${message}`,
+    );
     return null;
   }
 }
@@ -259,13 +283,18 @@ async function searchJikanValue(
   context: JikanSearchContext,
   input: JikanLookupInput,
 ): Promise<JikanLookupResult | null> {
-  const params = new URLSearchParams({ q: input.title, limit: '10', sfw: 'true' });
+  const params = new URLSearchParams({
+    q: input.title,
+    limit: '10',
+    sfw: 'true',
+  });
 
   const requestKey = params.toString();
-  const cachedPayload = await context.metadataApiCacheStore.get<JikanSearchResponse>(
-    context.cacheProvider,
-    requestKey,
-  );
+  const cachedPayload =
+    await context.metadataApiCacheStore.get<JikanSearchResponse>(
+      context.cacheProvider,
+      requestKey,
+    );
 
   let payload: JikanSearchResponse;
   if (cachedPayload !== undefined) {
@@ -273,13 +302,20 @@ async function searchJikanValue(
   } else {
     const url = `https://api.jikan.moe/v4/anime?${params.toString()}`;
     payload = (await context.fetchJson(url, 15000)) as JikanSearchResponse;
-    await context.metadataApiCacheStore.set(context.cacheProvider, requestKey, payload);
+    await context.metadataApiCacheStore.set(
+      context.cacheProvider,
+      requestKey,
+      payload,
+    );
   }
 
   const rawResults = Array.isArray(payload.data) ? payload.data : [];
   const candidates = rawResults
     .map((item) => toCandidate(item))
-    .filter((candidate): candidate is NonNullable<ReturnType<typeof toCandidate>> => candidate !== null);
+    .filter(
+      (candidate): candidate is NonNullable<ReturnType<typeof toCandidate>> =>
+        candidate !== null,
+    );
 
   const exactCandidates = filterExactTitleCandidates(candidates, input);
   if (exactCandidates.length === 0) return null;
