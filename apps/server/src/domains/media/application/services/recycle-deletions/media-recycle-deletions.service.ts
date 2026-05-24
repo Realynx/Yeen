@@ -1,9 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Dirent } from 'node:fs';
 import { readdir, rm, stat } from 'node:fs/promises';
-import { dirname, isAbsolute, join, parse, relative, resolve } from 'node:path';
+import { dirname, join, parse, resolve } from 'node:path';
 import { MediaFsFileOpsService } from '../filesystem/media-fs-file-ops.service';
 import { MediaLibraryLocationsService } from '../library-locations/media-library-locations.service';
+import {
+  buildRecyclePurgeMessage,
+  collectDriveRoots,
+  isValidRecycleOperationPath,
+  normalizeRecycleOperationPaths,
+} from './media-recycle-deletions-helpers';
 
 export interface RecycleDeletionEntry {
   operationId: string;
@@ -55,7 +61,9 @@ export class MediaRecycleDeletionsService {
     private readonly mediaLibraryLocationsService: MediaLibraryLocationsService,
   ) {}
 
-  async listRecycleDeletions(limit?: number): Promise<RecycleDeletionsListResult> {
+  async listRecycleDeletions(
+    limit?: number,
+  ): Promise<RecycleDeletionsListResult> {
     const cappedLimit = Number.isFinite(limit)
       ? Math.max(1, Math.min(1000, Math.floor(limit ?? 0)))
       : 300;
@@ -110,7 +118,7 @@ export class MediaRecycleDeletionsService {
         targetPaths = entries.map((entry) => entry.folderPath);
       }
     } else {
-      targetPaths = this.normalizeRecycleOperationPaths(input.operationPaths);
+      targetPaths = normalizeRecycleOperationPaths(input.operationPaths);
       if (targetPaths.length === 0) {
         throw new BadRequestException(
           'Provide operationPaths, olderThanDays, or purgeAll.',
@@ -118,7 +126,7 @@ export class MediaRecycleDeletionsService {
       }
     }
 
-    const dedupedTargetPaths = this.normalizeRecycleOperationPaths(targetPaths);
+    const dedupedTargetPaths = normalizeRecycleOperationPaths(targetPaths);
     const results: PurgeRecycleDeletionsResultItem[] = [];
     let deleted = 0;
     let failed = 0;
@@ -127,7 +135,7 @@ export class MediaRecycleDeletionsService {
     for (const folderPath of dedupedTargetPaths) {
       const resolvedPath = resolve(folderPath);
 
-      if (!this.isValidRecycleOperationPath(resolvedPath, basePaths)) {
+      if (!isValidRecycleOperationPath(resolvedPath, basePaths)) {
         failed += 1;
         results.push({
           folderPath: resolvedPath,
@@ -184,10 +192,12 @@ export class MediaRecycleDeletionsService {
     }
 
     const requested = dedupedTargetPaths.length;
-    const message =
-      failed === 0
-        ? `Purged ${deleted} recycle operation folder(s), reclaimed ${reclaimedBytes} bytes.`
-        : `Purged ${deleted} of ${requested} recycle operation folder(s), reclaimed ${reclaimedBytes} bytes; ${failed} failed.`;
+    const message = buildRecyclePurgeMessage({
+      deleted,
+      failed,
+      requested,
+      reclaimedBytes,
+    });
 
     return {
       requested,
@@ -202,7 +212,7 @@ export class MediaRecycleDeletionsService {
   private async resolveRecycleDeletionBases(): Promise<string[]> {
     const scanLocations =
       await this.mediaLibraryLocationsService.resolveScanLocations();
-    const driveRoots = this.collectDriveRoots(scanLocations);
+    const driveRoots = collectDriveRoots(scanLocations);
 
     return driveRoots
       .map((driveRoot) =>
@@ -215,20 +225,6 @@ export class MediaRecycleDeletionsService {
         ),
       )
       .filter((value, index, all) => all.indexOf(value) === index);
-  }
-
-  private collectDriveRoots(locations: readonly string[]): string[] {
-    const driveRoots = new Set<string>();
-
-    for (const location of locations) {
-      const absoluteLocation = resolve(location);
-      const parsedRoot = parse(absoluteLocation).root || absoluteLocation;
-      driveRoots.add(resolve(parsedRoot));
-    }
-
-    return [...driveRoots].sort((left, right) =>
-      left.localeCompare(right, undefined, { sensitivity: 'base' }),
-    );
   }
 
   private async collectRecycleDeletionEntries(
@@ -336,54 +332,6 @@ export class MediaRecycleDeletionsService {
     }
 
     return { sizeBytes, fileCount };
-  }
-
-  private isValidRecycleOperationPath(
-    operationPath: string,
-    basePaths: readonly string[],
-  ): boolean {
-    const resolvedOperationPath = resolve(operationPath);
-
-    for (const basePath of basePaths) {
-      const resolvedBasePath = resolve(basePath);
-      const rel = relative(resolvedBasePath, resolvedOperationPath);
-
-      if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
-        continue;
-      }
-
-      const depth = rel.split(/[\\/]+/).filter(Boolean).length;
-      if (depth === 1) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private normalizeRecycleOperationPaths(
-    paths: readonly string[] | undefined,
-  ): string[] {
-    if (!Array.isArray(paths)) {
-      return [];
-    }
-
-    const normalizedByKey = new Map<string, string>();
-    for (const path of paths) {
-      if (typeof path !== 'string') {
-        continue;
-      }
-
-      const cleaned = path.trim();
-      if (!cleaned) {
-        continue;
-      }
-
-      const resolvedPath = resolve(cleaned);
-      normalizedByKey.set(resolvedPath.toLowerCase(), resolvedPath);
-    }
-
-    return [...normalizedByKey.values()];
   }
 
   private async removeDirectoryIfEmpty(directoryPath: string): Promise<void> {

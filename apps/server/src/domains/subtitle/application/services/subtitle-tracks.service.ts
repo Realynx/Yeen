@@ -234,5 +234,3 @@ export class SubtitleTracksService {
     return tracks;
   }
 }
-
-

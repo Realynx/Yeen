@@ -195,4 +195,3 @@ export class ProgressStore extends JsonFileStore<ProgressEntry[]> {
       : new Date().toISOString();
   }
 }
-

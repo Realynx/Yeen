@@ -5,14 +5,28 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { load } from 'cheerio';
 import { MetadataApiCacheStore } from '../../../infrastructure/stores/metadata-api-cache.store';
 import { SystemSettingsService } from '../../../../system-settings/application/services/system-settings.service';
+import {
+  buildIptSearchCacheKey,
+  buildIptSearchUrl,
+  filterIptByMediaType,
+  normalizeIptLimit,
+} from './iptorrents-search-query.helpers';
+import { parseIptSearchResults } from './iptorrents-search-parser.helpers';
+import { extractCookieHeader } from './iptorrents-search-cookie.helpers';
+import {
+  normalizeIptDownloadUrl,
+  resolveIptTorrentFileName,
+} from './iptorrents-search-download.helpers';
+import {
+  isAbortError,
+  looksLikeIptLoginPage,
+} from './iptorrents-search-error.helpers';
 
 const IPT_BASE_URL = 'https://iptorrents.com';
 const DEFAULT_IPTORRENTS_TIMEOUT_MS = 15000;
 const IPTORRENTS_SEARCH_CACHE_TTL_MS = 5 * 60_000;
-const MAX_RESULTS = 40;
 const MIN_QUERY_LENGTH = 2;
 const IPTORRENTS_CACHE_PROVIDER = 'iptorrents.search';
 const CHROME_USER_AGENT =
@@ -83,8 +97,8 @@ export class IptorrentsSearchService {
     input: IptorrentsSearchInput,
   ): Promise<IptorrentsSearchResponse> {
     const cleanedQuery = input.query.trim();
-    const normalizedLimit = this.normalizeLimit(input.limit);
-    const sourceUrl = this.buildSearchUrl(cleanedQuery);
+    const normalizedLimit = normalizeIptLimit(input.limit);
+    const sourceUrl = buildIptSearchUrl(IPT_BASE_URL, cleanedQuery);
 
     if (cleanedQuery.length < MIN_QUERY_LENGTH) {
       return {
@@ -96,7 +110,7 @@ export class IptorrentsSearchService {
       };
     }
 
-    const searchKey = this.searchCacheKey(cleanedQuery);
+    const searchKey = buildIptSearchCacheKey(cleanedQuery);
     let payload =
       await this.metadataApiCacheStore.get<IptorrentsCachedSearchPayload>(
         IPTORRENTS_CACHE_PROVIDER,
@@ -110,7 +124,7 @@ export class IptorrentsSearchService {
       payload = await this.fetchAndCacheSearchPayload(searchKey, cleanedQuery);
     }
 
-    const filteredResults = this.filterByMediaType(
+    const filteredResults = filterIptByMediaType(
       payload.results,
       input.mediaType,
     );
@@ -128,7 +142,7 @@ export class IptorrentsSearchService {
     downloadUrl: string;
     fallbackFileName?: string;
   }): Promise<IptorrentsDownloadedTorrent> {
-    const normalizedDownloadUrl = this.normalizeDownloadUrl(input.downloadUrl);
+    const normalizedDownloadUrl = normalizeIptDownloadUrl(input.downloadUrl);
     const settings = await this.getConnectionSettings();
     const cookieHeader = await this.login(settings);
 
@@ -158,7 +172,7 @@ export class IptorrentsSearchService {
 
     if (contentType.includes('text/html')) {
       const html = await response.text();
-      if (this.looksLikeLoginPage(html)) {
+      if (looksLikeIptLoginPage(html)) {
         throw new BadGatewayException(
           'IPTorrents download requires a valid authenticated session.',
         );
@@ -178,7 +192,7 @@ export class IptorrentsSearchService {
 
     return {
       buffer,
-      originalname: this.resolveTorrentFileName(
+      originalname: resolveIptTorrentFileName(
         response,
         normalizedDownloadUrl,
         input.fallbackFileName,
@@ -215,7 +229,7 @@ export class IptorrentsSearchService {
   private async loadSearchPayload(
     query: string,
   ): Promise<IptorrentsCachedSearchPayload> {
-    const sourceUrl = this.buildSearchUrl(query);
+    const sourceUrl = buildIptSearchUrl(IPT_BASE_URL, query);
     const settings = await this.getConnectionSettings();
     const cookieHeader = await this.login(settings);
     const html = await this.fetchSearchPage(
@@ -224,7 +238,7 @@ export class IptorrentsSearchService {
       cookieHeader,
     );
 
-    if (this.looksLikeLoginPage(html)) {
+    if (looksLikeIptLoginPage(html)) {
       throw new BadGatewayException(
         'IPTorrents login did not produce an authenticated session. Verify credentials in System Settings.',
       );
@@ -232,27 +246,8 @@ export class IptorrentsSearchService {
 
     return {
       sourceUrl,
-      results: this.parseSearchResults(html),
+      results: parseIptSearchResults(html, IPT_BASE_URL),
     };
-  }
-
-  private normalizeLimit(limit: number | undefined): number {
-    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
-      return 20;
-    }
-
-    return Math.max(1, Math.min(MAX_RESULTS, Math.floor(limit)));
-  }
-
-  private buildSearchUrl(query: string): string {
-    const url = new URL('/t', IPT_BASE_URL);
-    url.searchParams.set('q', query);
-    url.searchParams.set('qf', 'ti');
-    return url.toString();
-  }
-
-  private searchCacheKey(query: string): string {
-    return query.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private async getConnectionSettings(): Promise<IptConnectionSettings> {
@@ -301,7 +296,7 @@ export class IptorrentsSearchService {
       null,
     );
 
-    const cookieHeader = this.extractCookieHeader(response);
+    const cookieHeader = extractCookieHeader(response);
     if (!cookieHeader) {
       throw new BadGatewayException(
         'IPTorrents login failed. No session cookie was returned.',
@@ -384,7 +379,7 @@ export class IptorrentsSearchService {
         signal: abortController.signal,
       });
     } catch (error) {
-      if (this.isAbortError(error)) {
+      if (isAbortError(error)) {
         throw new GatewayTimeoutException(
           `IPTorrents request timed out after ${timeoutMs}ms.`,
         );
@@ -399,273 +394,5 @@ export class IptorrentsSearchService {
     } finally {
       clearTimeout(timeoutHandle);
     }
-  }
-
-  private parseSearchResults(html: string): IptorrentsSearchItem[] {
-    const $ = load(html);
-    const rows = $('#torrents tbody tr');
-    const parsed: IptorrentsSearchItem[] = [];
-
-    rows.each((index, row) => {
-      const cells = $(row).children('td');
-      if (cells.length < 9) {
-        return;
-      }
-
-      const category = this.cleanText(
-        cells.eq(0).find('img').first().attr('alt') ?? 'Unknown',
-      );
-      const nameCell = cells.eq(1);
-      const titleLink = nameCell.find('a.hv').first();
-      const title = this.cleanText(titleLink.text());
-      if (!title) {
-        return;
-      }
-
-      const detailsUrl = this.toAbsoluteUrl(titleLink.attr('href') ?? null);
-      if (!detailsUrl) {
-        return;
-      }
-
-      const torrentId = this.extractTorrentId(detailsUrl, index + 1);
-      const downloadUrl = this.toAbsoluteUrl(
-        cells.eq(3).find('a[href*="download.php"]').first().attr('href') ??
-          null,
-      );
-      const subtitleText = this.cleanText(nameCell.find('.sub').first().text());
-      const badgeTexts = nameCell
-        .find('span')
-        .toArray()
-        .map((element) => this.cleanText($(element).text()).toLowerCase());
-
-      parsed.push({
-        id: torrentId,
-        title,
-        category,
-        subtitle: subtitleText || null,
-        size: this.cleanText(cells.eq(5).text()) || 'Unknown',
-        snatches: this.toInteger(cells.eq(6).text()),
-        seeders: this.toInteger(cells.eq(7).text()),
-        leechers: this.toInteger(cells.eq(8).text()),
-        comments: this.toInteger(cells.eq(4).text()),
-        isFreeleech: badgeTexts.some((value) => value.includes('free')),
-        isNew: badgeTexts.some((value) => value === 'new'),
-        detailsUrl,
-        downloadUrl,
-      });
-    });
-
-    return parsed;
-  }
-
-  private filterByMediaType(
-    items: IptorrentsSearchItem[],
-    mediaType: IptorrentsMediaType | undefined,
-  ): IptorrentsSearchItem[] {
-    if (!mediaType) {
-      return items;
-    }
-
-    if (mediaType === 'movie') {
-      return items.filter((item) =>
-        item.category.trim().toLowerCase().startsWith('movie'),
-      );
-    }
-
-    return items.filter((item) =>
-      item.category.trim().toLowerCase().startsWith('tv'),
-    );
-  }
-
-  private extractCookieHeader(response: Response): string {
-    const setCookies = this.collectSetCookies(response);
-    const cookiePairs = new Set<string>();
-
-    for (const setCookie of setCookies) {
-      const cookiePair = this.extractCookiePair(setCookie);
-      if (cookiePair) {
-        cookiePairs.add(cookiePair);
-      }
-    }
-
-    return [...cookiePairs].join('; ');
-  }
-
-  private collectSetCookies(response: Response): string[] {
-    const headersWithSetCookie = response.headers as Headers & {
-      getSetCookie?: () => string[];
-    };
-    const cookies =
-      typeof headersWithSetCookie.getSetCookie === 'function'
-        ? headersWithSetCookie.getSetCookie()
-        : [];
-
-    const combinedHeader = response.headers.get('set-cookie');
-    if (combinedHeader) {
-      cookies.push(...this.splitCombinedSetCookie(combinedHeader));
-    }
-
-    return cookies;
-  }
-
-  private splitCombinedSetCookie(combinedHeader: string): string[] {
-    return combinedHeader
-      .split(/,(?=[^;,\s]+=)/g)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-  }
-
-  private extractCookiePair(value: string): string | null {
-    const firstPart = value.split(';', 1)[0]?.trim();
-    if (!firstPart || !firstPart.includes('=')) {
-      return null;
-    }
-
-    return firstPart;
-  }
-
-  private looksLikeLoginPage(html: string): boolean {
-    return (
-      /<form[^>]+action=["']?do-login\.php["']?/i.test(html) ||
-      /<title>\s*iPT\s*[\u2013-]\s*Sign\s*In\s*<\/title>/i.test(html)
-    );
-  }
-
-  private normalizeDownloadUrl(downloadUrl: string): string {
-    const cleaned = downloadUrl.trim();
-    if (!cleaned) {
-      throw new BadRequestException('IPTorrents download URL is required.');
-    }
-
-    let parsed: URL;
-    try {
-      parsed = new URL(cleaned);
-    } catch {
-      throw new BadRequestException(
-        'IPTorrents download URL must be a valid absolute URL.',
-      );
-    }
-
-    if (!this.isIptorrentsHost(parsed.hostname)) {
-      throw new BadRequestException(
-        'Download URL must point to an IPTorrents host.',
-      );
-    }
-
-    if (!/\/download\.php(?:\/|$)/i.test(parsed.pathname)) {
-      throw new BadRequestException(
-        'Download URL must use the IPTorrents download endpoint.',
-      );
-    }
-
-    return parsed.toString();
-  }
-
-  private isIptorrentsHost(hostname: string): boolean {
-    const normalized = hostname.trim().toLowerCase();
-    return (
-      normalized === 'iptorrents.com' || normalized.endsWith('.iptorrents.com')
-    );
-  }
-
-  private resolveTorrentFileName(
-    response: Response,
-    sourceUrl: string,
-    fallbackFileName?: string,
-  ): string {
-    const fromHeader = this.parseFileNameFromContentDisposition(
-      response.headers.get('content-disposition'),
-    );
-    if (fromHeader) {
-      return this.sanitizeTorrentFileName(fromHeader);
-    }
-
-    try {
-      const finalUrl = new URL(response.url || sourceUrl);
-      const pathTail = finalUrl.pathname.split('/').pop();
-      if (pathTail) {
-        return this.sanitizeTorrentFileName(decodeURIComponent(pathTail));
-      }
-    } catch {
-      // Fall back to title-derived file names.
-    }
-
-    return this.sanitizeTorrentFileName(
-      fallbackFileName || 'iptorrents-download',
-    );
-  }
-
-  private parseFileNameFromContentDisposition(
-    header: string | null,
-  ): string | null {
-    if (!header) {
-      return null;
-    }
-
-    const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utf8Match?.[1]) {
-      const encoded = utf8Match[1].trim().replace(/^"|"$/g, '');
-      try {
-        return decodeURIComponent(encoded);
-      } catch {
-        return encoded;
-      }
-    }
-
-    const simpleMatch = header.match(/filename="?([^";]+)"?/i);
-    return simpleMatch?.[1]?.trim() || null;
-  }
-
-  private sanitizeTorrentFileName(value: string): string {
-    const withoutIllegalChars = value
-      .replace(/[\\/:*?"<>|%]/g, '-')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/^\.+/, '')
-      .replace(/\.+$/, '');
-
-    const withFallback = withoutIllegalChars || 'iptorrents-download';
-    const trimmed = withFallback.slice(0, 160);
-    return trimmed.toLowerCase().endsWith('.torrent')
-      ? trimmed
-      : `${trimmed}.torrent`;
-  }
-
-  private toAbsoluteUrl(input: string | null): string | null {
-    if (!input) {
-      return null;
-    }
-
-    try {
-      return new URL(input, IPT_BASE_URL).toString();
-    } catch {
-      return null;
-    }
-  }
-
-  private extractTorrentId(detailsUrl: string, fallbackIndex: number): string {
-    const match = detailsUrl.match(/\/t\/(\d+)/i);
-    return match?.[1] ?? `ipt-${fallbackIndex}`;
-  }
-
-  private cleanText(input: string): string {
-    return input.replace(/\s+/g, ' ').trim();
-  }
-
-  private toInteger(input: string): number {
-    const digits = input.replace(/[^0-9]/g, '');
-    const parsed = Number.parseInt(digits, 10);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  private isAbortError(error: unknown): boolean {
-    if (error instanceof DOMException) {
-      return (
-        error.name === 'AbortError' ||
-        error.message.toLowerCase().includes('aborted')
-      );
-    }
-
-    return error instanceof Error && error.name === 'AbortError';
   }
 }

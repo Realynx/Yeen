@@ -1,9 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MediaItem } from '../../../domain/entities/media-item.entity';
 import { MediaStore } from '../../../infrastructure/stores/media.store';
-import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
 import { JikanMetadataService } from '../remote-metadata/jikan-metadata.service';
 import { TmdbMetadataService } from '../remote-metadata/tmdb-metadata.service';
+import {
+  coercePositiveEpisodeNumber,
+  coerceSeasonForTracker,
+  collectSeriesItemsForEpisodeTracker,
+  type EpisodeCatalogLink,
+  normalizeIdList,
+  orderForEpisodeAssignment,
+  remoteSourceLabel,
+  resolveEpisodeCatalogLink,
+  normalizeOptionalString,
+} from './media-episode-catalog-helpers';
 
 export interface EpisodeCatalogRemoteCandidate {
   provider: 'tmdb' | 'jikan';
@@ -41,11 +51,6 @@ export type SeriesEpisodeTrackerResult =
       updatedAt: string;
       note: string | null;
     };
-
-interface EpisodeCatalogLink {
-  source: 'jikan' | 'tmdb';
-  providerId: string;
-}
 
 interface NormalizedSeriesCatalogEpisode {
   seasonNumber: number;
@@ -91,7 +96,7 @@ export class MediaEpisodeCatalogService {
       };
     }
 
-    const catalogLink = this.resolveEpisodeCatalogLink(current);
+    const catalogLink = resolveEpisodeCatalogLink(current);
     if (!catalogLink) {
       return {
         status: 'unavailable',
@@ -103,7 +108,7 @@ export class MediaEpisodeCatalogService {
 
     const catalog = await this.loadSeriesEpisodeCatalog(catalogLink);
     if (!catalog || catalog.episodes.length === 0) {
-      const sourceLabel = this.remoteSourceLabel(catalogLink.source);
+      const sourceLabel = remoteSourceLabel(catalogLink.source);
       return {
         status: 'unavailable',
         reason: `Episode catalog could not be loaded from ${sourceLabel} for this series.`,
@@ -112,7 +117,7 @@ export class MediaEpisodeCatalogService {
     }
 
     const allItems = await this.mediaStore.all();
-    const seriesItems = this.collectSeriesItemsForEpisodeTracker(
+    const seriesItems = collectSeriesItemsForEpisodeTracker(
       allItems,
       current,
       catalogLink,
@@ -126,12 +131,12 @@ export class MediaEpisodeCatalogService {
         continue;
       }
 
-      const episode = this.coercePositiveEpisodeNumber(item.episodeNumber);
+      const episode = coercePositiveEpisodeNumber(item.episodeNumber);
       if (!episode) {
         continue;
       }
 
-      const season = this.coerceSeasonForTracker(item.seasonNumber);
+      const season = coerceSeasonForTracker(item.seasonNumber);
       seasonNumbers.add(season);
 
       const existingSeasonEpisodes =
@@ -144,7 +149,7 @@ export class MediaEpisodeCatalogService {
     const expectedSeasons = [
       ...new Set(catalog.episodes.map((episode) => episode.seasonNumber)),
     ].sort((left, right) => left - right);
-    const preferredSeasonNumber = this.coerceSeasonForTracker(
+    const preferredSeasonNumber = coerceSeasonForTracker(
       current.seasonNumber,
     );
     const primarySeasonNumber = expectedSeasons.includes(preferredSeasonNumber)
@@ -191,7 +196,7 @@ export class MediaEpisodeCatalogService {
       (season) => !expectedSeasons.includes(season),
     );
     const isComplete = missingSeasons.length === 0 && missingEpisodeCount === 0;
-    const sourceLabel = this.remoteSourceLabel(catalog.source);
+    const sourceLabel = remoteSourceLabel(catalog.source);
 
     return {
       status: 'ready',
@@ -230,7 +235,7 @@ export class MediaEpisodeCatalogService {
       return;
     }
 
-    let linkedCatalog = this.resolveEpisodeCatalogLink(target);
+    let linkedCatalog = resolveEpisodeCatalogLink(target);
 
     if (
       (remoteCandidate?.provider === 'jikan' ||
@@ -245,7 +250,7 @@ export class MediaEpisodeCatalogService {
       target.remoteSource === 'jikan' ||
       target.remoteSource === 'tmdb'
     ) {
-      const linkedProviderId = this.normalizeOptionalString(
+      const linkedProviderId = normalizeOptionalString(
         target.remoteSourceId,
       );
       linkedCatalog = linkedProviderId
@@ -257,7 +262,7 @@ export class MediaEpisodeCatalogService {
     } else if (target.remoteSource) {
       linkedCatalog = null;
     } else if (!linkedCatalog && previous) {
-      linkedCatalog = this.resolveEpisodeCatalogLink(previous);
+      linkedCatalog = resolveEpisodeCatalogLink(previous);
     }
 
     if (linkedCatalog) {
@@ -275,64 +280,14 @@ export class MediaEpisodeCatalogService {
   }
 
   normalizeIdList(ids: readonly string[] | undefined): string[] {
-    if (!Array.isArray(ids)) {
-      return [];
-    }
-
-    const normalized: string[] = [];
-    const seen = new Set<string>();
-    for (const id of ids) {
-      if (typeof id !== 'string') {
-        continue;
-      }
-
-      const cleaned = id.trim();
-      if (!cleaned || seen.has(cleaned)) {
-        continue;
-      }
-
-      seen.add(cleaned);
-      normalized.push(cleaned);
-    }
-
-    return normalized;
+    return normalizeIdList(ids);
   }
 
   orderForEpisodeAssignment(
     items: MediaItem[],
     mode: 'filename-asc' | 'existing-episode' | 'as-provided',
   ): MediaItem[] {
-    if (mode === 'as-provided') {
-      return [...items];
-    }
-
-    if (mode === 'existing-episode') {
-      return [...items].sort((left, right) => {
-        const leftSeason = left.seasonNumber ?? Number.MAX_SAFE_INTEGER;
-        const rightSeason = right.seasonNumber ?? Number.MAX_SAFE_INTEGER;
-        if (leftSeason !== rightSeason) {
-          return leftSeason - rightSeason;
-        }
-
-        const leftEpisode = left.episodeNumber ?? Number.MAX_SAFE_INTEGER;
-        const rightEpisode = right.episodeNumber ?? Number.MAX_SAFE_INTEGER;
-        if (leftEpisode !== rightEpisode) {
-          return leftEpisode - rightEpisode;
-        }
-
-        return left.relativePath.localeCompare(right.relativePath, undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        });
-      });
-    }
-
-    return [...items].sort((left, right) =>
-      left.relativePath.localeCompare(right.relativePath, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      }),
-    );
+    return orderForEpisodeAssignment(items, mode);
   }
 
   private warmSeriesEpisodeCatalog(link: EpisodeCatalogLink): void {
@@ -342,32 +297,6 @@ export class MediaEpisodeCatalogService {
     }
 
     this.tmdbMetadataService.warmSeriesEpisodeCatalog(link.providerId);
-  }
-
-  private resolveEpisodeCatalogLink(item: MediaItem): EpisodeCatalogLink | null {
-    const linkedSource = this.normalizeEpisodeCatalogSource(
-      this.normalizeOptionalString(item.episodeCatalogSource),
-    );
-    const linkedId = this.normalizeOptionalString(item.episodeCatalogSourceId);
-
-    if (linkedSource && linkedId) {
-      return {
-        source: linkedSource,
-        providerId: linkedId,
-      };
-    }
-
-    if (item.remoteSource === 'tmdb' || item.remoteSource === 'jikan') {
-      const remoteSourceId = this.normalizeOptionalString(item.remoteSourceId);
-      if (remoteSourceId) {
-        return {
-          source: item.remoteSource,
-          providerId: remoteSourceId,
-        };
-      }
-    }
-
-    return null;
   }
 
   private async loadSeriesEpisodeCatalog(
@@ -424,78 +353,4 @@ export class MediaEpisodeCatalogService {
     }
   }
 
-  private episodeCatalogLinksEqual(
-    left: EpisodeCatalogLink | null,
-    right: EpisodeCatalogLink | null,
-  ): boolean {
-    if (!left || !right) {
-      return left === right;
-    }
-
-    return left.source === right.source && left.providerId === right.providerId;
-  }
-
-  private collectSeriesItemsForEpisodeTracker(
-    items: MediaItem[],
-    current: MediaItem,
-    catalogLink: EpisodeCatalogLink,
-  ): MediaItem[] {
-    const byLinkedSource = items.filter(
-      (item) =>
-        item.type === 'show' &&
-        this.episodeCatalogLinksEqual(
-          this.resolveEpisodeCatalogLink(item),
-          catalogLink,
-        ),
-    );
-
-    if (byLinkedSource.length > 0) {
-      return byLinkedSource;
-    }
-
-    const normalizedTitle = normalizeForKey(current.title);
-    return items.filter(
-      (item) =>
-        item.type === 'show' && normalizeForKey(item.title) === normalizedTitle,
-    );
-  }
-
-  private coercePositiveEpisodeNumber(value: number | null): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return null;
-    }
-
-    const rounded = Math.floor(value);
-    return rounded > 0 ? rounded : null;
-  }
-
-  private coerceSeasonForTracker(value: number | null): number {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return 1;
-    }
-
-    const rounded = Math.floor(value);
-    return rounded > 0 ? rounded : 1;
-  }
-
-  private normalizeEpisodeCatalogSource(
-    value: string | null,
-  ): 'tmdb' | 'jikan' | null {
-    return value === 'tmdb' || value === 'jikan' ? value : null;
-  }
-
-  private normalizeOptionalString(
-    value: string | null | undefined,
-  ): string | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const cleaned = value.trim();
-    return cleaned ? cleaned : null;
-  }
-
-  private remoteSourceLabel(provider: 'tmdb' | 'jikan'): string {
-    return provider === 'tmdb' ? 'TMDB' : 'Jikan';
-  }
 }

@@ -49,7 +49,9 @@ export class MediaIndexedItemMergeService {
     merged.previewImagePath = this.hasNonEmptyString(existing.previewImagePath)
       ? existing.previewImagePath
       : scanned.previewImagePath;
-    merged.backdropImagePath = this.hasNonEmptyString(existing.backdropImagePath)
+    merged.backdropImagePath = this.hasNonEmptyString(
+      existing.backdropImagePath,
+    )
       ? existing.backdropImagePath
       : scanned.backdropImagePath;
 
@@ -112,7 +114,8 @@ export class MediaIndexedItemMergeService {
       frameRate:
         scanned.mediaDetails?.frameRate ?? existing.mediaDetails.frameRate,
       audioChannels:
-        scanned.mediaDetails?.audioChannels ?? existing.mediaDetails.audioChannels,
+        scanned.mediaDetails?.audioChannels ??
+        existing.mediaDetails.audioChannels,
     };
 
     if (scanned.sizeBytes <= 0 && existing.sizeBytes > 0) {
@@ -123,7 +126,8 @@ export class MediaIndexedItemMergeService {
       merged.remoteSource = existing.remoteSource;
       merged.remoteSourceId = existing.remoteSourceId;
       merged.remoteSourceLabel =
-        existing.remoteSourceLabel ?? this.remoteSourceLabel(existing.remoteSource);
+        existing.remoteSourceLabel ??
+        this.remoteSourceLabel(existing.remoteSource);
     } else if (merged.remoteSource && merged.remoteSourceId) {
       merged.remoteSourceLabel = this.remoteSourceLabel(merged.remoteSource);
     } else {
@@ -221,7 +225,9 @@ export class MediaIndexedItemMergeService {
     return value === 'tmdb' || value === 'jikan' ? value : null;
   }
 
-  private resolveEpisodeCatalogLink(item: MediaItem): EpisodeCatalogLink | null {
+  private resolveEpisodeCatalogLink(
+    item: MediaItem,
+  ): EpisodeCatalogLink | null {
     const linkedSource = this.normalizeEpisodeCatalogSource(
       this.normalizeOptionalString(item.episodeCatalogSource),
     );
@@ -274,7 +280,9 @@ export class MediaIndexedItemMergeService {
       target.remoteSource === 'jikan' ||
       target.remoteSource === 'tmdb'
     ) {
-      const linkedProviderId = this.normalizeOptionalString(target.remoteSourceId);
+      const linkedProviderId = this.normalizeOptionalString(
+        target.remoteSourceId,
+      );
       linkedCatalog = linkedProviderId
         ? {
             source: target.remoteSource,

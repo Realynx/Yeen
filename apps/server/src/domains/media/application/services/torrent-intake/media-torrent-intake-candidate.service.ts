@@ -24,9 +24,12 @@ export class MediaTorrentIntakeCandidateService {
       return;
     }
 
-    const existingMapping = await this.torrentMediaIndexStore.get(normalizedHash);
+    const existingMapping =
+      await this.torrentMediaIndexStore.get(normalizedHash);
     if (existingMapping) {
-      const existingMedia = await this.mediaStore.findById(existingMapping.mediaId);
+      const existingMedia = await this.mediaStore.findById(
+        existingMapping.mediaId,
+      );
       if (existingMedia) {
         const existsOnDisk = await this.fileExists(existingMedia.filePath);
         if (!existsOnDisk) {

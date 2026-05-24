@@ -19,7 +19,9 @@ export class MediaIndexRefreshPolicyService {
   }
 
   isMetadataRefreshOlderThan(item: MediaItem, minAgeMs: number): boolean {
-    const refreshedAtMs = Date.parse(item.metadataRefreshedAt || item.updatedAt);
+    const refreshedAtMs = Date.parse(
+      item.metadataRefreshedAt || item.updatedAt,
+    );
     if (!Number.isFinite(refreshedAtMs)) {
       return true;
     }
@@ -30,7 +32,9 @@ export class MediaIndexRefreshPolicyService {
   looksLikeProvisionalTorrentMetadata(item: MediaItem): boolean {
     const extensionContainer = item.extension.replace(/^\./, '').toLowerCase();
     const container = (item.container ?? '').trim().toLowerCase();
-    const formatName = (item.mediaDetails.formatName ?? '').trim().toLowerCase();
+    const formatName = (item.mediaDetails.formatName ?? '')
+      .trim()
+      .toLowerCase();
     const hasStreamDetails =
       (item.width ?? 0) > 0 ||
       (item.height ?? 0) > 0 ||

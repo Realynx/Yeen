@@ -1,9 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { basename, dirname, extname, join } from 'node:path';
 import { MediaChapterThumbnail } from '../../domain/entities/media-item.entity';
+import { extractDescriptionFromNfo } from './media-preview-description.helpers';
+import {
+  buildPreviewImageCandidates,
+  hashPath,
+  pickRandomThumbnailSeconds,
+  posterExtensionFromUrl,
+} from './media-preview-path-helpers';
 
 @Injectable()
 export class MediaPreviewResolver {
@@ -45,8 +51,8 @@ export class MediaPreviewResolver {
   ): Promise<MediaChapterThumbnail[]> {
     const command = ffmpegPath?.trim() || 'ffmpeg';
     const captureCount = Math.max(1, Math.min(30, requestedCount));
-    const fileHash = this.hashPath(filePath);
-    const captureSeconds = this.pickRandomThumbnailSeconds(
+    const fileHash = hashPath(filePath);
+    const captureSeconds = pickRandomThumbnailSeconds(
       durationSeconds,
       captureCount,
       fileHash,
@@ -158,10 +164,10 @@ export class MediaPreviewResolver {
     try {
       await mkdir(targetDirectory, { recursive: true });
 
-      const extension = this.posterExtensionFromUrl(imageUrl);
+      const extension = posterExtensionFromUrl(imageUrl);
       const outputPath = join(
         targetDirectory,
-        `${this.hashPath(`${filePath}:${variant}`)}${extension}`,
+        `${hashPath(`${filePath}:${variant}`)}${extension}`,
       );
 
       if (!force && (await this.pathExists(outputPath))) {
@@ -215,7 +221,7 @@ export class MediaPreviewResolver {
 
       try {
         const raw = await readFile(candidatePath, 'utf8');
-        const extracted = this.extractDescriptionFromNfo(raw);
+        const extracted = extractDescriptionFromNfo(raw, this.nfoDescriptionTags);
         if (extracted) {
           return extracted;
         }
@@ -230,9 +236,10 @@ export class MediaPreviewResolver {
   async findPreviewImagePath(filePath: string): Promise<string | null> {
     const directory = dirname(filePath);
     const fileBaseName = basename(filePath, extname(filePath));
-    const candidates = this.buildPreviewImageCandidates(
+    const candidates = buildPreviewImageCandidates(
       directory,
       fileBaseName,
+      this.previewImageExtensions,
     );
 
     for (const candidate of candidates) {
@@ -268,199 +275,6 @@ export class MediaPreviewResolver {
       sidecarPreviewImagePath ??
       null
     );
-  }
-
-  private posterExtensionFromUrl(urlValue: string): string {
-    try {
-      const pathname = new URL(urlValue).pathname.toLowerCase();
-      const extension = extname(pathname);
-      if (
-        extension === '.jpg' ||
-        extension === '.jpeg' ||
-        extension === '.png' ||
-        extension === '.webp'
-      ) {
-        return extension;
-      }
-    } catch {
-      // Fall through to default extension.
-    }
-
-    return '.jpg';
-  }
-
-  private hashPath(filePath: string): string {
-    return createHash('sha1').update(filePath.toLowerCase()).digest('hex');
-  }
-
-  private pickRandomThumbnailSeconds(
-    durationSeconds: number,
-    count: number,
-    seed: string,
-  ): number[] {
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      return [5].slice(0, count);
-    }
-
-    const minSecond =
-      durationSeconds < 10 ? 0.5 : Math.min(20, durationSeconds * 0.08);
-    const maxSecond = Math.max(minSecond + 0.5, durationSeconds - 1.2);
-    const bucketSize = (maxSecond - minSecond) / Math.max(1, count);
-
-    if (!Number.isFinite(bucketSize) || bucketSize <= 0) {
-      return [
-        Math.max(0.5, Math.min(durationSeconds - 0.8, durationSeconds * 0.5)),
-      ];
-    }
-
-    const random = this.seededRandom(seed);
-    const picks: number[] = [];
-
-    for (let index = 0; index < count; index += 1) {
-      const start = minSecond + bucketSize * index;
-      const end = Math.min(maxSecond, start + bucketSize);
-      const sample = start + random() * Math.max(0.1, end - start);
-      const rounded = Math.max(minSecond, Math.min(maxSecond, sample));
-      picks.push(Math.round(rounded * 1000) / 1000);
-    }
-
-    return picks.sort((left, right) => left - right);
-  }
-
-  private seededRandom(seed: string): () => number {
-    let state = 0;
-
-    for (let index = 0; index < seed.length; index += 1) {
-      state = (state * 31 + seed.charCodeAt(index)) >>> 0;
-    }
-
-    if (state === 0) {
-      state = 0x6d2b79f5;
-    }
-
-    return () => {
-      state ^= state << 13;
-      state ^= state >>> 17;
-      state ^= state << 5;
-      return ((state >>> 0) & 0xffffffff) / 0x100000000;
-    };
-  }
-
-  private buildPreviewImageCandidates(
-    directory: string,
-    fileBaseName: string,
-  ): string[] {
-    const baseNames = [
-      fileBaseName,
-      `${fileBaseName}-poster`,
-      'poster',
-      'folder',
-    ];
-
-    return baseNames.flatMap((baseName) =>
-      this.previewImageExtensions.map((extension) =>
-        join(directory, `${baseName}${extension}`),
-      ),
-    );
-  }
-
-  private extractDescriptionFromNfo(raw: string): string | null {
-    for (const tagName of this.nfoDescriptionTags) {
-      const tagValue = this.extractNfoTagValue(raw, tagName);
-      const normalizedTagValue = this.normalizeDescriptionText(tagValue);
-      if (this.isUsableDescription(normalizedTagValue)) {
-        return normalizedTagValue;
-      }
-    }
-
-    if (this.looksLikeXmlDocument(raw)) {
-      return null;
-    }
-
-    const normalizedFallback = this.normalizeDescriptionText(raw);
-    if (!this.isUsableDescription(normalizedFallback)) {
-      return null;
-    }
-
-    return normalizedFallback;
-  }
-
-  private extractNfoTagValue(raw: string, tagName: string): string | null {
-    const tagPattern = new RegExp(
-      `<${tagName}\\b[^>]*>([\\s\\S]*?)<\/${tagName}>`,
-      'i',
-    );
-    const match = raw.match(tagPattern);
-    return match?.[1] ?? null;
-  }
-
-  private normalizeDescriptionText(
-    value: string | null | undefined,
-  ): string | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const normalized = value
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (!normalized) {
-      return null;
-    }
-
-    return normalized.slice(0, 1400);
-  }
-
-  private isUsableDescription(value: string | null): value is string {
-    if (!value) {
-      return false;
-    }
-
-    return !this.looksLikeStructuredMetadata(value);
-  }
-
-  private looksLikeXmlDocument(raw: string): boolean {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      return false;
-    }
-
-    if (/^<\?xml[\s\S]*\?>/i.test(trimmed)) {
-      return true;
-    }
-
-    return /<[a-z][^>]*>/i.test(trimmed) && /<\/[a-z][^>]*>/i.test(trimmed);
-  }
-
-  private looksLikeStructuredMetadata(value: string): boolean {
-    const lower = value.toLowerCase();
-    const metadataTokenCount =
-      lower.match(
-        /\b(h264|h265|x264|x265|hevc|avc|aac|ac3|eac3|dts|truehd|bitrate|fps|progressive|interlaced|aspect|poster\.jpg|und|jpn|eng)\b/g,
-      )?.length ?? 0;
-    const numericCount = value.match(/\b\d+(?:\.\d+)?\b/g)?.length ?? 0;
-    const wordCount = value.split(/\s+/).filter(Boolean).length;
-    const hasPath = /(?:[a-z]:\\|\/[a-z0-9._-]+\/)/i.test(value);
-    const hasTimestamp =
-      /\b\d{4}-\d{2}-\d{2}(?:[ t]\d{2}:\d{2}(?::\d{2})?)?\b/.test(value);
-    const startsWithBoolean = /^(?:true|false)\b/i.test(value.trim());
-
-    if (hasPath && hasTimestamp && numericCount >= 4) {
-      return true;
-    }
-
-    if (metadataTokenCount >= 4 && numericCount >= 6 && wordCount >= 14) {
-      return true;
-    }
-
-    if (startsWithBoolean && hasPath && numericCount >= 6) {
-      return true;
-    }
-
-    return false;
   }
 
   private toErrorMessage(error: unknown): string {
@@ -510,4 +324,3 @@ export class MediaPreviewResolver {
     });
   }
 }
-

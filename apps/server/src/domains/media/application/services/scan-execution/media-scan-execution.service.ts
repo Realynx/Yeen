@@ -69,9 +69,8 @@ export class MediaScanExecutionService {
         for (const filePath of files) {
           discoveredFiles += 1;
 
-          const filePathKey = this.mediaFileResolutionService.toFilePathKey(
-            filePath,
-          );
+          const filePathKey =
+            this.mediaFileResolutionService.toFilePathKey(filePath);
           const existingItem =
             existingItemByFilePathKey.get(filePathKey) ?? null;
           if (
@@ -200,10 +199,11 @@ export class MediaScanExecutionService {
           };
 
           if (sourceFile.existingItem) {
-            indexedItem = this.mediaIndexedItemMergeService.mergeScannedIndexedItem(
-              sourceFile.existingItem,
-              indexedItem,
-            );
+            indexedItem =
+              this.mediaIndexedItemMergeService.mergeScannedIndexedItem(
+                sourceFile.existingItem,
+                indexedItem,
+              );
           }
 
           await this.mediaStore.upsert(indexedItem);

@@ -57,4 +57,3 @@ export interface RollbackResult {
   reverted: number;
   errors: string[];
 }
-

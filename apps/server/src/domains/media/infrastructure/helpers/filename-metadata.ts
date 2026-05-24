@@ -1,3 +1,8 @@
+import {
+  detectFromFilenameAndPathWith,
+  parseEpisodeTitleFromFilenameWith,
+} from './filename-detection-helpers';
+
 /**
  * Pure helpers for extracting structured metadata (season, episode,
  * release year) from filenames and library-relative paths.
@@ -318,118 +323,8 @@ function toInt(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-// ---------------------------------------------------------------------------
-// Extras / specials folder classification
-// ---------------------------------------------------------------------------
-
-const SPECIALS_FOLDER_NAMES = new Set(['specials', 'special']);
-
-const EXTRAS_FOLDER_NAMES = new Set([
-  'extras',
-  'extra',
-  'featurettes',
-  'featurette',
-  'behind the scenes',
-  'behindthescenes',
-  'deleted scenes',
-  'deletedscenes',
-  'deleted',
-  'interviews',
-  'interview',
-  'trailers',
-  'trailer',
-  'shorts',
-  'short',
-  'clips',
-  'clip',
-  'scenes',
-  'sample',
-  'samples',
-]);
-
-function classifyPathFolders(relativePath: string): {
-  isSpecials: boolean;
-  isExtras: boolean;
-} {
-  const segments = relativePath
-    .split(/[/\\]/)
-    .map((s) => s.toLowerCase().trim().replace(/[._]+/g, ' '));
-
-  const isSpecials = segments.some((s) => SPECIALS_FOLDER_NAMES.has(s));
-  const isExtras = segments.some((s) => EXTRAS_FOLDER_NAMES.has(s));
-  return { isSpecials, isExtras };
-}
-
-// ---------------------------------------------------------------------------
-// Episode title extraction from filename
-// ---------------------------------------------------------------------------
-
-/**
- * Attempt to extract a human-readable episode title from a filename
- * (without extension). Looks for the text that follows the S##E## marker
- * (or equivalent) and strips trailing quality/release noise.
- *
- * Returns `null` when no episode marker is found or the extracted text is
- * entirely noise.
- */
 export function parseEpisodeTitleFromFilename(fileName: string): string | null {
-  let afterMarker: string | null = null;
-
-  // S##E## / S##.E## / S##_E##
-  const standardMatch = fileName.match(/s\d{1,2}[\s._-]?e\d{1,3}(.*)/i);
-  if (standardMatch) {
-    afterMarker = standardMatch[1];
-  }
-
-  // ##x##
-  if (afterMarker === null) {
-    const altMatch = fileName.match(/\b\d{1,2}x\d{1,3}(.*)/i);
-    if (altMatch) {
-      afterMarker = altMatch[1];
-    }
-  }
-
-  // "Season 1 Episode 2" verbose form
-  if (afterMarker === null) {
-    const verboseMatch = fileName.match(
-      /season[\s._-]*\d{1,2}[\s._-]+episode[\s._-]*\d{1,3}(.*)/i,
-    );
-    if (verboseMatch) {
-      afterMarker = verboseMatch[1];
-    }
-  }
-
-  // Anime "- 01" — capture text after the bare number
-  if (afterMarker === null) {
-    const animeMatch = fileName.match(/[\s._]-[\s._]\d{1,4}(?:v\d+)?(.*)/);
-    if (animeMatch) {
-      afterMarker = animeMatch[1];
-    }
-  }
-
-  if (afterMarker === null) return null;
-
-  // Normalize: strip leading separators, collapse dots/underscores to spaces
-  let cleaned = afterMarker
-    .replace(/^[\s._-]+/, '')
-    .replace(/[._]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!cleaned) return null;
-
-  // Strip anything from a leading bracket/paren (resolution, group tags …)
-  cleaned = cleaned.replace(/[\[(].*$/, '').trim();
-
-  // Truncate at the first hard-noise token (resolution, codec, source)
-  const tokens = cleaned.split(/\s+/);
-  const noiseIdx = tokens.findIndex((t) => isHardNoiseToken(t));
-  if (noiseIdx === 0) return null;
-  if (noiseIdx > 0) {
-    cleaned = tokens.slice(0, noiseIdx).join(' ').trim();
-  }
-
-  return cleaned || null;
+  return parseEpisodeTitleFromFilenameWith(fileName, isHardNoiseToken);
 }
 
 // ---------------------------------------------------------------------------
@@ -450,34 +345,10 @@ export function detectFromFilenameAndPath(
   fileName: string,
   relativePath?: string,
 ): FilenameDetectResult {
-  const { isSpecials, isExtras } = classifyPathFolders(relativePath ?? '');
-
-  if (isExtras) {
-    return {
-      seasonNumber: null,
-      episodeNumber: null,
-      episodeTitle: null,
-      suggestedType: 'other',
-    };
-  }
-
-  const se = parseSeasonEpisode(fileName, relativePath);
-  let { seasonNumber, episodeNumber } = se;
-
-  // Files inside a "Specials" folder with no explicit S00E## marker
-  // should default to season 0 (the conventional specials season).
-  if (isSpecials && seasonNumber === null) {
-    seasonNumber = 0;
-  }
-
-  const episodeTitle = parseEpisodeTitleFromFilename(fileName);
-  const suggestedType =
-    seasonNumber !== null || episodeNumber !== null ? 'show' : null;
-
-  return {
-    seasonNumber,
-    episodeNumber,
-    episodeTitle,
-    suggestedType,
-  };
+  return detectFromFilenameAndPathWith(
+    fileName,
+    relativePath,
+    parseSeasonEpisode,
+    parseEpisodeTitleFromFilename,
+  );
 }
