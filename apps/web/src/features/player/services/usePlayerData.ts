@@ -17,6 +17,7 @@ import type {
 import { normalizeShowKey } from '../../media-details/services/mediaDetailsUtils';
 import {
   pickPreferredAudioStreamIndex,
+  pickPreferredSubtitleTrackToExtract,
   pickPreferredSubtitleTrackId,
   toSeriesPlaybackPreference,
 } from './playerDataPreferences';
@@ -184,14 +185,39 @@ export function usePlayerData(
     preferredSubtitleLanguage?: string | null;
     subtitlePreferenceEnabled?: boolean | null;
   }) => {
-    const tracks = await listSubtitleTracks(token, mediaId);
+    let tracks = await listSubtitleTracks(token, mediaId);
+    const preferredSubtitleLanguage = options?.preferredSubtitleLanguage ?? null;
+    const subtitlePreferenceEnabled = options?.subtitlePreferenceEnabled ?? null;
+
+    if (subtitlePreferenceEnabled !== false) {
+      const preferredTrackToExtract = pickPreferredSubtitleTrackToExtract(
+        tracks,
+        preferredSubtitleLanguage,
+      );
+
+      if (preferredTrackToExtract) {
+        setExtractingSubtitleTrackId(preferredTrackToExtract.id);
+        try {
+          const extractedResult = await extractSubtitleTrackAndReload(
+            token,
+            mediaId,
+            preferredTrackToExtract,
+          );
+          tracks = extractedResult.tracks;
+        } catch {
+          // Keep playback flowing even if automatic preferred subtitle extraction fails.
+        } finally {
+          setExtractingSubtitleTrackId(null);
+        }
+      }
+    }
+
     setSubtitleTracks(tracks);
 
     const preferredSubtitleId = pickPreferredSubtitleTrackId(
       tracks,
-      options?.preferredSubtitleLanguage ?? null,
+      preferredSubtitleLanguage,
     );
-    const subtitlePreferenceEnabled = options?.subtitlePreferenceEnabled ?? null;
 
     setSelectedSubtitleId((previous) => {
       if (subtitlePreferenceEnabled === false) {
@@ -218,6 +244,9 @@ export function usePlayerData(
     async function loadPlayer() {
       setLoading(true);
       setError(null);
+      // Prevent stale resume offsets from a previous episode when the new
+      // episode has no saved progress (or was previously completed).
+      setResumeAtSeconds(0);
       setExtractingSubtitleTrackId(null);
       setStreamTorrentHash(null);
       setAudioTracks([]);
@@ -282,7 +311,7 @@ export function usePlayerData(
         // and can seek into the stream. Otherwise the initial-seek guard
         // latches at 0 and the saved position is never honored.
         const entry = progressEntries.find((progress) => progress.mediaId === mediaId);
-        if (entry && !entry.completed && entry.positionSeconds > 15) {
+        if (entry && !entry.completed && entry.positionSeconds > 0) {
           setResumeAtSeconds(entry.positionSeconds);
         }
 
