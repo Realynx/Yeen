@@ -11,9 +11,18 @@
     "lint": "eslint . && npm run lint:css:check",
     "lint:css": "stylelint \"src/**/*.css\" --fix",
     "lint:css:check": "stylelint \"src/**/*.css\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:configure-sdk": "node ../../scripts/configure-android-local-properties.mjs",
+    "android:add": "npx cap add android",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npm run build && npx cap run android",
+    "android:build:debug": "npm run android:configure-sdk && npm run build && npx cap sync android && cd android && gradlew assembleDebug",
+    "android:build:release": "npm run android:configure-sdk && npm run build && npx cap build android --androidreleasetype APK"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@yeen/shared-contracts": "file:../../packages/shared-contracts",
     "hls.js": "^1.6.14",
     "react": "^19.2.6",
@@ -23,6 +32,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
+    "@capacitor/cli": "^8.3.4",
     "@eslint/js": "^10.0.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/babel__core": "^7.20.5",

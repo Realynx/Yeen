@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
+  claimTvPairingCode,
   changeMyPassword,
   createInviteLink,
   removeMyAvatar,
@@ -14,6 +15,7 @@ import { UserInvitesSection } from './UserInvitesSection';
 import { UserProfileDetailsSection } from './UserProfileDetailsSection';
 import { UserSecuritySection } from './UserSecuritySection';
 import { UserSettingsOverviewSidebar } from './UserSettingsOverviewSidebar';
+import { UserTvPairingSection } from './UserTvPairingSection';
 import {
   USER_SETTINGS_SECTION_IDS,
   createUserSettingsQuickActions,
@@ -59,6 +61,11 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   const [inviteError, setInviteError] = useState('');
   const [latestInviteUrl, setLatestInviteUrl] = useState('');
 
+  const [pairingCode, setPairingCode] = useState('');
+  const [claimingCode, setClaimingCode] = useState(false);
+  const [pairingMessage, setPairingMessage] = useState('');
+  const [pairingError, setPairingError] = useState('');
+
   const [expandedCategories, setExpandedCategories] = useState<
     Record<UserSettingsCategoryId, boolean>
   >({
@@ -66,6 +73,7 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
     picture: false,
     invites: false,
     security: false,
+    tv: false,
   });
 
   const availableInvites = isAdmin ? null : Math.max(0, user.invitesRemaining ?? 0);
@@ -295,6 +303,37 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
     }
   }
 
+  async function handleApproveTvCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalizedCode = pairingCode
+      .trim()
+      .replace(/[^a-z0-9]/gi, '')
+      .toUpperCase();
+
+    if (normalizedCode.length !== 6) {
+      setPairingError('Enter the 6-character code shown on your TV.');
+      setPairingMessage('');
+      return;
+    }
+
+    setClaimingCode(true);
+    setPairingError('');
+    setPairingMessage('');
+
+    try {
+      const result = await claimTvPairingCode(token, { code: normalizedCode });
+      setPairingCode('');
+      setPairingMessage(
+        `TV code ${result.code} approved. Continue on your TV to finish sign-in.`,
+      );
+    } catch (error) {
+      setPairingError(toApiErrorMessage(error, 'Unable to approve TV code.'));
+    } finally {
+      setClaimingCode(false);
+    }
+  }
+
   const quickActions = useMemo(() => createUserSettingsQuickActions(isAdmin, availableInvites), [availableInvites, isAdmin]);
 
   return (
@@ -389,6 +428,17 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
               onNewPasswordChange={setNewPassword}
               onConfirmPasswordChange={setConfirmPassword}
               onSubmit={handleChangePassword}
+            />
+
+            <UserTvPairingSection
+              isOpen={expandedCategories.tv}
+              pairingCode={pairingCode}
+              claimingCode={claimingCode}
+              pairingMessage={pairingMessage}
+              pairingError={pairingError}
+              onToggle={() => toggleCategory('tv')}
+              onPairingCodeChange={setPairingCode}
+              onSubmit={handleApproveTvCode}
             />
           </div>
         </div>

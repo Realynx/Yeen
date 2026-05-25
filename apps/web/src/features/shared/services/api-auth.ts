@@ -4,6 +4,12 @@ import type {
   AuthResponse,
   CreatedInvite,
   InviteStatus,
+  TvPairingClaimRequest,
+  TvPairingClaimResponse,
+  TvPairingPollRequest,
+  TvPairingPollResponse,
+  TvPairingStartRequest,
+  TvPairingStartResponse,
   User,
 } from './types';
 import { jsonBody, request } from './api-core';
@@ -25,6 +31,42 @@ export async function login(input: { email: string; password: string }) {
     method: 'POST',
     body: jsonBody(input),
   });
+}
+
+export async function requestTvPairingCode(
+  input: TvPairingStartRequest = {},
+) {
+  return request<TvPairingStartResponse>('/auth/tv/pairings', {
+    method: 'POST',
+    body: jsonBody(input),
+  });
+}
+
+export async function claimTvPairingCode(
+  token: string,
+  input: TvPairingClaimRequest,
+) {
+  return request<TvPairingClaimResponse>(
+    '/auth/tv/pairings/claim',
+    {
+      method: 'POST',
+      body: jsonBody(input),
+    },
+    token,
+  );
+}
+
+export async function pollTvPairingStatus(
+  pairingId: string,
+  input: TvPairingPollRequest,
+) {
+  return request<TvPairingPollResponse>(
+    `/auth/tv/pairings/${encodeURIComponent(pairingId)}/status`,
+    {
+      method: 'POST',
+      body: jsonBody(input),
+    },
+  );
 }
 
 export async function getInviteStatus(inviteToken: string) {

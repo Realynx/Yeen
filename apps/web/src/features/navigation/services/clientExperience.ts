@@ -11,6 +11,8 @@ export interface PageVariants<TProps> {
 
 const QUERY_PARAM_NAME = 'ui';
 const STORAGE_KEY = 'yeen:ui-experience';
+const TV_USER_AGENT_PATTERN =
+  /(aft[a-z0-9]+|android tv|google tv|googletv|fire tv|firetv|smart-tv|smarttv|hbbtv|viera|web0s|webos|tizen|netcast|roku|appletv|bravia|xbox|playstation)/i;
 
 function normalizeExperience(value: string | null | undefined): ClientExperience | null {
   const normalized = value?.trim().toLowerCase() ?? '';
@@ -42,6 +44,11 @@ function detectClientExperience(target: Window): ClientExperience {
     return override;
   }
 
+  const userAgent = target.navigator.userAgent.toLowerCase();
+  if (TV_USER_AGENT_PATTERN.test(userAgent)) {
+    return 'tv';
+  }
+
   const width = target.innerWidth;
   const height = target.innerHeight;
   const shortestSide = Math.min(width, height);
@@ -51,10 +58,6 @@ function detectClientExperience(target: Window): ClientExperience {
 
   if (shortestSide <= 820 || (touchPrimaryInput && width <= 1024)) {
     return 'phone';
-  }
-
-  if (!touchPrimaryInput && width >= 1600 && height >= 900) {
-    return 'tv';
   }
 
   return 'desktop';

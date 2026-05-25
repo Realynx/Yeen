@@ -5,9 +5,15 @@ import type { AuthResponse } from '../../shared/services/types';
 
 interface AuthPanelProps {
   onAuthenticated: (response: AuthResponse) => void;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
 }
 
-export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
+export function AuthPanel({
+  onAuthenticated,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: AuthPanelProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +79,17 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
           <button type="submit" disabled={busy}>
             {busy ? 'Please wait...' : 'Log In'}
           </button>
+
+          {secondaryActionLabel && onSecondaryAction ? (
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={onSecondaryAction}
+              disabled={busy}
+            >
+              {secondaryActionLabel}
+            </button>
+          ) : null}
         </form>
       </section>
     </main>

@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/
 
 # Editor directories and files
 .vscode/*

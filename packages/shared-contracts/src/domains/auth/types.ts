@@ -24,6 +24,54 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface TvPairingStartRequest {
+  clientId?: string;
+  deviceName?: string;
+  devicePlatform?: string;
+}
+
+export interface TvPairingStartResponse {
+  pairingId: string;
+  code: string;
+  pollToken: string;
+  expiresAt: string;
+  pollIntervalSeconds: number;
+  pollTimeoutSeconds: number;
+}
+
+export interface TvPairingClaimRequest {
+  code: string;
+}
+
+export interface TvPairingClaimResponse {
+  pairingId: string;
+  code: string;
+  status: 'claimed';
+  claimedAt: string;
+  expiresAt: string;
+}
+
+export type TvPairingStatus =
+  | 'pending'
+  | 'approved'
+  | 'expired'
+  | 'consumed'
+  | 'denied';
+
+export interface TvPairingPollRequest {
+  pollToken: string;
+}
+
+export interface TvPairingPollResponse {
+  pairingId: string;
+  code: string;
+  status: TvPairingStatus;
+  expiresAt: string;
+  pollIntervalSeconds: number;
+  message?: string;
+  auth?: AuthResponse;
+}
+
 export interface InviteStatus {
   token: string;
   inviterName: string;

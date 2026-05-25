@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { ReactElement } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   BrowserRouter,
   Navigate,
@@ -11,6 +12,8 @@ import {
 } from 'react-router-dom';
 import { AuthPanel } from './features/auth/components/AuthPanel';
 import { InviteSignupPanel } from './features/auth/components/InviteSignupPanel';
+import { TvPairingAuthPanel } from './features/auth/components/TvPairingAuthPanel';
+import { TvInstallPanel } from './features/auth/components/TvInstallPanel';
 import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
 import { useClientExperience } from './features/navigation/services/clientExperience';
 import type { AuthResponse, User } from './features/shared/services/types';
@@ -158,16 +161,26 @@ function PublicBroadcastRoute() {
 
 function App() {
   const experience = useClientExperience();
+  const isTvExperience = experience === 'tv';
+  const isNativePlatform = Capacitor.isNativePlatform();
+  const shouldShowTvInstallPanel = isTvExperience && !isNativePlatform;
+  const shouldShowNativeTvPairing = isNativePlatform;
   const [token, setToken] = useState<string>(() => {
     return localStorage.getItem(TOKEN_STORAGE_KEY) ?? '';
   });
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
+  const [usePasswordLoginOnTv, setUsePasswordLoginOnTv] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
+      if (shouldShowTvInstallPanel) {
+        setBooting(false);
+        return;
+      }
+
       if (!token) {
         setBooting(false);
         return;
@@ -196,12 +209,13 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [shouldShowTvInstallPanel, token]);
 
   function handleAuthenticated(response: AuthResponse) {
     localStorage.setItem(TOKEN_STORAGE_KEY, response.accessToken);
     setToken(response.accessToken);
     setUser(response.user);
+    setUsePasswordLoginOnTv(false);
     setBooting(false);
   }
 
@@ -209,7 +223,12 @@ function App() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken('');
     setUser(null);
+    setUsePasswordLoginOnTv(false);
     setBooting(false);
+  }
+
+  if (shouldShowTvInstallPanel) {
+    return <TvInstallPanel />;
   }
 
   if (booting) {
@@ -235,6 +254,29 @@ function App() {
         <InviteSignupPanel
           inviteToken={inviteToken}
           onAuthenticated={handleAuthenticated}
+        />
+      );
+    }
+
+    if (shouldShowNativeTvPairing && !usePasswordLoginOnTv) {
+      return (
+        <TvPairingAuthPanel
+          onAuthenticated={handleAuthenticated}
+          onUsePasswordLogin={() => {
+            setUsePasswordLoginOnTv(true);
+          }}
+        />
+      );
+    }
+
+    if (shouldShowNativeTvPairing) {
+      return (
+        <AuthPanel
+          onAuthenticated={handleAuthenticated}
+          secondaryActionLabel="Use TV code login instead"
+          onSecondaryAction={() => {
+            setUsePasswordLoginOnTv(false);
+          }}
         />
       );
     }

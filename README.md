@@ -107,6 +107,34 @@ That means Cloudflared only needs one local origin, for example http://localhost
 - npm run build:deploy creates a slim deploy/ folder for production.
 - npm run build:zip creates artifacts/yeen-deploy.zip.
 
+## Android APK (Capacitor)
+
+The web app now includes a Capacitor Android wrapper at apps/web/android.
+
+Use these root-level commands:
+
+```bash
+npm run android:add
+npm run android:configure-sdk
+npm run android:sync
+npm run android:open
+npm run android:build:debug
+npm run android:build:release
+```
+
+Notes:
+
+- android:configure-sdk auto-detects Android SDK and writes
+  apps/web/android/local.properties.
+- android:build:release builds an unsigned release APK by default.
+- android:build:debug publishes the built APK to artifacts/tv/yeen-tv.apk.
+- android:build:release publishes release APK output to artifacts/tv/yeen-tv.apk.
+- TV browsers are auto-gated to an install page when detected as `tv` UI.
+- The install page downloads from `/api/install/android-tv-apk` by default.
+  By default this serves artifacts/tv/yeen-tv.apk (latest published build).
+  Configure `TV_APK_FILE_PATH` in `apps/server/.env` to override.
+- Optional frontend override: `VITE_TV_APK_DOWNLOAD_URL` in `apps/web/.env`.
+
 ## Line Budget Guardrail
 
 - npm run line-budget reports files above 400 lines (soft warning mode).

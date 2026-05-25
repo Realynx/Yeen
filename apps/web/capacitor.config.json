@@ -1,0 +1,9 @@
+{
+  "appId": "com.yeen.client",
+  "appName": "Yeen",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
