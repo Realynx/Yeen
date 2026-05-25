@@ -1,0 +1,54 @@
+.tv-install-panel {
+  width: min(760px, 100%);
+}
+
+.tv-install-panel h1 {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.tv-install-actions {
+  margin: 1.2rem 0 1.4rem;
+}
+
+.tv-install-download-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.2rem;
+  padding: 0.8rem 1.4rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 140, 146, 0.46);
+  background: linear-gradient(118deg, #ff4d58 0%, #e50914 56%, #8f0710 100%);
+  box-shadow: 0 10px 24px rgba(229, 9, 20, 0.3);
+  color: #fff;
+  font-size: 1.03rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: filter 180ms ease;
+}
+
+.tv-install-download-button:hover,
+.tv-install-download-button:focus-visible {
+  filter: brightness(1.08);
+}
+
+.tv-install-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.55rem;
+  color: rgba(239, 239, 242, 0.9);
+}
+
+.tv-install-support-note {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: rgba(239, 239, 242, 0.66);
+}
+
+@media (max-width: 900px) {
+  .tv-install-download-button {
+    width: 100%;
+  }
+}

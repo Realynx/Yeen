@@ -8,6 +8,13 @@ export type {
   BroadcastPublicSessionStatus as BroadcastPublicSession,
   CreatedInvite,
   InviteStatus,
+  TvPairingClaimRequest,
+  TvPairingClaimResponse,
+  TvPairingPollRequest,
+  TvPairingPollResponse,
+  TvPairingStartRequest,
+  TvPairingStartResponse,
+  TvPairingStatus,
   User,
   UserRole,
 } from '@yeen/shared-contracts';

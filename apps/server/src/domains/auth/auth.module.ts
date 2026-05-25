@@ -10,6 +10,7 @@ import { AuthController } from './presentation/controllers/auth.controller';
 import { AuthService } from './application/services/auth.service';
 import { AuthAdminAccountService } from './application/services/auth-admin-account.service';
 import { InviteTokensStore } from './infrastructure/stores/invite-tokens.store';
+import { TvPairingsStore } from './infrastructure/stores/tv-pairings.store';
 import { JwtStrategy } from './infrastructure/jwt.strategy';
 
 @Module({
@@ -36,6 +37,7 @@ import { JwtStrategy } from './infrastructure/jwt.strategy';
     AuthAdminAccountService,
     AccountsStore,
     InviteTokensStore,
+    TvPairingsStore,
     JwtStrategy,
   ],
   exports: [AuthService, AccountsStore],

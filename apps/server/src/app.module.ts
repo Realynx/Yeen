@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppService } from './domains/core/application/services/app.service';
 import { AppController } from './domains/core/presentation/controllers/app.controller';
+import { InstallAssetsController } from './domains/core/presentation/controllers/install-assets.controller';
 import { AuthModule } from './domains/auth/auth.module';
 import { InvitePageController } from './domains/core/presentation/controllers/invite-page.controller';
 import { MediaModule } from './domains/media/media.module';
@@ -32,7 +33,7 @@ import { TorrentModule } from './domains/torrent/torrent.module';
     ProgressModule,
     TorrentModule,
   ],
-  controllers: [AppController, InvitePageController],
+  controllers: [AppController, InvitePageController, InstallAssetsController],
   providers: [AppService],
 })
 export class AppModule {}

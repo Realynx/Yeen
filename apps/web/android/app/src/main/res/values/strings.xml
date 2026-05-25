@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Yeen</string>
+    <string name="title_activity_main">Yeen</string>
+    <string name="package_name">com.yeen.client</string>
+    <string name="custom_url_scheme">com.yeen.client</string>
+</resources>

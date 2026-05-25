@@ -1,8 +1,11 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000/api';
+const DEFAULT_API_BASE = 'http://localhost:4000/api';
+const ENV_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  ?? DEFAULT_API_BASE;
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//i;
-const API_BASE_TRIMMED = API_BASE.replace(/\/+$/, '');
 
 export const TOKEN_STORAGE_KEY = 'yeen_access_token';
+export const RUNTIME_API_BASE_STORAGE_KEY = 'yeen_runtime_api_base_url';
 
 export class ApiError extends Error {
   status: number;
@@ -62,6 +65,34 @@ export async function request<T>(
 
 export function toApiErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
+}
+
+export function getConfiguredApiBaseUrl() {
+  return resolveApiBase();
+}
+
+export function getRuntimeApiBaseUrl() {
+  return readRuntimeApiBase();
+}
+
+export function setRuntimeApiBaseUrl(nextApiBase: string | null | undefined) {
+  const normalized = normalizeApiBaseValue(nextApiBase);
+
+  if (typeof window === 'undefined') {
+    return normalized;
+  }
+
+  try {
+    if (normalized) {
+      window.localStorage.setItem(RUNTIME_API_BASE_STORAGE_KEY, normalized);
+    } else {
+      window.localStorage.removeItem(RUNTIME_API_BASE_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage failures and fall back to environment defaults.
+  }
+
+  return normalized;
 }
 
 export function absoluteApiUrl(path: string) {
@@ -134,15 +165,80 @@ function resolveApiUrl(path: string) {
     return path;
   }
 
-  const normalizedPath = normalizeApiPath(path);
-  return `${API_BASE_TRIMMED}${normalizedPath}`;
+  const apiBase = resolveApiBase();
+  const normalizedPath = normalizeApiPath(path, apiBase);
+  return `${apiBase}${normalizedPath}`;
 }
 
-function normalizeApiPath(path: string) {
+function resolveApiBase() {
+  const runtimeApiBase = readRuntimeApiBase();
+  if (runtimeApiBase) {
+    return runtimeApiBase;
+  }
+
+  return normalizeApiBaseValue(ENV_API_BASE) ?? DEFAULT_API_BASE;
+}
+
+function readRuntimeApiBase() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return normalizeApiBaseValue(
+      window.localStorage.getItem(RUNTIME_API_BASE_STORAGE_KEY),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function normalizeApiBaseValue(value: string | null | undefined) {
+  const candidate = value?.trim() ?? '';
+  if (!candidate) {
+    return null;
+  }
+
+  if (candidate.startsWith('/')) {
+    return normalizeRelativeApiBase(candidate);
+  }
+
+  const absoluteCandidate = ABSOLUTE_URL_PATTERN.test(candidate)
+    ? candidate
+    : `http://${candidate}`;
+
+  try {
+    const parsed = new URL(absoluteCandidate);
+    const normalizedPath = trimTrailingSlashes(parsed.pathname);
+    parsed.pathname = normalizedPath === '' || normalizedPath === '/'
+      ? '/api'
+      : normalizedPath;
+    parsed.search = '';
+    parsed.hash = '';
+    return trimTrailingSlashes(parsed.toString());
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRelativeApiBase(value: string) {
+  const normalized = trimTrailingSlashes(value);
+  if (normalized === '' || normalized === '/') {
+    return '/api';
+  }
+
+  return normalized;
+}
+
+function trimTrailingSlashes(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
+function normalizeApiPath(path: string, apiBase: string) {
   const candidate = path.trim();
   const pathWithLeadingSlash = candidate.startsWith('/') ? candidate : `/${candidate}`;
 
-  if (/\/api$/i.test(API_BASE_TRIMMED) && /^\/api(?:\/|$)/i.test(pathWithLeadingSlash)) {
+  if (/\/api$/i.test(apiBase) && /^\/api(?:\/|$)/i.test(pathWithLeadingSlash)) {
     const pathWithoutDuplicateApiPrefix = pathWithLeadingSlash.slice('/api'.length);
     return pathWithoutDuplicateApiPrefix || '/';
   }

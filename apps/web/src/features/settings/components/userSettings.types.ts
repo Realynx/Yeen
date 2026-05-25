@@ -1,10 +1,16 @@
-export type UserSettingsCategoryId = 'profile' | 'picture' | 'invites' | 'security';
+export type UserSettingsCategoryId =
+  | 'profile'
+  | 'picture'
+  | 'invites'
+  | 'security'
+  | 'tv';
 
 export const USER_SETTINGS_SECTION_IDS: Record<UserSettingsCategoryId, string> = {
   profile: 'user-profile-details',
   picture: 'user-profile-picture',
   invites: 'user-invites',
   security: 'user-password-reset',
+  tv: 'user-tv-login',
 };
 
 export interface UserSettingsQuickAction {
@@ -39,6 +45,11 @@ export function createUserSettingsQuickActions(
       category: 'security',
       label: 'Password',
       note: 'Reset your sign-in password',
+    },
+    {
+      category: 'tv',
+      label: 'TV Login',
+      note: 'Approve a code from your TV app',
     },
   ];
 }

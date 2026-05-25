@@ -15,8 +15,11 @@ import { AdminGuard } from '../guards/admin.guard';
 import { AuthService } from '../../application/services/auth.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { ChangePasswordDto } from '../../application/dto/change-password.dto';
+import { ClaimTvPairingCodeDto } from '../../application/dto/claim-tv-pairing-code.dto';
 import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto';
 import { LoginDto } from '../../application/dto/login.dto';
+import { PollTvPairingDto } from '../../application/dto/poll-tv-pairing.dto';
+import { RequestTvPairingDto } from '../../application/dto/request-tv-pairing.dto';
 import { ResetAccountPasswordDto } from '../../application/dto/reset-account-password.dto';
 import { RegisterDto } from '../../application/dto/register.dto';
 import { UpdateAdminAccountProfileDto } from '../../application/dto/update-admin-account-profile.dto';
@@ -39,6 +42,28 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('tv/pairings')
+  requestTvPairing(@Body() dto: RequestTvPairingDto) {
+    return this.authService.requestTvPairing(dto);
+  }
+
+  @Post('tv/pairings/:pairingId/status')
+  pollTvPairingStatus(
+    @Param('pairingId') pairingId: string,
+    @Body() dto: PollTvPairingDto,
+  ) {
+    return this.authService.pollTvPairingStatus(pairingId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('tv/pairings/claim')
+  claimTvPairingCode(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ClaimTvPairingCodeDto,
+  ) {
+    return this.authService.claimTvPairingCode(user, dto);
   }
 
   @Get('invites/:token')

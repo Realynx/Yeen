@@ -1,0 +1,98 @@
+.tv-pairing-panel {
+  width: min(760px, 100%);
+}
+
+.tv-pairing-server-form {
+  margin-top: 0.8rem;
+}
+
+.tv-pairing-server-actions {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.7rem;
+}
+
+.tv-pairing-server-actions .ghost-button {
+  min-height: 3rem;
+}
+
+.tv-pairing-active-server {
+  margin: 0.8rem 0 0;
+  color: rgba(239, 239, 242, 0.72);
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+.tv-pairing-code {
+  margin: 1.2rem 0 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 140, 146, 0.42);
+  background: rgba(11, 11, 13, 0.88);
+  color: #fff;
+  font-size: clamp(2rem, 8vw, 3.8rem);
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.tv-pairing-meta {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tv-pairing-countdown {
+  margin: 0;
+  color: rgba(239, 239, 242, 0.78);
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-pairing-actions {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.tv-pairing-actions button {
+  min-height: 3rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 140, 146, 0.42);
+  background: linear-gradient(118deg, #ff4d58 0%, #e50914 56%, #8f0710 100%);
+  box-shadow: 0 10px 24px rgba(229, 9, 20, 0.26);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.tv-pairing-actions button:hover,
+.tv-pairing-actions button:focus-visible {
+  filter: brightness(1.06);
+}
+
+.tv-pairing-actions .ghost-button {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: none;
+}
+
+.tv-pairing-actions .ghost-button:hover,
+.tv-pairing-actions .ghost-button:focus-visible {
+  background: rgba(255, 255, 255, 0.17);
+  border-color: rgba(255, 255, 255, 0.4);
+  filter: none;
+}
+
+@media (max-width: 900px) {
+  .tv-pairing-code {
+    letter-spacing: 0.14em;
+  }
+
+  .tv-pairing-actions {
+    grid-template-columns: 1fr;
+  }
+}
