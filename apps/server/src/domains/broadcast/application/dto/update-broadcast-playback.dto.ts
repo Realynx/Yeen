@@ -1,7 +1,8 @@
 import { Type } from 'class-transformer';
 import { IsBoolean, IsNumber, IsOptional, Min } from 'class-validator';
+import type { BroadcastPlaybackUpdate } from '@yeen/shared-contracts';
 
-export class UpdateBroadcastPlaybackDto {
+export class UpdateBroadcastPlaybackDto implements BroadcastPlaybackUpdate {
   @Type(() => Number)
   @IsNumber()
   @Min(0)

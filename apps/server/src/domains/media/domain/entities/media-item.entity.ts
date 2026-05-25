@@ -17,6 +17,7 @@ export interface MediaDetails {
 export interface MediaChapterThumbnail {
   imagePath: string;
   second: number;
+  name?: string | null;
 }
 
 export interface SeriesAssignmentKeywordRule {

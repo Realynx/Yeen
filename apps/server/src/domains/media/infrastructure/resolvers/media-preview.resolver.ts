@@ -6,8 +6,9 @@ import { MediaChapterThumbnail } from '../../domain/entities/media-item.entity';
 import { extractDescriptionFromNfo } from './media-preview-description.helpers';
 import {
   buildPreviewImageCandidates,
+  type ChapterThumbnailCapturePoint,
   hashPath,
-  pickRandomThumbnailSeconds,
+  pickChapterThumbnailCapturePoints,
   posterExtensionFromUrl,
 } from './media-preview-path-helpers';
 
@@ -48,22 +49,25 @@ export class MediaPreviewResolver {
     sourceMtimeMs: number,
     ffmpegPath: string,
     requestedCount: number,
+    chapterMarkers?: readonly ChapterThumbnailCapturePoint[],
   ): Promise<MediaChapterThumbnail[]> {
     const command = ffmpegPath?.trim() || 'ffmpeg';
     const captureCount = Math.max(1, Math.min(30, requestedCount));
     const fileHash = hashPath(filePath);
-    const captureSeconds = pickRandomThumbnailSeconds(
+    const capturePoints = pickChapterThumbnailCapturePoints(
       durationSeconds,
       captureCount,
       fileHash,
+      chapterMarkers,
     );
     const thumbnails: MediaChapterThumbnail[] = [];
 
     try {
       await mkdir(this.generatedChapterThumbnailDir, { recursive: true });
 
-      for (let index = 0; index < captureSeconds.length; index += 1) {
-        const captureSecond = captureSeconds[index];
+      for (let index = 0; index < capturePoints.length; index += 1) {
+        const capturePoint = capturePoints[index];
+        const captureSecond = capturePoint.second;
         const outputPath = join(
           this.generatedChapterThumbnailDir,
           `${fileHash}-${index + 1}.jpg`,
@@ -75,6 +79,7 @@ export class MediaPreviewResolver {
             thumbnails.push({
               imagePath: outputPath,
               second: captureSecond,
+              name: capturePoint.name,
             });
             continue;
           }
@@ -104,6 +109,7 @@ export class MediaPreviewResolver {
           thumbnails.push({
             imagePath: outputPath,
             second: captureSecond,
+            name: capturePoint.name,
           });
         } catch (error) {
           const message = this.toErrorMessage(error);

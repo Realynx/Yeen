@@ -221,6 +221,7 @@ export function normalizeImportedChapterThumbnailsValue(
     out.push({
       imagePath,
       second,
+      name: readOptionalStringValue(entry, 'name'),
     });
   }
 

@@ -2,12 +2,20 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { basename } from 'node:path';
 import type {
+  BroadcastSubtitleFontPreset,
   BroadcastOwnerSessionStatus,
   BroadcastPublicSessionStatus,
+  BroadcastStreamSegmentTrackingStatus,
   BroadcastSession,
 } from '../../domain/entities/broadcast-session.entity';
 
 const VIEWER_ID_MAX_LENGTH = 128;
+const BROADCAST_SUBTITLE_FONT_PRESETS = new Set<BroadcastSubtitleFontPreset>([
+  'clear',
+  'rounded',
+  'mono',
+  'condensed',
+]);
 
 export function createBroadcastSession(
   ownerAccountId: string,
@@ -23,7 +31,9 @@ export function createBroadcastSession(
     updatedAt: nowIso,
     mediaId: null,
     hlsSessionId: null,
+    sourceEpoch: 0,
     subtitleFileName: null,
+    subtitleFontPreset: null,
     playbackPositionSeconds: 0,
     playbackIsPlaying: false,
     playbackUpdatedAt: nowIso,
@@ -39,16 +49,20 @@ export function clearBroadcastSource(
   session: BroadcastSession,
   nowIso: string,
 ): void {
+  session.sourceEpoch = nextBroadcastSourceEpoch(session.sourceEpoch);
   session.mediaId = null;
   session.hlsSessionId = null;
   session.subtitleFileName = null;
+  session.subtitleFontPreset = null;
   session.activePlayer = false;
   session.selectedAudioStreamIndex = null;
   session.maxVideoBitrateKbps = null;
   session.audioBitrateKbps = null;
   session.maxOutputHeight = null;
+  session.playbackPositionSeconds = 0;
   session.playbackIsPlaying = false;
   session.playbackUpdatedAt = nowIso;
+  session.playbackSyncTimestampMs = Date.now();
   session.updatedAt = nowIso;
 }
 
@@ -57,9 +71,11 @@ export function resetBroadcastSourceAndPlayback(
   nowIso: string,
   nowMs: number,
 ): void {
+  session.sourceEpoch = nextBroadcastSourceEpoch(session.sourceEpoch);
   session.mediaId = null;
   session.hlsSessionId = null;
   session.subtitleFileName = null;
+  session.subtitleFontPreset = null;
   session.activePlayer = false;
   session.selectedAudioStreamIndex = null;
   session.maxVideoBitrateKbps = null;
@@ -82,6 +98,7 @@ export function toOwnerStatus(
     mediaId: session.mediaId,
     hlsSessionId: session.hlsSessionId,
     subtitleFileName: session.subtitleFileName,
+    subtitleFontPreset: session.subtitleFontPreset,
     playbackPositionSeconds: session.playbackPositionSeconds,
     playbackIsPlaying: session.playbackIsPlaying,
     playbackUpdatedAt: session.playbackUpdatedAt,
@@ -98,23 +115,51 @@ export function toPublicStatus(
   session: BroadcastSession,
   viewerCount: number,
   isLive: boolean,
+  serverNowMs: number,
+  segmentTracking: BroadcastStreamSegmentTrackingStatus | null = null,
 ): BroadcastPublicSessionStatus {
+  const sourceEpoch = normalizeSourceEpoch(session.sourceEpoch);
+  const playbackUpdatedAtMs = session.playbackUpdatedAt
+    ? Date.parse(session.playbackUpdatedAt)
+    : Number.NaN;
+  const streamKey =
+    session.mediaId && session.hlsSessionId
+      ? `${session.mediaId}:${session.hlsSessionId}`
+      : null;
+  const streamQuery = streamKey
+    ? `?stream=${encodeURIComponent(streamKey)}`
+    : '';
+  const subtitleQuery = new URLSearchParams();
+  subtitleQuery.set('sourceEpoch', String(sourceEpoch));
+  if (streamKey) {
+    subtitleQuery.set('stream', streamKey);
+  }
+  const subtitleStreamQuery = `?${subtitleQuery.toString()}`;
+
   return {
     enabled: session.enabled,
     isLive,
     activePlayer: session.activePlayer,
     shareToken: session.shareToken,
     mediaId: session.mediaId,
+    sourceEpoch,
+    streamKey,
     manifestUrl: isLive
-      ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/hls/master.m3u8`
+      ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/hls/${sourceEpoch}/master.m3u8${streamQuery}`
       : null,
     subtitleUrl:
       isLive && session.subtitleFileName
-        ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/subtitles/${encodeURIComponent(session.subtitleFileName)}`
+        ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/subtitles/${encodeURIComponent(session.subtitleFileName)}${subtitleStreamQuery}`
         : null,
+    subtitleFontPreset: session.subtitleFontPreset,
     playbackPositionSeconds: session.playbackPositionSeconds,
     playbackIsPlaying: session.playbackIsPlaying,
     playbackUpdatedAt: session.playbackUpdatedAt,
+    playbackUpdatedAtMs: Number.isFinite(playbackUpdatedAtMs)
+      ? playbackUpdatedAtMs
+      : null,
+    serverNowMs,
+    segmentTracking,
     viewerCount,
   };
 }
@@ -127,6 +172,7 @@ export function emptyOwnerStatus(): BroadcastOwnerSessionStatus {
     mediaId: null,
     hlsSessionId: null,
     subtitleFileName: null,
+    subtitleFontPreset: null,
     playbackPositionSeconds: 0,
     playbackIsPlaying: false,
     playbackUpdatedAt: null,
@@ -148,20 +194,48 @@ export function isBroadcastSessionLiveAt(
     return false;
   }
 
-  if (session.activePlayer) {
-    return true;
-  }
-
-  if (!session.playbackUpdatedAt) {
+  const freshestPlaybackTimestampMs = resolveFreshestPlaybackTimestampMs(
+    session,
+    nowMs,
+    liveStateGraceMs,
+  );
+  if (freshestPlaybackTimestampMs === null) {
     return false;
   }
 
-  const playbackUpdatedAtMs = Date.parse(session.playbackUpdatedAt);
-  if (!Number.isFinite(playbackUpdatedAtMs)) {
-    return false;
+  return nowMs - freshestPlaybackTimestampMs <= liveStateGraceMs;
+}
+
+function resolveFreshestPlaybackTimestampMs(
+  session: BroadcastSession,
+  nowMs: number,
+  liveStateGraceMs: number,
+): number | null {
+  let freshestTimestampMs = Number.NaN;
+
+  const playbackUpdatedAtMs = session.playbackUpdatedAt
+    ? Date.parse(session.playbackUpdatedAt)
+    : Number.NaN;
+  if (Number.isFinite(playbackUpdatedAtMs)) {
+    freshestTimestampMs = playbackUpdatedAtMs;
   }
 
-  return nowMs - playbackUpdatedAtMs <= liveStateGraceMs;
+  const playbackSyncTimestampMs = session.playbackSyncTimestampMs;
+  const hasUsableSyncTimestamp =
+    typeof playbackSyncTimestampMs === 'number'
+    && Number.isFinite(playbackSyncTimestampMs)
+    && playbackSyncTimestampMs >= 0
+    && playbackSyncTimestampMs <= nowMs + liveStateGraceMs;
+
+  if (hasUsableSyncTimestamp) {
+    freshestTimestampMs = Number.isFinite(freshestTimestampMs)
+      ? Math.max(freshestTimestampMs, playbackSyncTimestampMs)
+      : playbackSyncTimestampMs;
+  }
+
+  return Number.isFinite(freshestTimestampMs)
+    ? freshestTimestampMs
+    : null;
 }
 
 export function normalizeAccountId(value: string): string {
@@ -217,6 +291,21 @@ export function normalizeOptionalSubtitleFileName(
   return nameOnly.slice(0, 260);
 }
 
+export function normalizeOptionalSubtitleFontPreset(
+  value: string | null | undefined,
+): BroadcastSubtitleFontPreset | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim() as BroadcastSubtitleFontPreset;
+  if (!BROADCAST_SUBTITLE_FONT_PRESETS.has(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
 export function normalizeSeconds(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
     return 0;
@@ -251,6 +340,23 @@ export function resolveViewerId(viewerIdInput?: string | null): string {
   }
 
   return randomBytes(10).toString('hex');
+}
+
+export function nextBroadcastSourceEpoch(currentEpoch: number): number {
+  return normalizeSourceEpoch(currentEpoch + 1);
+}
+
+function normalizeSourceEpoch(value: number): number {
+  if (!Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  const normalized = Math.floor(value);
+  if (normalized > Number.MAX_SAFE_INTEGER) {
+    return 0;
+  }
+
+  return normalized;
 }
 
 function createShareToken(): string {

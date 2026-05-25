@@ -1,6 +1,11 @@
 export type {
   AdminManagedAccount,
   AuthResponse,
+  BroadcastPlaybackUpdate,
+  BroadcastSourceUpdate,
+  BroadcastViewerHeartbeatResponse,
+  BroadcastOwnerSessionStatus as BroadcastOwnerSession,
+  BroadcastPublicSessionStatus as BroadcastPublicSession,
   CreatedInvite,
   InviteStatus,
   User,
@@ -44,6 +49,7 @@ export interface MediaDetails {
 export interface MediaChapterThumbnail {
   imagePath: string;
   second: number;
+  name?: string | null;
 }
 
 export interface SeriesAssignmentKeywordRule {
@@ -167,62 +173,6 @@ export interface HlsSessionStats {
   inflightCount: number;
   nextSegmentIndex: number | null;
   recoverableStartFailures: number;
-}
-
-export interface BroadcastOwnerSession {
-  enabled: boolean;
-  activePlayer: boolean;
-  shareToken: string | null;
-  mediaId: string | null;
-  hlsSessionId: string | null;
-  subtitleFileName: string | null;
-  playbackPositionSeconds: number;
-  playbackIsPlaying: boolean;
-  playbackUpdatedAt: string | null;
-  selectedAudioStreamIndex: number | null;
-  maxVideoBitrateKbps: number | null;
-  audioBitrateKbps: number | null;
-  maxOutputHeight: number | null;
-  viewerCount: number;
-  updatedAt: string | null;
-}
-
-export interface BroadcastPublicSession {
-  enabled: boolean;
-  isLive: boolean;
-  activePlayer: boolean;
-  shareToken: string;
-  mediaId: string | null;
-  manifestUrl: string | null;
-  subtitleUrl: string | null;
-  playbackPositionSeconds: number;
-  playbackIsPlaying: boolean;
-  playbackUpdatedAt: string | null;
-  viewerCount: number;
-}
-
-export interface BroadcastViewerHeartbeatResponse {
-  viewerId: string;
-  viewerCount: number;
-  enabled: boolean;
-  isLive: boolean;
-}
-
-export interface BroadcastSourceUpdate {
-  mediaId?: string | null;
-  hlsSessionId?: string | null;
-  subtitleFileName?: string | null;
-  selectedAudioStreamIndex?: number | null;
-  maxVideoBitrateKbps?: number | null;
-  audioBitrateKbps?: number | null;
-  maxOutputHeight?: number | null;
-}
-
-export interface BroadcastPlaybackUpdate {
-  positionSeconds: number;
-  playbackIsPlaying: boolean;
-  activePlayer?: boolean;
-  syncTimestampMs?: number;
 }
 
 export type TorrentOrderMode = 'sequential' | 'random';

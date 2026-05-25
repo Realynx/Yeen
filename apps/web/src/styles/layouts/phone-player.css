@@ -218,6 +218,33 @@
   opacity: 0.82;
 }
 
+.phone-page-shell .phone-player-page .player-skip-segment-cta {
+  right: 0.62rem;
+  bottom: 2.35rem;
+  min-height: 32px;
+  padding: 0.28rem 0.56rem;
+  gap: 0.35rem;
+  border-radius: 999px;
+}
+
+.phone-page-shell .phone-player-page .player-skip-segment-label {
+  font-size: 0.64rem;
+}
+
+.phone-page-shell .phone-player-page .player-skip-segment-target {
+  font-size: 0.57rem;
+}
+
+.phone-page-shell .phone-player-page .player-skip-segment-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.phone-page-shell .phone-player-page .player-skip-segment-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .phone-page-shell .phone-player-page .player-controls-bottom {
   flex-direction: column;
   align-items: flex-start;

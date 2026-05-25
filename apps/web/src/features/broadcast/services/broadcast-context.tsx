@@ -10,8 +10,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useLocation } from 'react-router-dom';
 import {
+  absoluteApiUrl,
   getBroadcastSession,
   setBroadcastEnabled,
   toApiErrorMessage,
@@ -30,6 +30,7 @@ interface BroadcastContextValue {
   viewerCount: number;
   shareToken: string | null;
   publicWatchUrl: string | null;
+  directStreamUrl: string | null;
   loading: boolean;
   updatingEnabled: boolean;
   error: string | null;
@@ -37,6 +38,7 @@ interface BroadcastContextValue {
   setEnabled: (nextEnabled: boolean) => Promise<void>;
   toggleEnabled: () => Promise<void>;
   copyPublicWatchUrl: () => Promise<boolean>;
+  copyDirectStreamUrl: () => Promise<boolean>;
   updateSource: (payload: BroadcastSourceUpdate | null) => Promise<void>;
   updatePlayback: (payload: BroadcastPlaybackUpdate) => Promise<void>;
 }
@@ -60,11 +62,34 @@ function resolvePublicWatchUrl(shareToken: string | null): string | null {
   return `${window.location.origin}/watch/${encodedToken}`;
 }
 
+function resolveDirectStreamUrl(shareToken: string | null): string | null {
+  if (!shareToken) {
+    return null;
+  }
+
+  const encodedToken = encodeURIComponent(shareToken);
+  const candidateUrl = absoluteApiUrl(
+    `/broadcast/public/${encodedToken}/direct/master.m3u8`,
+  );
+
+  if (/^https?:\/\//i.test(candidateUrl) || typeof window === 'undefined') {
+    return candidateUrl;
+  }
+
+  try {
+    return new URL(candidateUrl, window.location.origin).toString();
+  } catch {
+    const path = candidateUrl.startsWith('/') ? candidateUrl : `/${candidateUrl}`;
+    return `${window.location.origin}${path}`;
+  }
+}
+
 function toSourceUpdateKey(payload: BroadcastSourceUpdate): string {
   return [
     payload.mediaId ?? '',
     payload.hlsSessionId ?? '',
     payload.subtitleFileName ?? '',
+    payload.subtitleFontPreset ?? '',
     payload.selectedAudioStreamIndex ?? '',
     payload.maxVideoBitrateKbps ?? '',
     payload.audioBitrateKbps ?? '',
@@ -74,10 +99,16 @@ function toSourceUpdateKey(payload: BroadcastSourceUpdate): string {
 
 function toPlaybackUpdateKey(payload: BroadcastPlaybackUpdate): string {
   const clampedPosition = Math.max(0, payload.positionSeconds);
-  const secondBucket = Math.floor(clampedPosition);
+  const decisecondBucket = Math.floor(clampedPosition * 10);
   const stateLabel = payload.playbackIsPlaying ? 'playing' : 'paused';
   const activePlayerLabel = payload.activePlayer ? 'active' : 'inactive';
-  return `${stateLabel}|${activePlayerLabel}|${secondBucket}`;
+  const syncTimestampBucket =
+    typeof payload.syncTimestampMs === 'number'
+      && Number.isFinite(payload.syncTimestampMs)
+      ? Math.floor(payload.syncTimestampMs / 1000)
+      : 0;
+
+  return `${stateLabel}|${activePlayerLabel}|${decisecondBucket}|${syncTimestampBucket}`;
 }
 
 const defaultContextValue: BroadcastContextValue = {
@@ -86,6 +117,7 @@ const defaultContextValue: BroadcastContextValue = {
   viewerCount: 0,
   shareToken: null,
   publicWatchUrl: null,
+  directStreamUrl: null,
   loading: false,
   updatingEnabled: false,
   error: null,
@@ -93,6 +125,7 @@ const defaultContextValue: BroadcastContextValue = {
   setEnabled: async () => {},
   toggleEnabled: async () => {},
   copyPublicWatchUrl: async () => false,
+  copyDirectStreamUrl: async () => false,
   updateSource: async () => {},
   updatePlayback: async () => {},
 };
@@ -100,7 +133,6 @@ const defaultContextValue: BroadcastContextValue = {
 const BroadcastContext = createContext<BroadcastContextValue>(defaultContextValue);
 
 export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
-  const location = useLocation();
   const [session, setSession] = useState<BroadcastOwnerSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingEnabled, setUpdatingEnabled] = useState(false);
@@ -109,8 +141,6 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
   const sessionRef = useRef<BroadcastOwnerSession | null>(null);
   const lastSourceKeyRef = useRef('');
   const lastPlaybackKeyRef = useRef('');
-  const lastIdlePathRef = useRef<string | null>(null);
-  const lastPlaybackSyncAtRef = useRef(0);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -121,12 +151,6 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       const nextSession = await getBroadcastSession(token);
       sessionRef.current = nextSession;
       setSession(nextSession);
-      const parsedPlaybackUpdatedAt = Date.parse(
-        nextSession.playbackUpdatedAt ?? '',
-      );
-      if (Number.isFinite(parsedPlaybackUpdatedAt)) {
-        lastPlaybackSyncAtRef.current = parsedPlaybackUpdatedAt;
-      }
       setError(null);
     } catch (refreshError) {
       setError(toApiErrorMessage(refreshError, 'Unable to refresh broadcast status.'));
@@ -164,10 +188,6 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       setError(null);
       lastSourceKeyRef.current = '';
       lastPlaybackKeyRef.current = '';
-      lastIdlePathRef.current = null;
-      if (!nextSession.enabled) {
-        lastPlaybackSyncAtRef.current = 0;
-      }
     } catch (toggleError) {
       setError(toApiErrorMessage(toggleError, 'Unable to update broadcast mode.'));
     } finally {
@@ -190,6 +210,7 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       mediaId: null,
       hlsSessionId: null,
       subtitleFileName: null,
+      subtitleFontPreset: null,
       selectedAudioStreamIndex: null,
       maxVideoBitrateKbps: null,
       audioBitrateKbps: null,
@@ -238,7 +259,6 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       const nextSession = await updateBroadcastPlayback(token, normalizedPayload);
       sessionRef.current = nextSession;
       setSession(nextSession);
-      lastPlaybackSyncAtRef.current = Date.now();
       setError(null);
     } catch (updateError) {
       lastPlaybackKeyRef.current = '';
@@ -246,66 +266,12 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
     }
   }, [token]);
 
-  useEffect(() => {
-    if (!session?.enabled) {
-      lastIdlePathRef.current = null;
-      return;
-    }
-
-    if (location.pathname.startsWith('/player/')) {
-      lastIdlePathRef.current = null;
-      return;
-    }
-
-    if (lastIdlePathRef.current === location.pathname) {
-      return;
-    }
-
-    lastIdlePathRef.current = location.pathname;
-
-    void updatePlayback({
-      positionSeconds: session.playbackPositionSeconds,
-      playbackIsPlaying: false,
-      activePlayer: false,
-      syncTimestampMs: Date.now(),
-    });
-  }, [location.pathname, session?.enabled, session?.playbackPositionSeconds, updatePlayback]);
-
-  useEffect(() => {
-    if (!session?.enabled) {
-      return;
-    }
-
-    if (location.pathname.startsWith('/player/')) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      const activeSession = sessionRef.current;
-      if (!activeSession?.enabled) {
-        return;
-      }
-
-      const elapsedMs = Date.now() - lastPlaybackSyncAtRef.current;
-      if (elapsedMs <= 5500) {
-        return;
-      }
-
-      void updatePlayback({
-        positionSeconds: activeSession.playbackPositionSeconds,
-        playbackIsPlaying: false,
-        activePlayer: false,
-        syncTimestampMs: Date.now(),
-      });
-    }, 4000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [location.pathname, session?.enabled, updatePlayback]);
-
   const publicWatchUrl = useMemo(() => {
     return resolvePublicWatchUrl(session?.shareToken ?? null);
+  }, [session?.shareToken]);
+
+  const directStreamUrl = useMemo(() => {
+    return resolveDirectStreamUrl(session?.shareToken ?? null);
   }, [session?.shareToken]);
 
   const copyPublicWatchUrl = useCallback(async () => {
@@ -325,6 +291,23 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
     }
   }, [publicWatchUrl]);
 
+  const copyDirectStreamUrl = useCallback(async () => {
+    if (!directStreamUrl) {
+      return false;
+    }
+
+    if (!navigator.clipboard?.writeText) {
+      return false;
+    }
+
+    try {
+      await navigator.clipboard.writeText(directStreamUrl);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [directStreamUrl]);
+
   const value = useMemo<BroadcastContextValue>(() => {
     const isEnabled = Boolean(session?.enabled);
     return {
@@ -333,6 +316,7 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       viewerCount: session?.viewerCount ?? 0,
       shareToken: session?.shareToken ?? null,
       publicWatchUrl,
+      directStreamUrl,
       loading,
       updatingEnabled,
       error,
@@ -340,11 +324,14 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       setEnabled,
       toggleEnabled,
       copyPublicWatchUrl,
+      copyDirectStreamUrl,
       updateSource,
       updatePlayback,
     };
   }, [
+    copyDirectStreamUrl,
     copyPublicWatchUrl,
+    directStreamUrl,
     error,
     loading,
     publicWatchUrl,

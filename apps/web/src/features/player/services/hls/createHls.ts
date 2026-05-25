@@ -19,7 +19,7 @@ const HLS_CONFIG: Partial<HlsConfig> = {
   levelLoadingTimeOut: 20000,
   fragLoadingMaxRetry: 8,
   fragLoadingRetryDelay: 1000,
-  fragLoadingTimeOut: 30000,
+  fragLoadingTimeOut: 60000,
   maxBufferLength: 30,
   maxMaxBufferLength: 60,
 };

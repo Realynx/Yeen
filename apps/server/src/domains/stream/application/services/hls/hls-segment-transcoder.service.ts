@@ -17,6 +17,17 @@ export interface SegmentTranscodeRequest {
   audioArgs: string[];
 }
 
+export class SegmentTranscodeQueueOverloadedError extends Error {
+  constructor(
+    readonly retryAfterSeconds: number,
+    readonly totalInflight: number,
+    readonly sessionInflight: number,
+  ) {
+    super('Segment transcode queue is overloaded.');
+    this.name = 'SegmentTranscodeQueueOverloadedError';
+  }
+}
+
 /**
  * Owns ffmpeg process management for per-segment HLS transcoding.
  *
@@ -31,6 +42,9 @@ export class HlsSegmentTranscoder {
   private readonly inflight = new Map<string, Promise<void>>();
   private readonly timeoutMs = 120_000;
   private readonly stderrTailBytes = 4000;
+  private readonly maxGlobalInflightJobs = 12;
+  private readonly maxSessionInflightJobs = 8;
+  private readonly overloadRetryAfterSeconds = 2;
 
   ensureSegment(request: SegmentTranscodeRequest): Promise<void> {
     if (existsSync(request.segmentPath)) {
@@ -41,6 +55,22 @@ export class HlsSegmentTranscoder {
     const existing = this.inflight.get(key);
     if (existing) {
       return existing;
+    }
+
+    const totalInflight = this.inflight.size;
+    const sessionInflight = this.getInflightCountForSession(request.sessionId);
+    if (
+      totalInflight >= this.maxGlobalInflightJobs
+      || sessionInflight >= this.maxSessionInflightJobs
+    ) {
+      this.logger.warn(
+        `Backpressure: rejecting segment ${request.segmentIndex} for session ${request.sessionId} (global=${totalInflight}/${this.maxGlobalInflightJobs}, session=${sessionInflight}/${this.maxSessionInflightJobs}).`,
+      );
+      throw new SegmentTranscodeQueueOverloadedError(
+        this.overloadRetryAfterSeconds,
+        totalInflight,
+        sessionInflight,
+      );
     }
 
     const job = this.runFfmpeg(request)
@@ -83,6 +113,35 @@ export class HlsSegmentTranscoder {
     }
 
     return indices.sort((left, right) => left - right);
+  }
+
+  getInflightCount(): number {
+    return this.inflight.size;
+  }
+
+  getInflightCountForSession(sessionId: string): number {
+    const prefix = `${sessionId}:`;
+    let count = 0;
+
+    for (const key of this.inflight.keys()) {
+      if (key.startsWith(prefix)) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  getQueueLimits(): {
+    maxGlobalInflightJobs: number;
+    maxSessionInflightJobs: number;
+    overloadRetryAfterSeconds: number;
+  } {
+    return {
+      maxGlobalInflightJobs: this.maxGlobalInflightJobs,
+      maxSessionInflightJobs: this.maxSessionInflightJobs,
+      overloadRetryAfterSeconds: this.overloadRetryAfterSeconds,
+    };
   }
 
   private jobKey(sessionId: string, segmentIndex: number): string {

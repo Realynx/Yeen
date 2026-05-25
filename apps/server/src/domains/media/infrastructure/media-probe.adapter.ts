@@ -17,6 +17,21 @@ export interface FfprobeFormatTags {
   [key: string]: string | undefined;
 }
 
+export interface FfprobeChapterTags {
+  [key: string]: string | undefined;
+  title?: string;
+}
+
+export interface FfprobeChapter {
+  id?: number | string;
+  time_base?: string;
+  start?: number | string;
+  end?: number | string;
+  start_time?: string;
+  end_time?: string;
+  tags?: FfprobeChapterTags;
+}
+
 export interface FfprobeStream {
   index: number;
   codec_type?: string;
@@ -39,6 +54,7 @@ export interface FfprobeFormat {
 export interface FfprobePayload {
   streams?: FfprobeStream[];
   format?: FfprobeFormat;
+  chapters?: FfprobeChapter[];
 }
 
 @Injectable()
@@ -67,6 +83,7 @@ export class MediaProbeAdapter {
       'ignore_err',
       '-show_streams',
       '-show_format',
+      '-show_chapters',
       '-print_format',
       'json',
       filePath,

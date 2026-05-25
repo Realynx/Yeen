@@ -76,4 +76,30 @@ describe('ProgressService', () => {
     expect(stored?.positionSeconds).toBe(40);
     expect(stored?.syncTimestampMs).toBe(4000);
   });
+
+  it('does not auto-complete short media near the start', async () => {
+    const progress = await service.upsert(user, 'media-short-1', {
+      positionSeconds: 5,
+      durationSeconds: 120,
+      syncTimestampMs: 5000,
+    });
+
+    expect(progress.completed).toBe(false);
+    expect(progress.positionSeconds).toBe(5);
+    expect(stored?.completed).toBe(false);
+    expect(stored?.positionSeconds).toBe(5);
+  });
+
+  it('auto-completes short media when close to the end', async () => {
+    const progress = await service.upsert(user, 'media-short-2', {
+      positionSeconds: 111,
+      durationSeconds: 120,
+      syncTimestampMs: 6000,
+    });
+
+    expect(progress.completed).toBe(true);
+    expect(progress.positionSeconds).toBe(120);
+    expect(stored?.completed).toBe(true);
+    expect(stored?.positionSeconds).toBe(120);
+  });
 });

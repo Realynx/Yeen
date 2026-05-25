@@ -95,11 +95,23 @@
   display: block;
 }
 
-.chapter-thumb span {
-  display: block;
+.chapter-thumb-meta {
+  display: grid;
+  gap: 0.15rem;
   padding: 0.45rem 0.6rem;
+}
+
+.chapter-thumb-name {
+  color: #ebf3ff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.chapter-thumb-time {
   color: #cde0fc;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 
 .season-stack {

@@ -200,6 +200,7 @@ export class StreamService implements OnModuleInit {
     const inflightSegments = this.segmentTranscoder.getInflightSegmentIndices(
       session.sessionId,
     );
+    const queueLimits = this.segmentTranscoder.getQueueLimits();
 
     return {
       sessionId: session.sessionId,
@@ -226,6 +227,10 @@ export class StreamService implements OnModuleInit {
       highestReadySegment,
       inflightSegments,
       inflightCount: inflightSegments.length,
+      globalInflightCount: this.segmentTranscoder.getInflightCount(),
+      maxGlobalInflightJobs: queueLimits.maxGlobalInflightJobs,
+      maxSessionInflightJobs: queueLimits.maxSessionInflightJobs,
+      overloadRetryAfterSeconds: queueLimits.overloadRetryAfterSeconds,
       nextSegmentIndex:
         contiguousReadySegments < session.totalSegments
           ? contiguousReadySegments
