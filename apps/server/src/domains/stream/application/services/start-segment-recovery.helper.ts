@@ -1,11 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { existsSync } from 'node:fs';
 import { rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { HlsSession } from '../../infrastructure/stores/hls-session.store';
 import { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
 import {
-  readMediaFileHeader,
   readMediaFileHeaderCached,
   readMediaFileHeaderUnbuffered,
   scoreMediaHeader as scoreSharedMediaHeader,

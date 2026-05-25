@@ -14,7 +14,6 @@ import {
   hasNonEmptyString,
   normalizeOptionalString,
   type RemoteMediaProvider,
-  type RemoteSelectionRef,
   remoteSelectionsEqual,
   resolveMediaTypeHintAfterPatch,
   resolveRemoteSelectionAfterPatch,

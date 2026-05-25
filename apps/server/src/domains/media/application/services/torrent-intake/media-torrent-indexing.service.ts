@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { extname, isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import {
   TorrentService,
   type TorrentFileHint,
@@ -15,10 +15,7 @@ import { TorrentMediaIndexStore } from '../../../../torrent/infrastructure/store
 import { MediaItem } from '../../../domain/entities/media-item.entity';
 import { MediaLocationsStore } from '../../../infrastructure/stores/media-locations.store';
 import { MediaStore } from '../../../infrastructure/stores/media.store';
-import {
-  MediaScannerService,
-  type MediaProbeHint,
-} from '../scanner/media-scanner.service';
+import { MediaScannerService } from '../scanner/media-scanner.service';
 import { MediaPathResolverService } from '../path-resolution/media-path-resolver.service';
 import {
   isRecoverableTorrentProbeErrorValue,

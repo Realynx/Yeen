@@ -14,27 +14,27 @@ describe('ProgressService', () => {
     stored = undefined;
 
     progressStore = {
-      listForAccount: jest.fn(async (accountId: string) => {
+      listForAccount: jest.fn((accountId: string) => {
         if (!stored || stored.accountId !== accountId) {
-          return [];
+          return Promise.resolve([]);
         }
 
-        return [stored];
+        return Promise.resolve([stored]);
       }),
-      get: jest.fn(async (accountId: string, mediaId: string) => {
+      get: jest.fn((accountId: string, mediaId: string) => {
         if (!stored) {
-          return undefined;
+          return Promise.resolve(undefined);
         }
 
         if (stored.accountId !== accountId || stored.mediaId !== mediaId) {
-          return undefined;
+          return Promise.resolve(undefined);
         }
 
-        return stored;
+        return Promise.resolve(stored);
       }),
-      upsert: jest.fn(async (next: ProgressEntry) => {
+      upsert: jest.fn((next: ProgressEntry) => {
         stored = next;
-        return next;
+        return Promise.resolve(next);
       }),
     } as unknown as ProgressStore;
 

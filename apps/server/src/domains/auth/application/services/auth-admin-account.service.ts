@@ -21,46 +21,17 @@ import { UpdateAccountMaxBitrateDto } from '../dto/update-account-max-bitrate.dt
 import { UpdateAccountRoleDto } from '../dto/update-account-role.dto';
 import { UpdateAdminAccountProfileDto } from '../dto/update-admin-account-profile.dto';
 import { toSafeAccount } from '../helpers/auth-account-helpers';
-
-export interface AdminMediaActivityItem {
-  mediaId: string;
-  title: string;
-  updatedAt: string;
-  progressPercent: number;
-}
-
-export interface AdminAccountActivityItem {
-  accountId: string;
-  watching: AdminMediaActivityItem[];
-  downloading: AdminMediaActivityItem[];
-  inProgressCount: number;
-  completedCount: number;
-  lastActivityAt: string | null;
-  isRecentlyActive: boolean;
-}
-
-export interface AdminDownloadActivityItem {
-  hash: string;
-  mediaId: string | null;
-  title: string;
-  state: string;
-  progressPercent: number;
-}
-
-export interface AdminAccountsActivitySummary {
-  activeAccounts: number;
-  activeWatchers: number;
-  activeDownloads: number;
-  watchEntries: number;
-  recentlyActiveAccounts: number;
-}
-
-export interface AdminAccountsActivityResponse {
-  asOf: string;
-  summary: AdminAccountsActivitySummary;
-  accounts: AdminAccountActivityItem[];
-  downloads: AdminDownloadActivityItem[];
-}
+import {
+  isActiveDownloadValue,
+  toMediaActivityItemValue,
+  toProgressPercentValue,
+} from './auth-admin-account-activity.helpers';
+import type {
+  AdminAccountActivityItem,
+  AdminAccountsActivityResponse,
+  AdminAccountsActivitySummary,
+  AdminDownloadActivityItem,
+} from './auth-admin-account.types';
 
 @Injectable()
 export class AuthAdminAccountService {
@@ -110,7 +81,7 @@ export class AuthAdminAccountService {
     const progressByAccount = new Map(progressByAccountEntries);
 
     const activeTorrents = torrentSnapshot.items.filter((item) =>
-      this.isActiveDownload(item),
+      isActiveDownloadValue(item),
     );
     const indexedTorrentEntries = await Promise.all(
       activeTorrents.map(async (item) => {
@@ -148,7 +119,7 @@ export class AuthAdminAccountService {
           mediaId,
           title,
           state: item.state,
-          progressPercent: this.toProgressPercent(item.progress),
+          progressPercent: toProgressPercentValue(item.progress),
         };
       })
       .sort((left, right) => right.progressPercent - left.progressPercent);
@@ -171,11 +142,11 @@ export class AuthAdminAccountService {
         );
         const watching = watchingEntries
           .slice(0, 3)
-          .map((entry) => this.toMediaActivityItem(entry, mediaTitles));
+          .map((entry) => toMediaActivityItemValue(entry, mediaTitles));
         const downloading = watchingEntries
           .filter((entry) => activeDownloadMediaIds.has(entry.mediaId))
           .slice(0, 3)
-          .map((entry) => this.toMediaActivityItem(entry, mediaTitles));
+          .map((entry) => toMediaActivityItemValue(entry, mediaTitles));
 
         const lastActivityAt = entries[0]?.updatedAt ?? null;
         const parsedLastActivityAt =
@@ -406,68 +377,6 @@ export class AuthAdminAccountService {
     );
 
     return new Map(results);
-  }
-
-  private toMediaActivityItem(
-    entry: {
-      mediaId: string;
-      positionSeconds: number;
-      durationSeconds: number;
-      updatedAt: string;
-    },
-    mediaTitles: ReadonlyMap<string, string>,
-  ): AdminMediaActivityItem {
-    const title = mediaTitles.get(entry.mediaId) ?? entry.mediaId;
-    const progressFraction =
-      entry.durationSeconds > 0
-        ? Math.max(
-            0,
-            Math.min(1, entry.positionSeconds / entry.durationSeconds),
-          )
-        : 0;
-
-    return {
-      mediaId: entry.mediaId,
-      title,
-      updatedAt: entry.updatedAt,
-      progressPercent: this.toProgressPercent(progressFraction),
-    };
-  }
-
-  private toProgressPercent(value: number): number {
-    if (!Number.isFinite(value) || value <= 0) {
-      return 0;
-    }
-
-    return Math.min(100, Math.max(0, Math.round(value * 100)));
-  }
-
-  private isActiveDownload(item: TorrentListItem): boolean {
-    const normalizedState = item.state.trim().toLowerCase();
-    if (!normalizedState) {
-      return false;
-    }
-
-    if (
-      normalizedState.includes('pausedup') ||
-      normalizedState.includes('upload') ||
-      normalizedState.includes('error') ||
-      normalizedState.includes('missing')
-    ) {
-      return false;
-    }
-
-    if (item.progress >= 1) {
-      return false;
-    }
-
-    return (
-      normalizedState.includes('download') ||
-      normalizedState.includes('queue') ||
-      normalizedState.includes('stall') ||
-      normalizedState.includes('check') ||
-      normalizedState.includes('meta')
-    );
   }
 
   private async requireAccount(userId: string): Promise<AccountRecord> {

@@ -10,7 +10,6 @@ import {
   type TmdbRemoteCandidate,
 } from '../remote-metadata/tmdb-metadata.service';
 import {
-  normalizeRemoteTitleForKeyValue,
   remoteCandidateDedupKeyValue,
   buildLocalTitleIndexValue,
   isAlreadyIndexedLocallyValue,
@@ -18,16 +17,13 @@ import {
 import {
   parseRemoteMediaIdValue,
   toRemoteMediaItemValue,
-  normalizeEditableTagsValue,
   remoteSourceLabelValue,
-  type ParsedRemoteMediaId,
 } from './media-remote-catalog-conversion.helpers';
 import {
   normalizeTagFiltersValue,
   normalizeRemoteProvidersValue,
   matchesRemoteTagFiltersValue,
   hasUsefulRemoteCandidateValue,
-  toNormalizedTagSetValue,
   remoteCandidateScoreValue,
   type RemoteMediaProvider,
 } from './media-remote-catalog-filtering.helpers';

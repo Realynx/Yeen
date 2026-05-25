@@ -221,10 +221,7 @@ export class MediaPreviewResolver {
 
       try {
         const raw = await readFile(candidatePath, 'utf8');
-        const extracted = extractDescriptionFromNfo(
-          raw,
-          this.nfoDescriptionTags,
-        );
+        const extracted = this.extractDescriptionFromNfo(raw);
         if (extracted) {
           return extracted;
         }
@@ -234,6 +231,10 @@ export class MediaPreviewResolver {
     }
 
     return null;
+  }
+
+  private extractDescriptionFromNfo(raw: string): string | null {
+    return extractDescriptionFromNfo(raw, this.nfoDescriptionTags);
   }
 
   async findPreviewImagePath(filePath: string): Promise<string | null> {
