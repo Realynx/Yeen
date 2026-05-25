@@ -210,6 +210,10 @@ function parseChapterThumbnails(raw: string): MediaChapterThumbnail[] {
           typeof value.second === 'number' && Number.isFinite(value.second)
             ? value.second
             : null;
+        const name =
+          typeof value.name === 'string' && value.name.trim()
+            ? value.name.trim()
+            : null;
 
         if (!imagePath || second === null) {
           return null;
@@ -218,9 +222,15 @@ function parseChapterThumbnails(raw: string): MediaChapterThumbnail[] {
         return {
           imagePath,
           second,
+          name,
         };
       })
-      .filter((entry): entry is MediaChapterThumbnail => !!entry);
+      .filter(
+        (
+          entry,
+        ): entry is { imagePath: string; second: number; name: string | null } =>
+          !!entry,
+      );
   } catch {
     return [];
   }

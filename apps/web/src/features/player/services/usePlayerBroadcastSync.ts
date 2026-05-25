@@ -14,6 +14,7 @@ interface UsePlayerBroadcastSyncOptions {
   source: PlaybackSource | null;
   selectedAudioStreamIndex: number | null;
   activeSubtitleUrl: string | null;
+  subtitleFontPreset: BroadcastSourceUpdate['subtitleFontPreset'];
   effectivePreferredVideoBitrateKbps: number | null;
   effectivePreferredAudioBitrateKbps: number | null;
   effectivePreferredMaxResolutionHeight: number | null;
@@ -35,6 +36,7 @@ interface BroadcastSourceSnapshot {
   mediaId: string | null;
   hlsSessionId: string | null;
   subtitleFileName: string | null;
+  subtitleFontPreset: BroadcastSourceUpdate['subtitleFontPreset'];
   selectedAudioStreamIndex: number | null;
   maxVideoBitrateKbps: number | null;
   audioBitrateKbps: number | null;
@@ -44,12 +46,14 @@ interface BroadcastSourceSnapshot {
 const BROADCAST_PLAYER_LOCK_RENEW_MS = 2000;
 const BROADCAST_PLAYER_LOCK_TTL_MS = 6500;
 const BROADCAST_PLAYBACK_SYNC_INTERVAL_MS = 2000;
+const BROADCAST_INACTIVE_SYNC_COOLDOWN_MS = 1200;
 
 const EMPTY_BROADCAST_SOURCE_SNAPSHOT: BroadcastSourceSnapshot = {
   hasHls: false,
   mediaId: null,
   hlsSessionId: null,
   subtitleFileName: null,
+  subtitleFontPreset: null,
   selectedAudioStreamIndex: null,
   maxVideoBitrateKbps: null,
   audioBitrateKbps: null,
@@ -95,6 +99,7 @@ export function usePlayerBroadcastSync({
   source,
   selectedAudioStreamIndex,
   activeSubtitleUrl,
+  subtitleFontPreset,
   effectivePreferredVideoBitrateKbps,
   effectivePreferredAudioBitrateKbps,
   effectivePreferredMaxResolutionHeight,
@@ -109,6 +114,7 @@ export function usePlayerBroadcastSync({
   const broadcastPlayerInstanceIdRef = useRef<string | null>(null);
   const broadcastCurrentTimeRef = useRef(0);
   const broadcastIsPlayingRef = useRef(false);
+  const lastInactiveSyncAtRef = useRef(0);
   const broadcastSourceSnapshotRef = useRef<BroadcastSourceSnapshot>(
     EMPTY_BROADCAST_SOURCE_SNAPSHOT,
   );
@@ -183,6 +189,38 @@ export function usePlayerBroadcastSync({
     return true;
   }, [broadcastPlayerLockKey, ensureBroadcastPlayerInstanceId, mediaId]);
 
+  const hasValidBroadcastPlayerLockOwnership = useCallback((): boolean => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    const instanceId = ensureBroadcastPlayerInstanceId();
+
+    try {
+      const raw = window.localStorage.getItem(broadcastPlayerLockKey);
+      if (!raw) {
+        return false;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        instanceId?: unknown;
+        expiresAt?: unknown;
+      };
+
+      if (parsed.instanceId !== instanceId) {
+        return false;
+      }
+
+      return (
+        typeof parsed.expiresAt === 'number'
+        && Number.isFinite(parsed.expiresAt)
+        && parsed.expiresAt > Date.now()
+      );
+    } catch {
+      return false;
+    }
+  }, [broadcastPlayerLockKey, ensureBroadcastPlayerInstanceId]);
+
   const releaseBroadcastPlayerLock = useCallback(() => {
     if (typeof window === 'undefined') {
       return;
@@ -204,6 +242,35 @@ export function usePlayerBroadcastSync({
       // Ignore lock parse failures and leave lock untouched.
     }
   }, [broadcastPlayerLockKey, ensureBroadcastPlayerInstanceId]);
+
+  const publishInactivePlaybackState = useCallback(() => {
+    if (!broadcastEnabled || !hasValidBroadcastPlayerLockOwnership()) {
+      return;
+    }
+
+    const sourceSnapshot = broadcastSourceSnapshotRef.current;
+    if (!sourceSnapshot.hasHls || !sourceSnapshot.hlsSessionId || !sourceSnapshot.mediaId) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    if (nowMs - lastInactiveSyncAtRef.current < BROADCAST_INACTIVE_SYNC_COOLDOWN_MS) {
+      return;
+    }
+
+    lastInactiveSyncAtRef.current = nowMs;
+
+    void updateBroadcastPlayback({
+      positionSeconds: broadcastCurrentTimeRef.current,
+      playbackIsPlaying: false,
+      activePlayer: false,
+      syncTimestampMs: nowMs,
+    });
+  }, [
+    broadcastEnabled,
+    hasValidBroadcastPlayerLockOwnership,
+    updateBroadcastPlayback,
+  ]);
 
   useEffect(() => {
     if (!broadcastEnabled) {
@@ -236,12 +303,14 @@ export function usePlayerBroadcastSync({
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener('storage', handleStorageEvent);
+      publishInactivePlaybackState();
       releaseBroadcastPlayerLock();
     };
   }, [
     acquireBroadcastPlayerLock,
     broadcastEnabled,
     broadcastPlayerLockKey,
+    publishInactivePlaybackState,
     releaseBroadcastPlayerLock,
   ]);
 
@@ -259,6 +328,7 @@ export function usePlayerBroadcastSync({
       mediaId: mediaId || null,
       hlsSessionId: source?.hls ? source.hlsSessionId : null,
       subtitleFileName: toBroadcastSubtitleFileName(activeSubtitleUrl),
+      subtitleFontPreset: source?.hls ? subtitleFontPreset ?? null : null,
       selectedAudioStreamIndex,
       maxVideoBitrateKbps: source?.hls ? source.maxVideoBitrateKbps : null,
       audioBitrateKbps: source?.hls ? source.audioBitrateKbps : null,
@@ -268,6 +338,7 @@ export function usePlayerBroadcastSync({
     activeSubtitleUrl,
     mediaId,
     selectedAudioStreamIndex,
+    subtitleFontPreset,
     source?.audioBitrateKbps,
     source?.hls,
     source?.hlsSessionId,
@@ -275,10 +346,40 @@ export function usePlayerBroadcastSync({
     source?.maxVideoBitrateKbps,
   ]);
 
+  const pushBroadcastPlaybackState = useCallback(() => {
+    if (
+      !broadcastEnabled
+      || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
+    ) {
+      return;
+    }
+
+    const sourceSnapshot = broadcastSourceSnapshotRef.current;
+    const hasActiveHlsSource =
+      sourceSnapshot.hasHls
+      && Boolean(sourceSnapshot.hlsSessionId)
+      && Boolean(sourceSnapshot.mediaId);
+    const shouldPlay = broadcastIsPlayingRef.current && hasActiveHlsSource;
+
+    void updateBroadcastPlayback({
+      positionSeconds: broadcastCurrentTimeRef.current,
+      playbackIsPlaying: shouldPlay,
+      activePlayer: hasActiveHlsSource,
+      syncTimestampMs: Date.now(),
+    });
+  }, [
+    broadcastEnabled,
+    hasBroadcastPlayerLock,
+    hasValidBroadcastPlayerLockOwnership,
+    updateBroadcastPlayback,
+  ]);
+
   useEffect(() => {
     if (
       !broadcastEnabled
       || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
       || !mediaId
       || loading
       || switchingToHls
@@ -309,10 +410,15 @@ export function usePlayerBroadcastSync({
     source,
     switchToHls,
     switchingToHls,
+    hasValidBroadcastPlayerLockOwnership,
   ]);
 
   useEffect(() => {
-    if (!broadcastEnabled || !hasBroadcastPlayerLock) {
+    if (
+      !broadcastEnabled
+      || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
+    ) {
       return;
     }
 
@@ -326,6 +432,7 @@ export function usePlayerBroadcastSync({
       mediaId: sourceSnapshot.mediaId,
       hlsSessionId: sourceSnapshot.hlsSessionId,
       subtitleFileName: sourceSnapshot.subtitleFileName,
+      subtitleFontPreset: sourceSnapshot.subtitleFontPreset,
       selectedAudioStreamIndex: sourceSnapshot.selectedAudioStreamIndex,
       maxVideoBitrateKbps: sourceSnapshot.maxVideoBitrateKbps,
       audioBitrateKbps: sourceSnapshot.audioBitrateKbps,
@@ -336,38 +443,29 @@ export function usePlayerBroadcastSync({
     hasBroadcastPlayerLock,
     mediaId,
     selectedAudioStreamIndex,
+    subtitleFontPreset,
     source?.audioBitrateKbps,
     source?.hls,
     source?.hlsSessionId,
     source?.maxOutputHeight,
     source?.maxVideoBitrateKbps,
     updateBroadcastSource,
+    hasValidBroadcastPlayerLockOwnership,
   ]);
 
   useEffect(() => {
-    if (!broadcastEnabled || !hasBroadcastPlayerLock) {
+    if (
+      !broadcastEnabled
+      || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
+    ) {
       return;
     }
 
-    function pushPlaybackState() {
-      const sourceSnapshot = broadcastSourceSnapshotRef.current;
-      const shouldPlay =
-        broadcastIsPlayingRef.current
-        && sourceSnapshot.hasHls
-        && Boolean(sourceSnapshot.hlsSessionId);
-
-      void updateBroadcastPlayback({
-        positionSeconds: broadcastCurrentTimeRef.current,
-        playbackIsPlaying: shouldPlay,
-        activePlayer: true,
-        syncTimestampMs: Date.now(),
-      });
-    }
-
-    pushPlaybackState();
+    pushBroadcastPlaybackState();
 
     const intervalId = window.setInterval(() => {
-      pushPlaybackState();
+      pushBroadcastPlaybackState();
     }, BROADCAST_PLAYBACK_SYNC_INTERVAL_MS);
 
     return () => {
@@ -376,7 +474,32 @@ export function usePlayerBroadcastSync({
   }, [
     broadcastEnabled,
     hasBroadcastPlayerLock,
+    hasValidBroadcastPlayerLockOwnership,
     mediaId,
-    updateBroadcastPlayback,
+    pushBroadcastPlaybackState,
+  ]);
+
+  useEffect(() => {
+    if (
+      !broadcastEnabled
+      || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
+    ) {
+      return;
+    }
+
+    const syncPlaybackOnVisibilityChange = () => {
+      pushBroadcastPlaybackState();
+    };
+
+    document.addEventListener('visibilitychange', syncPlaybackOnVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', syncPlaybackOnVisibilityChange);
+    };
+  }, [
+    broadcastEnabled,
+    hasBroadcastPlayerLock,
+    hasValidBroadcastPlayerLockOwnership,
+    pushBroadcastPlaybackState,
   ]);
 }

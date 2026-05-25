@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -7,8 +8,19 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import type {
+  BroadcastSourceUpdate,
+  BroadcastSubtitleFontPreset,
+} from '@yeen/shared-contracts';
 
-export class UpdateBroadcastSourceDto {
+const SUBTITLE_FONT_PRESETS = [
+  'clear',
+  'rounded',
+  'mono',
+  'condensed',
+] as const;
+
+export class UpdateBroadcastSourceDto implements BroadcastSourceUpdate {
   @IsOptional()
   @IsString()
   @MaxLength(128)
@@ -23,6 +35,11 @@ export class UpdateBroadcastSourceDto {
   @IsString()
   @MaxLength(260)
   subtitleFileName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(SUBTITLE_FONT_PRESETS)
+  subtitleFontPreset?: BroadcastSubtitleFontPreset | null;
 
   @IsOptional()
   @Type(() => Number)

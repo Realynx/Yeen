@@ -173,6 +173,7 @@ export function PlayerPlaybackPage({
     source,
     selectedAudioStreamIndex,
     activeSubtitleUrl: activeSubtitle?.url ?? null,
+    subtitleFontPreset,
     effectivePreferredVideoBitrateKbps,
     effectivePreferredAudioBitrateKbps,
     effectivePreferredMaxResolutionHeight,

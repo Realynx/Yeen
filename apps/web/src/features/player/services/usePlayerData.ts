@@ -282,7 +282,7 @@ export function usePlayerData(
         // and can seek into the stream. Otherwise the initial-seek guard
         // latches at 0 and the saved position is never honored.
         const entry = progressEntries.find((progress) => progress.mediaId === mediaId);
-        if (entry && entry.positionSeconds > 15) {
+        if (entry && !entry.completed && entry.positionSeconds > 15) {
           setResumeAtSeconds(entry.positionSeconds);
         }
 

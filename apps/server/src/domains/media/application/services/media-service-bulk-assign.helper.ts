@@ -2,7 +2,10 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { MediaItem } from '../../domain/entities/media-item.entity';
 import type { MediaMetadataPatch } from './metadata-update/media-metadata-patch.types';
 import type { BulkAssignEpisodesInput } from './media.service.types';
-import type { MediaMetadataOpsContext } from './media-service-metadata.helper';
+import {
+  updateMediaValue,
+  type MediaMetadataOpsContext,
+} from './media-service-metadata.helper';
 
 export async function bulkAssignEpisodesValue(
   context: MediaMetadataOpsContext,
@@ -61,7 +64,9 @@ export async function bulkAssignEpisodesValue(
       input.seriesAssignmentRules,
     );
 
-  const updates: MediaItem[] = ordered.map((item, index) => {
+  const updates: MediaItem[] = [];
+
+  for (let index = 0; index < ordered.length; index += 1) {
     const patch: MediaMetadataPatch = {
       title,
       type,
@@ -77,11 +82,9 @@ export async function bulkAssignEpisodesValue(
     if (hasSeriesAssignmentRules) {
       patch.seriesAssignmentRules = seriesAssignmentRules;
     }
-    return context.mediaMetadataPatchApplicationService.applyPatch(item, patch);
-  });
 
-  for (const update of updates) {
-    await context.mediaStore.upsert(update);
+    const update = await updateMediaValue(context, ordered[index].id, patch);
+    updates.push(update);
   }
 
   return {

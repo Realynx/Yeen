@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { Injectable } from '@nestjs/common';
 
 interface InviteSharePageInput {
@@ -19,11 +19,14 @@ interface InviteMetaTagInput {
 
 @Injectable()
 export class AppService {
-  private readonly webDistIndexPath = join(
-    __dirname,
-    '../../web/dist/index.html',
-  );
-  private readonly webSourceIndexPath = join(__dirname, '../../web/index.html');
+  private readonly webIndexTemplateCandidates = [
+    resolve(process.cwd(), 'apps/web/dist/index.html'),
+    resolve(process.cwd(), '../web/dist/index.html'),
+    resolve(__dirname, '../../../../../../web/dist/index.html'),
+    resolve(process.cwd(), 'apps/web/index.html'),
+    resolve(process.cwd(), '../web/index.html'),
+    resolve(__dirname, '../../../../../../web/index.html'),
+  ];
 
   getHealth() {
     return {
@@ -68,26 +71,26 @@ export class AppService {
   }
 
   private async loadWebIndexTemplate(): Promise<string> {
-    try {
-      return await readFile(this.webDistIndexPath, 'utf8');
-    } catch {
+    for (const templatePath of this.webIndexTemplateCandidates) {
       try {
-        return await readFile(this.webSourceIndexPath, 'utf8');
+        return await readFile(templatePath, 'utf8');
       } catch {
-        return [
-          '<!doctype html>',
-          '<html lang="en">',
-          '  <head>',
-          '    <meta charset="UTF-8" />',
-          '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
-          '  </head>',
-          '  <body>',
-          '    <div id="root"></div>',
-          '  </body>',
-          '</html>',
-        ].join('\n');
+        // Keep trying candidate template locations across repo/dev/deploy layouts.
       }
     }
+
+    return [
+      '<!doctype html>',
+      '<html lang="en">',
+      '  <head>',
+      '    <meta charset="UTF-8" />',
+      '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+      '  </head>',
+      '  <body>',
+      '    <div id="root"></div>',
+      '  </body>',
+      '</html>',
+    ].join('\n');
   }
 
   private buildInviteTitle(

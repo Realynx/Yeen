@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'node:path';
+import type { BroadcastSubtitleFontPreset } from '../../domain/entities/broadcast-session.entity';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
 import { BroadcastSession } from '../../domain/entities/broadcast-session.entity';
+
+const BROADCAST_SUBTITLE_FONT_PRESETS = new Set<BroadcastSubtitleFontPreset>([
+  'clear',
+  'rounded',
+  'mono',
+  'condensed',
+]);
 
 @Injectable()
 export class BroadcastSessionStore extends JsonFileStore<BroadcastSession[]> {
@@ -72,7 +80,16 @@ export class BroadcastSessionStore extends JsonFileStore<BroadcastSession[]> {
         updatedAt: this.normalizeIsoTimestamp(raw.updatedAt),
         mediaId: this.normalizeId(raw.mediaId),
         hlsSessionId: this.normalizeId(raw.hlsSessionId),
+        sourceEpoch:
+          this.normalizeOptionalInteger(
+            raw.sourceEpoch,
+            0,
+            Number.MAX_SAFE_INTEGER,
+          ) ?? 0,
         subtitleFileName: this.normalizeSubtitleFileName(raw.subtitleFileName),
+        subtitleFontPreset: this.normalizeSubtitleFontPreset(
+          raw.subtitleFontPreset,
+        ),
         playbackPositionSeconds: this.normalizeSeconds(
           raw.playbackPositionSeconds,
         ),
@@ -169,6 +186,21 @@ export class BroadcastSessionStore extends JsonFileStore<BroadcastSession[]> {
     }
 
     return trimmed.slice(0, 260);
+  }
+
+  private normalizeSubtitleFontPreset(
+    value: unknown,
+  ): BroadcastSubtitleFontPreset | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const trimmed = value.trim() as BroadcastSubtitleFontPreset;
+    if (!BROADCAST_SUBTITLE_FONT_PRESETS.has(trimmed)) {
+      return null;
+    }
+
+    return trimmed;
   }
 
   private normalizeSeconds(value: unknown): number {

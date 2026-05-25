@@ -1,7 +1,9 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
+  useMemo,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
@@ -9,7 +11,10 @@ import { withAccessToken } from '../../shared/services/api';
 import {
   SUBTITLE_FONT_OPTIONS,
   clamp,
+  formatClock,
 } from '../services/playerUtils';
+import { resolveActiveChapterSkipAction } from '../services/playerChapterSkip';
+import { ChevronRightIcon } from './PlayerIcons';
 import { PlayerContextMenu } from './video-panel/PlayerContextMenu';
 import { PlayerControlsPanel } from './video-panel/PlayerControlsPanel';
 import { PlayerNerdStatsPanel } from './video-panel/PlayerNerdStatsPanel';
@@ -200,6 +205,25 @@ export function PlayerVideoPanel({
     ['--player-subtitle-font-family' as string]: subtitleFontFamily,
   };
 
+  const activeSkipAction = useMemo(
+    () =>
+      resolveActiveChapterSkipAction({
+        chapters: media?.chapterThumbnails,
+        currentTime,
+        totalDuration,
+      }),
+    [currentTime, media?.chapterThumbnails, totalDuration],
+  );
+
+  const handleSkipSegment = useCallback(() => {
+    if (!activeSkipAction) {
+      return;
+    }
+
+    onSeekTo(activeSkipAction.targetSeconds);
+    onRevealControls();
+  }, [activeSkipAction, onRevealControls, onSeekTo]);
+
   return (
     <div
       ref={videoShellRef}
@@ -294,6 +318,30 @@ export function PlayerVideoPanel({
         downloadingTorrent={downloadingTorrent}
         estimatedBandwidthBps={estimatedBandwidthBps}
       />
+
+      {activeSkipAction ? (
+        <button
+          type="button"
+          className="player-skip-segment-cta"
+          onClick={handleSkipSegment}
+          aria-label={
+            activeSkipAction.chapterName
+              ? `${activeSkipAction.label}: ${activeSkipAction.chapterName}`
+              : activeSkipAction.label
+          }
+          title={`${activeSkipAction.label} to ${formatClock(activeSkipAction.targetSeconds)}`}
+        >
+          <span className="player-skip-segment-text">
+            <span className="player-skip-segment-label">{activeSkipAction.label}</span>
+            <span className="player-skip-segment-target">
+              {`to ${formatClock(activeSkipAction.targetSeconds)}`}
+            </span>
+          </span>
+          <span className="player-skip-segment-icon" aria-hidden="true">
+            <ChevronRightIcon />
+          </span>
+        </button>
+      ) : null}
 
       <PlayerControlsPanel
         showControls={showControls}

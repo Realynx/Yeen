@@ -10,7 +10,10 @@ import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import type { TorrentService } from '../../../torrent/application/services/torrent.service';
 import type { HlsSession } from '../../infrastructure/stores/hls-session.store';
-import type { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
+import {
+  SegmentTranscodeQueueOverloadedError,
+  type HlsSegmentTranscoder,
+} from './hls/hls-segment-transcoder.service';
 import {
   SegmentNotYetDownloadedError,
   type TorrentDataAvailabilityService,
@@ -130,6 +133,19 @@ export async function serveHlsSegmentValue(
       audioArgs: session.audioArgs,
     });
   } catch (error) {
+    if (error instanceof SegmentTranscodeQueueOverloadedError) {
+      logger.warn(
+        `Backpressure for session ${session.sessionId} segment ${segmentIndex} (global=${error.totalInflight}, session=${error.sessionInflight}).`,
+      );
+      response.setHeader('X-Yeen-Hls-Overloaded', '1');
+      response.setHeader('Retry-After', String(error.retryAfterSeconds));
+      response.setHeader('Cache-Control', 'no-store');
+      throw new HttpException(
+        'Transcode queue overloaded; retry shortly.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     if (isRecoverableTranscodeInputErrorValue(message)) {
       let startupSelfHealApplied = false;

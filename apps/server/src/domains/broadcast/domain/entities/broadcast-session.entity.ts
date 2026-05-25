@@ -1,3 +1,5 @@
+import type { BroadcastSubtitleFontPreset } from '@yeen/shared-contracts';
+
 export interface BroadcastSession {
   ownerAccountId: string;
   shareToken: string;
@@ -7,7 +9,9 @@ export interface BroadcastSession {
   updatedAt: string;
   mediaId: string | null;
   hlsSessionId: string | null;
+  sourceEpoch: number;
   subtitleFileName: string | null;
+  subtitleFontPreset: BroadcastSubtitleFontPreset | null;
   playbackPositionSeconds: number;
   playbackIsPlaying: boolean;
   playbackUpdatedAt: string | null;
@@ -18,41 +22,10 @@ export interface BroadcastSession {
   maxOutputHeight: number | null;
 }
 
-export interface BroadcastOwnerSessionStatus {
-  enabled: boolean;
-  activePlayer: boolean;
-  shareToken: string | null;
-  mediaId: string | null;
-  hlsSessionId: string | null;
-  subtitleFileName: string | null;
-  playbackPositionSeconds: number;
-  playbackIsPlaying: boolean;
-  playbackUpdatedAt: string | null;
-  selectedAudioStreamIndex: number | null;
-  maxVideoBitrateKbps: number | null;
-  audioBitrateKbps: number | null;
-  maxOutputHeight: number | null;
-  viewerCount: number;
-  updatedAt: string | null;
-}
-
-export interface BroadcastPublicSessionStatus {
-  enabled: boolean;
-  isLive: boolean;
-  activePlayer: boolean;
-  shareToken: string;
-  mediaId: string | null;
-  manifestUrl: string | null;
-  subtitleUrl: string | null;
-  playbackPositionSeconds: number;
-  playbackIsPlaying: boolean;
-  playbackUpdatedAt: string | null;
-  viewerCount: number;
-}
-
-export interface BroadcastViewerHeartbeatResponse {
-  viewerId: string;
-  viewerCount: number;
-  enabled: boolean;
-  isLive: boolean;
-}
+export type {
+  BroadcastSubtitleFontPreset,
+  BroadcastOwnerSessionStatus,
+  BroadcastPublicSessionStatus,
+  BroadcastStreamSegmentTrackingStatus,
+  BroadcastViewerHeartbeatResponse,
+} from '@yeen/shared-contracts';

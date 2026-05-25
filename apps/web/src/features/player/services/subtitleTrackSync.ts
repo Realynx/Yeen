@@ -9,7 +9,7 @@ const EMPTY_EMPHASIS_TAG_PATTERN = /<(b|i|u)>\s*<\/\1>/gi;
 const TIMESTAMP_MARKER_PATTERN = /^\d{1,2}:\d{2}(?::\d{2})?$/;
 const INVISIBLE_CUE_CHARS_PATTERN = /[\u200B-\u200D\uFEFF]/g;
 const KNOWN_CUE_MARKER_PATTERN =
-  /^(logo|intro|opening|ending|op|ed|credits?|preview|part\s*[a-z0-9]+)$/i;
+  /^(logo|intro|opening|ending|outro|op|ed|od|credits?|preview|part\s*[a-z0-9]+)$/i;
 const SUBTITLE_SYNC_RETRY_DELAY_MS = 120;
 const MAX_SUBTITLE_SYNC_RETRY_ATTEMPTS = 32;
 

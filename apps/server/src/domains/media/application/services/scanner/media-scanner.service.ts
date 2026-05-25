@@ -15,6 +15,7 @@ import {
   parseReleaseYear,
   parseSeasonEpisode,
 } from '../../../infrastructure/helpers/filename-metadata';
+import { normalizeFfprobeChapterMarkers } from '../../../infrastructure/helpers/media-chapter-markers';
 import {
   cleanTitle,
   normalizeForKey,
@@ -194,6 +195,10 @@ export class MediaScannerService {
         : guessedMediaType;
     const subtitleDetails = [...embeddedSubtitles, ...externalSubtitles];
     const durationSeconds = resolveDurationSeconds(parsed, fileStats.size);
+    const chapterMarkers = normalizeFfprobeChapterMarkers(
+      parsed.chapters,
+      durationSeconds,
+    );
     const fallbackTitle = cleanTitle(fileName);
     const nfoTitle =
       (nfoMetadata?.showTitle ?? nfoMetadata?.title)?.trim() || null;
@@ -277,6 +282,7 @@ export class MediaScannerService {
         fileStats.mtimeMs,
         settings.ffmpegPath,
         settings.thumbnailCaptureCount,
+        chapterMarkers,
       );
     const hintPosterUrl = metadataHint?.posterUrl?.trim() || null;
     const hintBackdropUrl = metadataHint?.backdropUrl?.trim() || null;

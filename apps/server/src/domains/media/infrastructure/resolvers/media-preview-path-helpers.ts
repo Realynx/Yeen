@@ -24,6 +24,34 @@ export function hashPath(filePath: string): string {
   return createHash('sha1').update(filePath.toLowerCase()).digest('hex');
 }
 
+export interface ChapterThumbnailCapturePoint {
+  second: number;
+  name: string | null;
+}
+
+export function pickChapterThumbnailCapturePoints(
+  durationSeconds: number,
+  count: number,
+  seed: string,
+  chapterMarkers?: readonly ChapterThumbnailCapturePoint[],
+): ChapterThumbnailCapturePoint[] {
+  const normalizedChapterMarkers = normalizeChapterMarkers(
+    chapterMarkers,
+    durationSeconds,
+  );
+
+  if (normalizedChapterMarkers.length > 0) {
+    return normalizedChapterMarkers;
+  }
+
+  return pickRandomThumbnailSeconds(durationSeconds, count, seed).map(
+    (second) => ({
+      second,
+      name: null,
+    }),
+  );
+}
+
 export function pickRandomThumbnailSeconds(
   durationSeconds: number,
   count: number,
@@ -56,6 +84,61 @@ export function pickRandomThumbnailSeconds(
   }
 
   return picks.sort((left, right) => left - right);
+}
+
+function normalizeChapterMarkers(
+  markers: readonly ChapterThumbnailCapturePoint[] | undefined,
+  durationSeconds: number,
+): ChapterThumbnailCapturePoint[] {
+  if (!Array.isArray(markers) || markers.length === 0) {
+    return [];
+  }
+
+  const maxSecond =
+    Number.isFinite(durationSeconds) && durationSeconds > 0
+      ? Math.max(0, durationSeconds - 0.2)
+      : null;
+
+  const normalized = markers
+    .map((marker) => {
+      if (
+        typeof marker !== 'object' ||
+        marker === null ||
+        !Number.isFinite(marker.second) ||
+        marker.second < 0
+      ) {
+        return null;
+      }
+
+      const second =
+        maxSecond === null ? marker.second : Math.min(marker.second, maxSecond);
+      const rounded = Math.round(second * 1000) / 1000;
+
+      const name =
+        typeof marker.name === 'string' && marker.name.trim()
+          ? marker.name.trim()
+          : null;
+
+      return {
+        second: rounded,
+        name,
+      };
+    })
+    .filter((marker): marker is ChapterThumbnailCapturePoint => marker !== null)
+    .sort((left, right) => left.second - right.second);
+
+  const deduped: ChapterThumbnailCapturePoint[] = [];
+
+  for (const marker of normalized) {
+    const previous = deduped[deduped.length - 1];
+    if (previous && Math.abs(previous.second - marker.second) < 0.01) {
+      continue;
+    }
+
+    deduped.push(marker);
+  }
+
+  return deduped;
 }
 
 export function buildPreviewImageCandidates(

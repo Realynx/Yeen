@@ -50,6 +50,12 @@ export function PlayerSeekbar({
 
       {(media?.chapterThumbnails ?? []).map((chapter, index) => {
         const markerLeft = clamp((chapter.second / safeDuration) * 100, 0, 100);
+        const chapterName = chapter.name?.trim() || null;
+        const chapterTime = formatClock(chapter.second);
+        const chapterLabel = chapterName
+          ? `${chapterName} (${chapterTime})`
+          : chapterTime;
+
         return (
           <button
             key={`chapter-marker-${index}`}
@@ -60,8 +66,12 @@ export function PlayerSeekbar({
               event.stopPropagation();
               onSeekTo(chapter.second);
             }}
-            title={`Jump to ${formatClock(chapter.second)}`}
-            aria-label={`Jump to chapter at ${formatClock(chapter.second)}`}
+            title={`Jump to ${chapterLabel}`}
+            aria-label={
+              chapterName
+                ? `Jump to chapter ${chapterName} at ${chapterTime}`
+                : `Jump to chapter at ${chapterTime}`
+            }
           />
         );
       })}

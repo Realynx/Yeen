@@ -7,6 +7,7 @@ import { ProgressStore } from '../../infrastructure/stores/progress.store';
 @Injectable()
 export class ProgressService {
   private static readonly WATCHED_REMAINING_SECONDS = 180;
+  private static readonly MIN_COMPLETION_RATIO = 0.9;
 
   constructor(private readonly progressStore: ProgressStore) {}
 
@@ -77,6 +78,15 @@ export class ProgressService {
     }
 
     if (durationSeconds <= 0) {
+      return false;
+    }
+
+    if (positionSeconds <= 0) {
+      return false;
+    }
+
+    const watchedRatio = positionSeconds / durationSeconds;
+    if (watchedRatio < ProgressService.MIN_COMPLETION_RATIO) {
       return false;
     }
 

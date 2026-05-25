@@ -20,6 +20,10 @@ export interface HlsSessionStatsResponse {
   highestReadySegment: number | null;
   inflightSegments: number[];
   inflightCount: number;
+  globalInflightCount: number;
+  maxGlobalInflightJobs: number;
+  maxSessionInflightJobs: number;
+  overloadRetryAfterSeconds: number;
   nextSegmentIndex: number | null;
   recoverableStartFailures: number;
 }

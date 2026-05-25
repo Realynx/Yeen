@@ -260,10 +260,9 @@ export async function updateMediaValue(
     true,
   );
 
-  const posterPatchProvided = hasPatchKey(patch, 'posterUrl');
-  const backdropPatchProvided = hasPatchKey(patch, 'backdropUrl');
-  const shouldRebuildArtwork =
-    remoteSelectionChanged || posterPatchProvided || backdropPatchProvided;
+  // Always refresh artwork so chapter screenshots stay aligned with
+  // metadata and series-assignment updates as requested by product flow.
+  const shouldRebuildArtwork = true;
 
   if (shouldRebuildArtwork) {
     const preferredPosterUrl = normalizeOptionalString(
