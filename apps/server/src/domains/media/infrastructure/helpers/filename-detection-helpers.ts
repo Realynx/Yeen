@@ -96,7 +96,7 @@ export function parseEpisodeTitleFromFilenameWith(
   }
 
   // Strip anything from a leading bracket/paren (resolution, group tags ...)
-  cleaned = cleaned.replace(/[\[(].*$/, '').trim();
+  cleaned = cleaned.replace(/(?:\[|\().*$/, '').trim();
 
   // Truncate at the first hard-noise token (resolution, codec, source)
   const tokens = cleaned.split(/\s+/);
@@ -129,7 +129,8 @@ export function detectFromFilenameAndPathWith(
   }
 
   const se = parseSeasonEpisode(fileName, relativePath);
-  let { seasonNumber, episodeNumber } = se;
+  let { seasonNumber } = se;
+  const { episodeNumber } = se;
 
   // Files inside a "Specials" folder with no explicit S00E## marker
   // should default to season 0 (the conventional specials season).

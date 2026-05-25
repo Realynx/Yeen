@@ -29,7 +29,6 @@ export function usePendingTorrentIndexing<TPendingAction>({
   setActionSuccess,
   setActionError,
 }: UsePendingTorrentIndexingOptions<TPendingAction>) {
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !pendingLocalStreamTarget
@@ -137,5 +136,4 @@ export function usePendingTorrentIndexing<TPendingAction>({
     setPendingLocalStreamTarget,
     token,
   ]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 }

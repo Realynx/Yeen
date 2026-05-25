@@ -61,11 +61,7 @@ export function usePlayerData(
 
   useEffect(() => {
     transcodePreferencesRef.current = transcodePreferences;
-  }, [
-    transcodePreferences.audioBitrateKbps,
-    transcodePreferences.maxOutputHeight,
-    transcodePreferences.maxVideoBitrateKbps,
-  ]);
+  }, [transcodePreferences]);
 
   useEffect(() => {
     autoHlsRestartWindowRef.current = {

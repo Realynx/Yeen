@@ -154,7 +154,7 @@ export class JikanMetadataService {
     tag: string,
     useCache: boolean,
   ): Promise<number | null> {
-    const normalizedTag = this.normalizeGenreLabel(tag);
+    const normalizedTag = sharedNormalizeLabel(tag);
     if (!normalizedTag) {
       return null;
     }
@@ -203,7 +203,7 @@ export class JikanMetadataService {
     }
 
     for (const [id, label] of Object.entries(JIKAN_GENRES_BY_ID)) {
-      const normalizedLabel = this.normalizeGenreLabel(label);
+      const normalizedLabel = sharedNormalizeLabel(label);
       if (
         normalizedLabel === normalizedTag ||
         normalizedLabel.includes(normalizedTag) ||
@@ -277,7 +277,7 @@ export class JikanMetadataService {
         continue;
       }
 
-      const normalizedName = this.normalizeGenreLabel(name);
+      const normalizedName = sharedNormalizeLabel(name);
       if (!normalizedName || bucket.has(normalizedName)) {
         continue;
       }
@@ -295,10 +295,6 @@ export class JikanMetadataService {
     if (value === 'science fiction') {
       bucket.add('sci fi');
     }
-  }
-
-  private normalizeGenreLabel(value: string): string {
-    return sharedNormalizeLabel(value);
   }
 
   private async fetchJson(url: string, timeoutMs: number): Promise<unknown> {
@@ -371,9 +367,7 @@ export class JikanMetadataService {
   }
 
   private parseRetryAfterMs(value: string | null): number | null {
-    if (!value) return null;
-
-    const trimmed = value.trim();
+    const trimmed = value?.trim() ?? '';
     if (!trimmed) return null;
 
     const seconds = Number.parseInt(trimmed, 10);
@@ -391,11 +385,11 @@ export class JikanMetadataService {
   }
 
   private normalizeCooldownMs(value: number | null): number {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return this.defaultRateLimitCooldownMs;
-    }
+    const rounded =
+      typeof value === 'number' && Number.isFinite(value)
+        ? Math.round(value)
+        : this.defaultRateLimitCooldownMs;
 
-    const rounded = Math.round(value);
     return Math.max(
       this.minRequestIntervalMs,
       Math.min(this.maxRateLimitCooldownMs, rounded),

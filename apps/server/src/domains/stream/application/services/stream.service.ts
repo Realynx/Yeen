@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -9,21 +8,13 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { access, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { AccountsStore } from '../../../auth/infrastructure/stores/accounts.store';
 import {
   MediaService,
   type PlaybackAudioTrack,
 } from '../../../media/application/services/media.service';
 import { resolveSafePathFromFileName } from '../../../core/infrastructure/shared/safe-path';
-import {
-  readMediaFileHeader,
-  readMediaFileHeaderCached,
-  readMediaFileHeaderUnbuffered,
-  scoreMediaHeader as scoreSharedMediaHeader,
-} from '../../../core/infrastructure/shared/media-header-probe';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
 import { TorrentService } from '../../../torrent/application/services/torrent.service';
@@ -32,15 +23,9 @@ import {
   HlsSessionStore,
 } from '../../infrastructure/stores/hls-session.store';
 import { RangeStreamService } from './range-stream.service';
-import {
-  buildAudioEncoderArgs,
-  buildVideoEncoderArgs,
-  computeKeyFrameInterval,
-} from '../../infrastructure/hls/hls-ffmpeg-args';
 import { HlsManifestService } from './hls/hls-manifest.service';
 import { HlsSegmentTranscoder } from './hls/hls-segment-transcoder.service';
 import { TorrentDataAvailabilityService } from './hls/torrent-data-availability.service';
-import { totalSegmentCount } from '../../infrastructure/hls/hls-segment-naming';
 import {
   normalizeAudioStreamIndexValue,
   resolveRequestedAudioStreamIndexValue,
@@ -53,44 +38,14 @@ import {
   listReadySegmentIndicesValue,
   computeContiguousReadySegmentsValue,
 } from './hls-segment-stats.helper';
-import {
-  getSegment0ProxyPathValue,
-  buildSegment0HeadProxyValue,
-  resetStartSegmentArtifactsValue,
-} from './start-segment-recovery.helper';
 import { serveHlsSegmentValue } from './stream-hls-segment.helper';
 import {
   findReusableSessionValue,
   createSessionValue,
-  discardSessionValue,
-  type ResolvedTranscodeProfile,
 } from './hls-session-lifecycle.helper';
-
-export interface HlsSessionStatsResponse {
-  sessionId: string;
-  mediaId: string;
-  startedAt: string;
-  ffmpegPath: string;
-  sourceFilePath: string;
-  segmentSeconds: number;
-  totalDurationSeconds: number;
-  totalSegments: number;
-  selectedAudioStreamIndex: number | null;
-  maxVideoBitrateKbps: number;
-  audioBitrateKbps: number;
-  maxOutputHeight: number;
-  keyFrameInterval: number;
-  torrentHash: string | null;
-  readySegments: number;
-  contiguousReadySegments: number;
-  readyThroughSeconds: number;
-  readyPercent: number;
-  highestReadySegment: number | null;
-  inflightSegments: number[];
-  inflightCount: number;
-  nextSegmentIndex: number | null;
-  recoverableStartFailures: number;
-}
+import type { HlsSessionStatsResponse } from './stream.types';
+import { resolveTranscodeProfileValue } from './stream-transcode-profile.helper';
+import { cleanupOrphanSessionDirsValue } from './stream-orphan-cleanup.helper';
 
 @Injectable()
 export class StreamService implements OnModuleInit {
@@ -144,7 +99,7 @@ export class StreamService implements OnModuleInit {
       options?.accountId,
     );
     const systemSettings = await this.systemSettingsService.getSettings();
-    const transcodeProfile = this.resolveTranscodeProfile({
+    const transcodeProfile = resolveTranscodeProfileValue({
       accountMaxBitrateKbps,
       systemDefaultVideoBitrateKbps:
         systemSettings.transcodeDefaultMaxBitrateKbps,
@@ -323,17 +278,7 @@ export class StreamService implements OnModuleInit {
     await this.rangeStreamService.streamFile(filePath, request, response);
   }
 
-  /**
-   * Resolves the actual on-disk path for a media file. qBittorrent renames
-   * downloading files to <name>.!qB, so we fall back to that variant when the
-   * canonical path doesn't exist yet.
-   *
-   * Uses async `access` (libuv threadpool) with a short per-candidate timeout
-   * so that an unresponsive media volume (e.g. an SMB share whose handles are
-   * held by a stalled ffmpeg transcode) cannot block the Node event loop.
-   * `existsSync` here previously froze the whole Nest process, which made
-   * unrelated requests like `/api/auth/me` hang after a failed stream.
-   */
+  // Resolve canonical media path with !qB fallback and non-blocking filesystem checks.
   private async resolveActualFilePath(canonicalPath: string): Promise<string> {
     return resolveActualFilePathValue(canonicalPath, 5_000, this.logger);
   }
@@ -348,60 +293,6 @@ export class StreamService implements OnModuleInit {
 
     const account = await this.accountsStore.findById(normalizedAccountId);
     return account?.maxBitrateKbps ?? null;
-  }
-
-  private resolveTranscodeProfile(input: {
-    accountMaxBitrateKbps: number | null;
-    systemDefaultVideoBitrateKbps: number;
-    systemDefaultAudioBitrateKbps: number;
-    systemDefaultMaxOutputHeight: number;
-    requestedMaxVideoBitrateKbps?: number | null;
-    requestedAudioBitrateKbps?: number | null;
-    requestedMaxOutputHeight?: number | null;
-  }): ResolvedTranscodeProfile {
-    const videoBitrateCeilingKbps = this.clampInteger(
-      input.accountMaxBitrateKbps ?? input.systemDefaultVideoBitrateKbps,
-      250,
-      50000,
-    );
-
-    const maxVideoBitrateKbps = this.clampInteger(
-      input.requestedMaxVideoBitrateKbps ?? videoBitrateCeilingKbps,
-      250,
-      videoBitrateCeilingKbps,
-    );
-
-    const audioBitrateKbps = this.clampInteger(
-      input.requestedAudioBitrateKbps ?? input.systemDefaultAudioBitrateKbps,
-      48,
-      384,
-    );
-
-    const maxOutputHeightCeiling = this.clampInteger(
-      input.systemDefaultMaxOutputHeight,
-      240,
-      2160,
-    );
-
-    const maxOutputHeight = this.clampInteger(
-      input.requestedMaxOutputHeight ?? maxOutputHeightCeiling,
-      240,
-      maxOutputHeightCeiling,
-    );
-
-    return {
-      maxVideoBitrateKbps,
-      audioBitrateKbps,
-      maxOutputHeight,
-    };
-  }
-
-  private clampInteger(value: number, min: number, max: number): number {
-    if (!Number.isFinite(value)) {
-      return min;
-    }
-
-    return Math.min(max, Math.max(min, Math.round(value)));
   }
 
   private async resolveReachableSourcePath(
@@ -489,35 +380,14 @@ export class StreamService implements OnModuleInit {
   // -- orphan cleanup --------------------------------------------------------
 
   private async cleanupOrphanSessionDirs() {
-    if (!existsSync(this.hlsRoot)) {
-      return;
-    }
-    try {
-      const entries = await readdir(this.hlsRoot, { withFileTypes: true });
-      const knownSessionIds = new Set(
-        this.hlsSessionStore.all().map((session) => session.sessionId),
-      );
+    const knownSessionIds = new Set(
+      this.hlsSessionStore.all().map((session) => session.sessionId),
+    );
 
-      await Promise.all(
-        entries
-          .filter(
-            (entry) => entry.isDirectory() && !knownSessionIds.has(entry.name),
-          )
-          .map(async (entry) => {
-            const dirPath = join(this.hlsRoot, entry.name);
-            try {
-              await rm(dirPath, { recursive: true, force: true });
-            } catch (error) {
-              this.logger.warn(
-                `Failed to remove orphan HLS session dir ${entry.name}: ${(error as Error).message}`,
-              );
-            }
-          }),
-      );
-    } catch (error) {
-      this.logger.warn(
-        `HLS orphan cleanup failed: ${(error as Error).message}`,
-      );
-    }
+    await cleanupOrphanSessionDirsValue({
+      hlsRoot: this.hlsRoot,
+      knownSessionIds,
+      logger: this.logger,
+    });
   }
 }

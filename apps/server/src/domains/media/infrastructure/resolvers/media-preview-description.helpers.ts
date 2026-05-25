@@ -24,7 +24,7 @@ export function extractDescriptionFromNfo(
 
 function extractNfoTagValue(raw: string, tagName: string): string | null {
   const tagPattern = new RegExp(
-    `<${tagName}\\b[^>]*>([\\s\\S]*?)<\/${tagName}>`,
+    `<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`,
     'i',
   );
   const match = raw.match(tagPattern);

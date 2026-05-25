@@ -103,7 +103,8 @@ export class BroadcastController {
 
   @Get('public/:shareToken/subtitles')
   async listPublicSubtitles(@Param('shareToken') shareToken: string) {
-    const mediaId = await this.broadcastService.resolvePublicMediaId(shareToken);
+    const mediaId =
+      await this.broadcastService.resolvePublicMediaId(shareToken);
     const listed = await this.subtitleListingService.list(mediaId, null);
 
     return {
@@ -125,7 +126,8 @@ export class BroadcastController {
       throw new BadRequestException('Subtitle file name is required.');
     }
 
-    const mediaId = await this.broadcastService.resolvePublicMediaId(shareToken);
+    const mediaId =
+      await this.broadcastService.resolvePublicMediaId(shareToken);
     const stream = this.subtitleFileStreamService.getSubtitleFile(
       mediaId,
       normalizedFileName,
@@ -148,7 +150,12 @@ export class BroadcastController {
       const parsed = new URL(trackUrl, 'http://localhost');
       const parts = parsed.pathname.split('/');
 
-      if (parts.length < 6 || parts[1] !== 'api' || parts[2] !== 'subtitles' || parts[3] !== 'file') {
+      if (
+        parts.length < 6 ||
+        parts[1] !== 'api' ||
+        parts[2] !== 'subtitles' ||
+        parts[3] !== 'file'
+      ) {
         return trackUrl;
       }
 

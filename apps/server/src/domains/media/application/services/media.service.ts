@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
-import { readdir, rm, unlink } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, join, parse } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import { MediaItem } from '../../domain/entities/media-item.entity';
 import { MediaScanProgress } from '../../domain/entities/media-scan-progress.entity';
 import { MediaScanStore } from '../../infrastructure/stores/media-scan.store';
@@ -9,21 +8,10 @@ import { MediaStore } from '../../infrastructure/stores/media.store';
 import { MetadataApiCacheStore } from '../../infrastructure/stores/metadata-api-cache.store';
 import { JikanMetadataService } from './remote-metadata/jikan-metadata.service';
 import { TmdbMetadataService } from './remote-metadata/tmdb-metadata.service';
-import { MediaPreviewResolver } from '../../infrastructure/resolvers/media-preview.resolver';
-import {
-  cleanTitle,
-  normalizeForKey,
-} from '../../infrastructure/helpers/title-normalizer';
 import {
   detectFromFilenameAndPath,
   type FilenameDetectResult,
 } from '../../infrastructure/helpers/filename-metadata';
-import type { TorrentFileHint } from '../../../torrent/application/services/torrent.service';
-import {
-  readMediaFileHeader,
-  scoreMediaHeader as scoreSharedMediaHeader,
-} from '../../../core/infrastructure/shared/media-header-probe';
-import { MediaFsFileOpsService } from './filesystem/media-fs-file-ops.service';
 import { MediaTorrentIndexingService } from './torrent-intake/media-torrent-indexing.service';
 import { MediaLibraryLocationsService } from './media-library-locations.service';
 import { MediaStorageSummaryService } from './media-storage-summary.service';
@@ -75,7 +63,6 @@ export type * from './media.service.types';
 
 import type {
   BulkAssignEpisodesInput,
-  DeletedMediaItemResult,
   BulkDeleteMediaResult,
   MediaTorrentDownloadProgressItem,
   MediaStorageSummary,
@@ -88,7 +75,6 @@ import type {
   MediaMetadataExportPayload,
   MediaMetadataImportResult,
   RemoteMediaProvider,
-  ParsedRemoteMediaId,
   MetadataImportPathContext,
 } from './media.service.types';
 
@@ -108,8 +94,10 @@ export class MediaService {
     'backdrops',
   );
   private readonly logger = new Logger(MediaService.name);
-  private readonly lastHeadGateLogAtMsByHash = new Map<string, number>();
-  private readonly lastFallbackWalkAtMsByHash = new Map<string, number>();
+  private readonly metadataOps: MediaMetadataOpsContext;
+  private readonly catalogOps: MediaCatalogOpsContext;
+  private readonly playbackOps: MediaPlaybackOpsContext;
+  private readonly listOps: MediaListOpsContext;
 
   constructor(
     private readonly mediaStore: MediaStore,
@@ -133,40 +121,69 @@ export class MediaService {
     private readonly metadataApiCacheStore: MetadataApiCacheStore,
     private readonly tmdbMetadataService: TmdbMetadataService,
     private readonly jikanMetadataService: JikanMetadataService,
-    private readonly mediaPreviewResolver: MediaPreviewResolver,
-    private readonly mediaFsFileOpsService: MediaFsFileOpsService,
     private readonly mediaTorrentIndexingService: MediaTorrentIndexingService,
-  ) {}
+  ) {
+    this.metadataOps = {
+      getById: (mediaId) => this.getById(mediaId),
+      mediaStore: this.mediaStore,
+      mediaMetadataIoService: this.mediaMetadataIoService,
+      mediaMetadataImportNormalizerService:
+        this.mediaMetadataImportNormalizerService,
+      mediaMetadataPatchEnrichmentService:
+        this.mediaMetadataPatchEnrichmentService,
+      mediaMetadataPatchApplicationService:
+        this.mediaMetadataPatchApplicationService,
+      mediaEpisodeCatalogService: this.mediaEpisodeCatalogService,
+      mediaMetadataArtworkRefreshService:
+        this.mediaMetadataArtworkRefreshService,
+      resolveMediaFilePath: (
+        filePath: string,
+        relativePath: string,
+        providedContext?: MetadataImportPathContext,
+      ) => this.resolveMediaFilePath(filePath, relativePath, providedContext),
+    };
 
-  async getLocations(): Promise<{
-    locations: string[];
-    source: 'settings' | 'env';
-  }> {
+    this.catalogOps = {
+      mediaEpisodeCatalogService: this.mediaEpisodeCatalogService,
+      mediaPermanentDeleteService: this.mediaPermanentDeleteService,
+      mediaRemoteCatalogService: this.mediaRemoteCatalogService,
+      logger: this.logger,
+    };
+
+    this.playbackOps = {
+      mediaScanStore: this.mediaScanStore,
+      mediaFileResolutionService: this.mediaFileResolutionService,
+      mediaScanExecutionService: this.mediaScanExecutionService,
+      mediaPlaybackService: this.mediaPlaybackService,
+      mediaImageStreamService: this.mediaImageStreamService,
+      getById: (mediaId) => this.getById(mediaId),
+    };
+
+    this.listOps = {
+      mediaStore: this.mediaStore,
+    };
+  }
+
+  async getLocations() {
     return this.mediaLibraryLocationsService.getLocations();
   }
 
   async getStorageSummary(): Promise<MediaStorageSummary> {
-    const scanLocations =
-      await this.mediaFileResolutionService.resolveScanLocations();
-    return this.mediaStorageSummaryService.summarizeStorage(scanLocations);
+    return this.mediaStorageSummaryService.summarizeStorage(
+      await this.mediaFileResolutionService.resolveScanLocations(),
+    );
   }
 
-  async setLocations(locations: string[]): Promise<{
-    locations: string[];
-    source: 'settings';
-  }> {
+  async setLocations(locations: string[]) {
     return this.mediaLibraryLocationsService.setLocations(locations);
   }
 
   async list(search?: string, tags?: string[]): Promise<MediaItem[]> {
-    return listValue(this.listOpsContext(), search, tags);
+    return listValue(this.listOps, search, tags);
   }
 
   async getStats() {
-    const indexedItems = await this.mediaStore.count();
-    return {
-      indexedItems,
-    };
+    return { indexedItems: await this.mediaStore.count() };
   }
 
   async refreshIndexedMediaItemForAutomaticIntake(
@@ -262,7 +279,7 @@ export class MediaService {
   }
 
   async exportMetadata(): Promise<MediaMetadataExportPayload> {
-    return exportMetadataValue(this.metadataOpsContext());
+    return exportMetadataValue(this.metadataOps);
   }
 
   async importMetadata(input: {
@@ -270,27 +287,27 @@ export class MediaService {
     items: unknown[];
     imageAssets?: Record<string, MetadataExportImageAsset> | null;
   }): Promise<MediaMetadataImportResult> {
-    return importMetadataValue(this.metadataOpsContext(), input);
+    return importMetadataValue(this.metadataOps, input);
   }
 
   async importMetadataFromJson(input: {
     mode?: MetadataImportMode;
     rawJson: string;
   }): Promise<MediaMetadataImportResult> {
-    return importMetadataFromJsonValue(this.metadataOpsContext(), input);
+    return importMetadataFromJsonValue(this.metadataOps, input);
   }
 
   async updateMedia(
     mediaId: string,
     patch: MediaMetadataPatch,
   ): Promise<MediaItem> {
-    return updateMediaValue(this.metadataOpsContext(), mediaId, patch);
+    return updateMediaValue(this.metadataOps, mediaId, patch);
   }
 
   async bulkDeleteMediaPermanently(
     mediaIds: string[],
   ): Promise<BulkDeleteMediaResult> {
-    return bulkDeleteMediaPermanentlyValue(this.catalogOpsContext(), mediaIds);
+    return bulkDeleteMediaPermanentlyValue(this.catalogOps, mediaIds);
   }
 
   async searchMetadataCandidates(input: {
@@ -299,7 +316,7 @@ export class MediaService {
     year: number | null;
     limit?: number;
   }) {
-    return searchMetadataCandidatesValue(this.catalogOpsContext(), input);
+    return searchMetadataCandidatesValue(this.catalogOps, input);
   }
 
   async searchRemoteMediaCatalog(input: {
@@ -317,54 +334,50 @@ export class MediaService {
     hasMore: boolean;
     items: MediaItem[];
   }> {
-    return searchRemoteMediaCatalogValue(this.catalogOpsContext(), input);
+    return searchRemoteMediaCatalogValue(this.catalogOps, input);
   }
 
   async getRemoteMediaById(remoteId: string): Promise<MediaItem> {
-    return getRemoteMediaByIdValue(this.catalogOpsContext(), remoteId);
+    return getRemoteMediaByIdValue(this.catalogOps, remoteId);
   }
 
   async bulkAssignEpisodes(input: BulkAssignEpisodesInput): Promise<{
     updatedCount: number;
     items: MediaItem[];
   }> {
-    return bulkAssignEpisodesValue(this.metadataOpsContext(), input);
+    return bulkAssignEpisodesValue(this.metadataOps, input);
   }
 
   async scan(libraryPath?: string, libraryPaths?: string[]) {
-    return scanValue(this.playbackOpsContext(), libraryPath, libraryPaths);
+    return scanValue(this.playbackOps, libraryPath, libraryPaths);
   }
 
   async getPlaybackAudioTracks(mediaId: string): Promise<PlaybackAudioTrack[]> {
-    return getPlaybackAudioTracksValue(this.playbackOpsContext(), mediaId);
+    return getPlaybackAudioTracksValue(this.playbackOps, mediaId);
   }
 
   async getPlaybackPlan(mediaId: string) {
-    return getPlaybackPlanValue(this.playbackOpsContext(), mediaId);
+    return getPlaybackPlanValue(this.playbackOps, mediaId);
   }
 
   async getTorrentDownloadProgressByMediaIds(
     mediaIds: string[],
   ): Promise<{ items: MediaTorrentDownloadProgressItem[] }> {
     return getTorrentDownloadProgressByMediaIdsValue(
-      this.playbackOpsContext(),
+      this.playbackOps,
       mediaIds,
     );
   }
 
   async streamPreviewImage(mediaId: string, response: Response): Promise<void> {
-    await streamPreviewImageValue(this.playbackOpsContext(), mediaId, response);
+    await streamPreviewImageValue(this.playbackOps, mediaId, response);
   }
 
   async streamBackdropImage(
     mediaId: string,
     response: Response,
   ): Promise<void> {
-    await streamBackdropImageValue(
-      this.playbackOpsContext(),
-      mediaId,
-      response,
-    );
+    await streamBackdropImageValue(this.playbackOps, mediaId, response);
   }
 
   async streamChapterThumbnail(
@@ -373,58 +386,10 @@ export class MediaService {
     response: Response,
   ): Promise<void> {
     await streamChapterThumbnailValue(
-      this.playbackOpsContext(),
+      this.playbackOps,
       mediaId,
       index,
       response,
     );
-  }
-
-  private metadataOpsContext(): MediaMetadataOpsContext {
-    return {
-      getById: (mediaId) => this.getById(mediaId),
-      mediaStore: this.mediaStore,
-      mediaMetadataIoService: this.mediaMetadataIoService,
-      mediaMetadataImportNormalizerService:
-        this.mediaMetadataImportNormalizerService,
-      mediaMetadataPatchEnrichmentService:
-        this.mediaMetadataPatchEnrichmentService,
-      mediaMetadataPatchApplicationService:
-        this.mediaMetadataPatchApplicationService,
-      mediaEpisodeCatalogService: this.mediaEpisodeCatalogService,
-      mediaMetadataArtworkRefreshService:
-        this.mediaMetadataArtworkRefreshService,
-      resolveMediaFilePath: (
-        filePath: string,
-        relativePath: string,
-        providedContext?: MetadataImportPathContext,
-      ) => this.resolveMediaFilePath(filePath, relativePath, providedContext),
-    };
-  }
-
-  private catalogOpsContext(): MediaCatalogOpsContext {
-    return {
-      mediaEpisodeCatalogService: this.mediaEpisodeCatalogService,
-      mediaPermanentDeleteService: this.mediaPermanentDeleteService,
-      mediaRemoteCatalogService: this.mediaRemoteCatalogService,
-      logger: this.logger,
-    };
-  }
-
-  private playbackOpsContext(): MediaPlaybackOpsContext {
-    return {
-      mediaScanStore: this.mediaScanStore,
-      mediaFileResolutionService: this.mediaFileResolutionService,
-      mediaScanExecutionService: this.mediaScanExecutionService,
-      mediaPlaybackService: this.mediaPlaybackService,
-      mediaImageStreamService: this.mediaImageStreamService,
-      getById: (mediaId) => this.getById(mediaId),
-    };
-  }
-
-  private listOpsContext(): MediaListOpsContext {
-    return {
-      mediaStore: this.mediaStore,
-    };
   }
 }

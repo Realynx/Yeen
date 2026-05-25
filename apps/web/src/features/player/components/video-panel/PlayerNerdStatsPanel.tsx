@@ -11,7 +11,7 @@ import {
   formatStatPercent,
   formatStatSeconds,
   toStatsTimestamp,
-} from './playerVideoPanelStats';
+} from './playerVideoPanelStats.utils';
 
 interface PlayerNerdStatsPanelProps {
   showNerdStats: boolean;

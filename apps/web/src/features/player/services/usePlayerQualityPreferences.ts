@@ -69,31 +69,42 @@ export function usePlayerQualityPreferences({
   selectedAudioStreamIndex,
   switchToHls,
 }: UsePlayerQualityPreferencesOptions): PlayerQualityPreferences {
+  const isHlsSource = source?.hls === true;
+  const sourceMaxVideoBitrateKbps =
+    typeof source?.maxVideoBitrateKbps === 'number'
+    && Number.isFinite(source.maxVideoBitrateKbps)
+      ? source.maxVideoBitrateKbps
+      : null;
+  const sourceMaxOutputHeight =
+    typeof source?.maxOutputHeight === 'number'
+    && Number.isFinite(source.maxOutputHeight)
+      ? source.maxOutputHeight
+      : null;
+  const sourceAudioBitrateKbps =
+    typeof source?.audioBitrateKbps === 'number'
+    && Number.isFinite(source.audioBitrateKbps)
+      ? source.audioBitrateKbps
+      : null;
+
   const effectiveVideoBitrateQuotaKbps = useMemo(() => {
-    if (
-      source?.hls
-      && typeof source.maxVideoBitrateKbps === 'number'
-      && Number.isFinite(source.maxVideoBitrateKbps)
-    ) {
+    if (isHlsSource && sourceMaxVideoBitrateKbps !== null) {
       return Math.min(
         accountVideoQuotaKbps,
-        clamp(Math.round(source.maxVideoBitrateKbps), 250, 50000),
+        clamp(Math.round(sourceMaxVideoBitrateKbps), 250, 50000),
       );
     }
 
     return accountVideoQuotaKbps;
-  }, [accountVideoQuotaKbps, source?.hls, source?.maxVideoBitrateKbps]);
+  }, [accountVideoQuotaKbps, isHlsSource, sourceMaxVideoBitrateKbps]);
 
   const effectiveResolutionCeilingForUi = useMemo(() => {
     const sourceCeiling =
-      source?.hls
-      && typeof source.maxOutputHeight === 'number'
-      && Number.isFinite(source.maxOutputHeight)
-        ? clamp(Math.round(source.maxOutputHeight), 240, 2160)
+      isHlsSource && sourceMaxOutputHeight !== null
+        ? clamp(Math.round(sourceMaxOutputHeight), 240, 2160)
         : 2160;
 
     return Math.min(sourceCeiling, maxResolutionForBitrateBudget);
-  }, [maxResolutionForBitrateBudget, source?.hls, source?.maxOutputHeight]);
+  }, [isHlsSource, maxResolutionForBitrateBudget, sourceMaxOutputHeight]);
 
   const resolutionHeightOptions = useMemo(() => {
     const options: number[] = STANDARD_RESOLUTION_HEIGHT_OPTIONS.filter((height) => {
@@ -135,12 +146,8 @@ export function usePlayerQualityPreferences({
       options.push(effectivePreferredVideoBitrateKbps);
     }
 
-    if (
-      source?.hls
-      && typeof source.maxVideoBitrateKbps === 'number'
-      && Number.isFinite(source.maxVideoBitrateKbps)
-    ) {
-      options.push(clamp(Math.round(source.maxVideoBitrateKbps), 250, 50000));
+    if (isHlsSource && sourceMaxVideoBitrateKbps !== null) {
+      options.push(clamp(Math.round(sourceMaxVideoBitrateKbps), 250, 50000));
     }
 
     return toUniqueSortedNumbers(
@@ -149,8 +156,8 @@ export function usePlayerQualityPreferences({
   }, [
     effectivePreferredVideoBitrateKbps,
     effectiveVideoBitrateQuotaKbps,
-    source?.hls,
-    source?.maxVideoBitrateKbps,
+    isHlsSource,
+    sourceMaxVideoBitrateKbps,
   ]);
 
   const audioBitrateOptionsKbps = useMemo(() => {
@@ -160,18 +167,14 @@ export function usePlayerQualityPreferences({
       options.push(effectivePreferredAudioBitrateKbps);
     }
 
-    if (
-      source?.hls
-      && typeof source.audioBitrateKbps === 'number'
-      && Number.isFinite(source.audioBitrateKbps)
-    ) {
-      options.push(clamp(Math.round(source.audioBitrateKbps), 48, 384));
+    if (isHlsSource && sourceAudioBitrateKbps !== null) {
+      options.push(clamp(Math.round(sourceAudioBitrateKbps), 48, 384));
     }
 
     return toUniqueSortedNumbers(
       options.filter((value) => Number.isFinite(value) && value >= 48 && value <= 384),
     );
-  }, [effectivePreferredAudioBitrateKbps, source?.audioBitrateKbps, source?.hls]);
+  }, [effectivePreferredAudioBitrateKbps, isHlsSource, sourceAudioBitrateKbps]);
 
   const handlePreferredVideoBitrateChange = useCallback((nextVideoBitrateKbps: number | null) => {
     const normalizedVideoBitrateKbps =
@@ -181,7 +184,7 @@ export function usePlayerQualityPreferences({
 
     setPreferredVideoBitrateKbps(normalizedVideoBitrateKbps);
 
-    if (!source?.hls) {
+    if (!isHlsSource) {
       return;
     }
 
@@ -208,8 +211,8 @@ export function usePlayerQualityPreferences({
     effectiveVideoBitrateQuotaKbps,
     preferredMaxResolutionHeight,
     selectedAudioStreamIndex,
+    isHlsSource,
     setPreferredVideoBitrateKbps,
-    source?.hls,
     switchToHls,
   ]);
 
@@ -221,7 +224,7 @@ export function usePlayerQualityPreferences({
 
     setPreferredAudioBitrateKbps(normalizedAudioBitrateKbps);
 
-    if (!source?.hls) {
+    if (!isHlsSource) {
       return;
     }
 
@@ -236,17 +239,15 @@ export function usePlayerQualityPreferences({
     effectivePreferredMaxResolutionHeight,
     effectivePreferredVideoBitrateKbps,
     selectedAudioStreamIndex,
+    isHlsSource,
     setPreferredAudioBitrateKbps,
-    source?.hls,
     switchToHls,
   ]);
 
   const handlePreferredResolutionChange = useCallback((nextMaxResolutionHeight: number | null) => {
     const sourceCeiling =
-      source?.hls
-      && typeof source.maxOutputHeight === 'number'
-      && Number.isFinite(source.maxOutputHeight)
-        ? clamp(Math.round(source.maxOutputHeight), 240, 2160)
+      isHlsSource && sourceMaxOutputHeight !== null
+        ? clamp(Math.round(sourceMaxOutputHeight), 240, 2160)
         : 2160;
     const bitrateBudgetKbps = effectivePreferredVideoBitrateKbps ?? accountVideoQuotaKbps;
     const bitrateCeiling = resolveMaxResolutionForBitrateBudget(bitrateBudgetKbps);
@@ -259,7 +260,7 @@ export function usePlayerQualityPreferences({
 
     setPreferredMaxResolutionHeight(normalizedMaxResolutionHeight);
 
-    if (!source?.hls) {
+    if (!isHlsSource) {
       return;
     }
 
@@ -275,9 +276,9 @@ export function usePlayerQualityPreferences({
     effectivePreferredAudioBitrateKbps,
     effectivePreferredVideoBitrateKbps,
     selectedAudioStreamIndex,
+    isHlsSource,
     setPreferredMaxResolutionHeight,
-    source?.hls,
-    source?.maxOutputHeight,
+    sourceMaxOutputHeight,
     switchToHls,
   ]);
 

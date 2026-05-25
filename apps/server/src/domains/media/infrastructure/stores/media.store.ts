@@ -9,6 +9,7 @@ import {
   mediaRowToItem,
   type MediaRow,
 } from './media-store-serialization';
+import { ensureMediaMetadataColumnsValue } from './media-store-schema.helper';
 
 const MEDIA_METADATA_COLUMNS = [
   'id',
@@ -311,7 +312,7 @@ export class MediaStore implements OnModuleDestroy {
       );
     `);
 
-    this.ensureColumns(db);
+    ensureMediaMetadataColumnsValue(db);
 
     db.exec(`
 
@@ -327,74 +328,6 @@ export class MediaStore implements OnModuleDestroy {
       CREATE INDEX IF NOT EXISTS idx_media_metadata_dedupe_key
         ON media_metadata (dedupe_key);
     `);
-  }
-
-  private ensureColumns(db: Database.Database): void {
-    const existingColumns = this.getExistingColumns(db, 'media_metadata');
-    this.ensureColumn(
-      db,
-      existingColumns,
-      'normalized_title',
-      "TEXT NOT NULL DEFAULT ''",
-    );
-    this.ensureColumn(
-      db,
-      existingColumns,
-      'tags_json',
-      "TEXT NOT NULL DEFAULT '[]'",
-    );
-    this.ensureColumn(db, existingColumns, 'release_year', 'INTEGER');
-    this.ensureColumn(db, existingColumns, 'season_number', 'INTEGER');
-    this.ensureColumn(db, existingColumns, 'episode_number', 'INTEGER');
-    this.ensureColumn(db, existingColumns, 'episode_title', 'TEXT');
-    this.ensureColumn(
-      db,
-      existingColumns,
-      'dedupe_key',
-      "TEXT NOT NULL DEFAULT ''",
-    );
-    this.ensureColumn(
-      db,
-      existingColumns,
-      'chapter_thumbnails_json',
-      "TEXT NOT NULL DEFAULT '[]'",
-    );
-    this.ensureColumn(db, existingColumns, 'backdrop_image_path', 'TEXT');
-    this.ensureColumn(
-      db,
-      existingColumns,
-      'series_assignment_rules_json',
-      'TEXT',
-    );
-    this.ensureColumn(db, existingColumns, 'episode_catalog_source', 'TEXT');
-    this.ensureColumn(db, existingColumns, 'episode_catalog_source_id', 'TEXT');
-  }
-
-  private getExistingColumns(
-    db: Database.Database,
-    tableName: string,
-  ): Set<string> {
-    const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
-      name: string;
-    }>;
-
-    return new Set(rows.map((row) => row.name));
-  }
-
-  private ensureColumn(
-    db: Database.Database,
-    existingColumns: Set<string>,
-    columnName: string,
-    sqlDefinition: string,
-  ): void {
-    if (existingColumns.has(columnName)) {
-      return;
-    }
-
-    db.exec(
-      `ALTER TABLE media_metadata ADD COLUMN ${columnName} ${sqlDefinition}`,
-    );
-    existingColumns.add(columnName);
   }
 
   private closeDb(): void {
