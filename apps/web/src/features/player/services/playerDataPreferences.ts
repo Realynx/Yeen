@@ -46,13 +46,57 @@ export function pickPreferredAudioStreamIndex(
   return preferredTrack?.streamIndex ?? null;
 }
 
+export function pickPreferredSubtitleTrack(
+  tracks: readonly SubtitleTrack[],
+  preferredLanguage: string | null | undefined,
+  options?: {
+    requireUrl?: boolean;
+  },
+): SubtitleTrack | null {
+  const requireUrl = options?.requireUrl ?? false;
+  const candidates = requireUrl
+    ? tracks.filter((track) => Boolean(track.url))
+    : tracks;
+
+  return findTrackByPreferredLanguage(candidates, preferredLanguage);
+}
+
 export function pickPreferredSubtitleTrackId(
   tracks: readonly SubtitleTrack[],
   preferredLanguage: string | null | undefined,
 ): string {
-  const availableTracks = tracks.filter((track) => Boolean(track.url));
-  const preferredTrack = findTrackByPreferredLanguage(availableTracks, preferredLanguage);
+  const preferredTrack = pickPreferredSubtitleTrack(tracks, preferredLanguage, {
+    requireUrl: true,
+  });
   return preferredTrack?.id ?? '';
+}
+
+export function pickPreferredSubtitleTrackToExtract(
+  tracks: readonly SubtitleTrack[],
+  preferredLanguage: string | null | undefined,
+): SubtitleTrack | null {
+  const extractedPreferredTrack = pickPreferredSubtitleTrack(
+    tracks,
+    preferredLanguage,
+    {
+      requireUrl: true,
+    },
+  );
+  if (extractedPreferredTrack) {
+    return null;
+  }
+
+  const extractableCandidates = tracks.filter((track) => {
+    return (
+      !track.url
+      && track.extractable
+      && typeof track.streamIndex === 'number'
+    );
+  });
+
+  return pickPreferredSubtitleTrack(extractableCandidates, preferredLanguage, {
+    requireUrl: false,
+  });
 }
 
 export function toSeriesPlaybackPreference(

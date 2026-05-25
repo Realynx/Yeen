@@ -123,7 +123,7 @@ export function usePlayerTimelineHandlers({
       const seekUpperBound = Math.max(maxDuration - 5, 0);
       const target = clamp(preferredStart, 0, seekUpperBound);
 
-      if (target > 15) {
+      if (target > 0) {
         video.currentTime = target;
       }
 

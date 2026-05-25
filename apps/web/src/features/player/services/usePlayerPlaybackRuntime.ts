@@ -187,6 +187,16 @@ export function usePlayerPlaybackRuntime({
       }
 
       const safeVideoDuration = Number.isFinite(video.duration) ? video.duration : totalDuration;
+      const positionSeconds = Math.max(0, Math.floor(video.currentTime || 0));
+      const durationSeconds = Math.max(0, Math.floor(safeVideoDuration || 0));
+
+      // During episode/source transitions the video element can be briefly reset
+      // (currentTime=0, src detached). Skipping those writes prevents overwriting
+      // a previously saved non-zero position with a transient zero.
+      if (!completed && positionSeconds <= 0) {
+        return;
+      }
+
       const syncTimestampMs = Math.max(
         Date.now(),
         (progressSyncTimestampRef.current ?? 0) + 1,
@@ -198,8 +208,8 @@ export function usePlayerPlaybackRuntime({
           token,
           mediaId,
           {
-            positionSeconds: Math.max(0, Math.floor(video.currentTime || 0)),
-            durationSeconds: Math.max(0, Math.floor(safeVideoDuration || 0)),
+            positionSeconds,
+            durationSeconds,
             syncTimestampMs,
             completed,
           },
