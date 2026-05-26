@@ -33,7 +33,11 @@ export function PlayerControlsLeft({
   totalDuration,
 }: PlayerControlsLeftProps) {
   return (
-    <div className="player-controls-left">
+    <div
+      className="player-controls-left"
+      data-tv-focus-zone="other"
+      data-tv-focus-lane-id="player-controls-left"
+    >
       <button
         type="button"
         className={`player-icon-button player-icon-button-primary ${isPhoneMode ? 'is-phone-mode' : ''}`}

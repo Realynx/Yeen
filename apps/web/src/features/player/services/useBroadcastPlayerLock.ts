@@ -149,7 +149,6 @@ export function useBroadcastPlayerLock({
   useEffect(() => {
     if (!broadcastEnabled) {
       releaseBroadcastPlayerLock();
-      setHasBroadcastPlayerLock(false);
       return;
     }
 
@@ -179,7 +178,6 @@ export function useBroadcastPlayerLock({
       window.clearInterval(intervalId);
       window.removeEventListener('storage', handleStorageEvent);
       releaseBroadcastPlayerLock();
-      setHasBroadcastPlayerLock(false);
     };
   }, [
     acquireBroadcastPlayerLock,
@@ -189,7 +187,7 @@ export function useBroadcastPlayerLock({
   ]);
 
   return {
-    hasBroadcastPlayerLock,
+    hasBroadcastPlayerLock: broadcastEnabled && hasBroadcastPlayerLock,
     hasValidBroadcastPlayerLockOwnership,
   };
 }

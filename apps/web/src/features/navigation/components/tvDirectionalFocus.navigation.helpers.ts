@@ -1,4 +1,10 @@
-const MAX_PRIMARY_DISTANCE_PX = 900;
+function maxPrimaryDistancePx(): number {
+  if (typeof window === 'undefined') {
+    return 2400;
+  }
+
+  return Math.max(900, Math.min(window.innerWidth * 0.75, 2400));
+}
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 type FocusZone = 'top-nav' | 'hero' | 'shelf' | 'footer' | 'other';
@@ -160,7 +166,7 @@ function scoreDirectionalCandidate(
   const primaryDistance = direction === 'left' || direction === 'right'
     ? Math.abs(deltaX)
     : Math.abs(deltaY);
-  if (primaryDistance > MAX_PRIMARY_DISTANCE_PX) {
+  if (primaryDistance > maxPrimaryDistancePx()) {
     return null;
   }
 

@@ -43,7 +43,13 @@ export function PlayerSeekbar({
   onSeekTouchEnd,
 }: PlayerSeekbarProps) {
   return (
-    <div className="player-seekbar-wrap" onMouseMove={onSeekPreview} onMouseLeave={onClearSeekPreview}>
+    <div
+      className="player-seekbar-wrap"
+      data-tv-focus-zone="other"
+      data-tv-focus-lane-id="player-seekbar"
+      onMouseMove={onSeekPreview}
+      onMouseLeave={onClearSeekPreview}
+    >
       <div className="player-seekbar-base" aria-hidden="true" />
       <div className="player-seekbar-buffered" style={{ width: `${bufferedPercent}%` }} aria-hidden="true" />
       <div className="player-seekbar-played" style={{ width: `${playedPercent}%` }} aria-hidden="true" />

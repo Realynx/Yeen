@@ -120,7 +120,12 @@ export function PlayerControlsRight({
   onToggleFullscreen,
 }: PlayerControlsRightProps) {
   return (
-    <div className="player-controls-right" ref={menuRootRef}>
+    <div
+      className="player-controls-right"
+      ref={menuRootRef}
+      data-tv-focus-zone="other"
+      data-tv-focus-lane-id="player-controls-right"
+    >
       <PlayerAudioMenu
         open={openMenu === 'audio'}
         selectedAudioStreamIndex={selectedAudioStreamIndex}

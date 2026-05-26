@@ -274,6 +274,16 @@
 :root[data-yeen-experience='tv'] .home-page .media-row .media-tile:focus-visible {
   outline: none;
   outline-offset: 0;
+  z-index: 50;
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:focus-visible .media-thumb {
+  border-color: rgba(255, 176, 94, 0.9);
+  border-width: 2px;
+  box-shadow:
+    0 0 0 1px rgba(255, 176, 94, 0.5),
+    0 0 24px rgba(255, 138, 31, 0.32),
+    0 24px 52px rgba(0, 0, 0, 0.72);
 }
 
 :root[data-yeen-experience='tv'] .media-row-arrow {
@@ -380,8 +390,16 @@
 }
 
 :root[data-yeen-experience='tv'] .home-page .hero-switch-dot {
-  width: 0.54rem;
-  height: 0.54rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  box-sizing: content-box;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-switch-dot:focus-visible {
+  outline: 3px solid rgba(255, 176, 94, 0.96);
+  outline-offset: 3px;
 }
 
 :root[data-yeen-experience='tv'] .home-page .browse-section.is-first-row {
@@ -456,6 +474,212 @@
 :root[data-yeen-experience='tv'] select:focus-visible {
   outline: 3px solid rgba(255, 176, 94, 0.96);
   outline-offset: 3px;
+  scroll-margin-top: 58px;
+  scroll-margin-bottom: 16px;
+}
+
+:root[data-yeen-experience='tv'] .top-nav .nav-back-button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  outline: 2px solid rgba(255, 176, 94, 0.9);
+  outline-offset: 4px;
+}
+
+:root[data-yeen-experience='tv'] .browse-link.active:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 176, 94, 0.72);
+}
+
+:root[data-yeen-experience='tv'] .profile-dropdown-item:focus-visible {
+  background: rgba(255, 255, 255, 0.11);
+  outline: 2px solid rgba(255, 176, 94, 0.9);
+  outline-offset: 2px;
+}
+
+:root[data-yeen-experience='tv'] .library-select:focus,
+:root[data-yeen-experience='tv'] .auth-page .auth-form input:focus,
+:root[data-yeen-experience='tv'] .settings-page-v2 .settings-field input:focus,
+:root[data-yeen-experience='tv'] .settings-page-v2 .settings-field select:focus {
+  border-color: rgba(255, 176, 94, 0.72);
+  box-shadow: 0 0 0 2px rgba(255, 176, 94, 0.18);
+}
+
+:root[data-yeen-experience='tv'] .library-grid .media-tile {
+  overflow: visible;
+  isolation: auto;
+}
+
+:root[data-yeen-experience='tv'] .library-grid .media-tile .media-thumb {
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-explore .library-toolbar,
+:root[data-yeen-experience='tv'] .tv-page-shell-settings .settings-hero-card,
+:root[data-yeen-experience='tv'] .tv-page-shell-system-settings .settings-hero-card,
+:root[data-yeen-experience='tv'] .tv-page-shell-accounts .settings-content-grid,
+:root[data-yeen-experience='tv'] .tv-page-shell-downloads .settings-content-grid {
+  scroll-margin-top: 58px;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-explore .library-chip,
+:root[data-yeen-experience='tv'] .tv-page-shell-explore .library-clear-button,
+:root[data-yeen-experience='tv'] .tv-page-shell-explore .library-select {
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .details-hero-v2 {
+  gap: clamp(1rem, 2.5vw, 1.8rem);
+  padding: clamp(1rem, 2vw, 1.55rem);
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .details-hero-v2 .details-copy h2 {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .hero-actions-row .ghost-button,
+:root[data-yeen-experience='tv'] .tv-page-shell-details .hero-actions-row .accent-button {
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 0.62rem 1rem;
+  font-size: 0.86rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .season-tabs {
+  gap: 0.42rem;
+  padding: 0.34rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .season-tab {
+  min-height: 40px;
+  padding: 0.48rem 1rem;
+  font-size: 0.9rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .episode-card {
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.84rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-details .episode-card:focus-visible,
+:root[data-yeen-experience='tv'] .tv-page-shell-details .series-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 176, 94, 0.82);
+  background: rgba(18, 23, 34, 0.92);
+  box-shadow:
+    0 0 0 2px rgba(255, 176, 94, 0.24),
+    0 18px 46px rgba(0, 0, 0, 0.48);
+}
+
+:root[data-yeen-experience='tv'] .episode-card:focus-visible .episode-play-overlay,
+:root[data-yeen-experience='tv'] .episode-card:focus-within .episode-play-overlay,
+:root[data-yeen-experience='tv'] .episode-card:focus-visible .episode-edit-btn,
+:root[data-yeen-experience='tv'] .episode-card:focus-within .episode-edit-btn,
+:root[data-yeen-experience='tv'] .series-card:focus-visible .series-card-edit-btn,
+:root[data-yeen-experience='tv'] .series-card:focus-within .series-card-edit-btn {
+  opacity: 1;
+}
+
+:root[data-yeen-experience='tv'] .settings-shell,
+:root[data-yeen-experience='tv'] .system-settings-layout {
+  gap: 1.1rem;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+}
+
+:root[data-yeen-experience='tv'] .settings-sidebar,
+:root[data-yeen-experience='tv'] .system-settings-nav {
+  top: 58px;
+}
+
+:root[data-yeen-experience='tv'] .system-settings-sections .settings-category {
+  scroll-margin-top: 64px;
+}
+
+:root[data-yeen-experience='tv'] .settings-tab-pill,
+:root[data-yeen-experience='tv'] .system-settings-nav-button,
+:root[data-yeen-experience='tv'] .settings-category-toggle {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+:root[data-yeen-experience='tv'] .settings-page-v2 .settings-field input,
+:root[data-yeen-experience='tv'] .settings-page-v2 .settings-field select,
+:root[data-yeen-experience='tv'] .settings-page-v2 button {
+  min-height: 42px;
+}
+
+:root[data-yeen-experience='tv'] .settings-hero-stat:hover,
+:root[data-yeen-experience='tv'] .settings-surface:hover,
+:root[data-yeen-experience='tv'] .settings-sidebar-note:hover,
+:root[data-yeen-experience='tv'] .settings-tab-pill:hover,
+:root[data-yeen-experience='tv'] .system-settings-nav-button:hover {
+  transform: none;
+}
+
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-seekbar-base,
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-seekbar-buffered,
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-seekbar-played {
+  height: 6px;
+}
+
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-seekbar-input::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-seekbar-input::-moz-range-thumb {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+:root[data-yeen-experience='tv'] .player-seekbar-wrap:focus-within .player-chapter-marker {
+  height: 14px;
+  opacity: 1;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-volume-control:focus-within .player-volume-slider {
+  width: 126px;
+  opacity: 1;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-icon-button:focus-visible {
+  background: rgba(255, 176, 94, 0.18);
+  outline: 2px solid rgba(255, 176, 94, 0.9);
+  outline-offset: 3px;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-icon-button.is-active:focus-visible {
+  background: rgba(255, 138, 31, 0.32);
+}
+
+:root[data-yeen-experience='tv'] .player-menu {
+  scroll-padding: 6px;
+}
+
+:root[data-yeen-experience='tv'] .player-menu-item:focus-visible,
+:root[data-yeen-experience='tv'] .player-menu-chip:focus-visible,
+:root[data-yeen-experience='tv'] .player-menu-mini:focus-visible {
+  scroll-margin: 6px;
+}
+
+:root[data-yeen-experience='tv'] .player-menu.player-menu-unified.player-context-menu {
+  max-width: min(88vw, 420px);
+  max-height: min(72vh, 520px);
+}
+
+:root[data-yeen-experience='tv'] .player-skip-segment-cta {
+  right: 1.42rem;
+  bottom: 5.2rem;
+  min-height: 44px;
+}
+
+:root[data-yeen-experience='tv'] .broadcast-start-playback-button:focus-visible {
+  outline: 3px solid rgba(255, 176, 94, 0.96);
+  outline-offset: 5px;
 }
 
 :root[data-yeen-experience='tv'] .auth-page {

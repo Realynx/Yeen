@@ -30,11 +30,15 @@ export function EpisodesSection({
   onEditEpisode,
 }: EpisodesSectionProps) {
   return (
-    <section>
+    <section data-tv-focus-zone="shelf">
       <div className="section-heading-row">
         <h3 className="section-title">Episodes</h3>
         {seasonGroups.length > 1 ? (
-          <div className="season-tabs" role="tablist">
+          <div
+            className="season-tabs"
+            role="tablist"
+            data-tv-focus-lane-id="episode-season-tabs"
+          >
             {seasonGroups.map(([seasonNumber, episodes]) => {
               const isActive = activeSeason === seasonNumber;
               return (
@@ -58,7 +62,10 @@ export function EpisodesSection({
       {activeSeasonEpisodes.length === 0 ? (
         <p className="muted">No episodes were indexed for this show.</p>
       ) : (
-        <div className="episode-card-list">
+        <div
+          className="episode-card-list"
+          data-tv-focus-lane-id="episode-card-list"
+        >
           {activeSeasonEpisodes.map((episode) => {
             const episodeImage = episodeFrameImageUrl(episode);
             const episodeProgress = progressById.get(episode.id);
