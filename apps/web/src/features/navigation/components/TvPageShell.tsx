@@ -158,7 +158,7 @@ function preferredZonesFor(currentZone: FocusZone, direction: Direction): FocusZ
 
   if (currentZone === 'shelf') {
     if (direction === 'up') {
-      return ['shelf', 'hero'];
+      return ['shelf', 'hero', 'top-nav'];
     }
 
     if (direction === 'down') {
@@ -389,6 +389,31 @@ function shouldCenterFocusedMediaTile(
   return Boolean(currentRow && nextRow && currentRow !== nextRow);
 }
 
+function hasOpenDialogLayer(): boolean {
+  const openLayers = [
+    ...document.querySelectorAll<HTMLElement>('[data-yeen-layer-open="true"]'),
+    ...document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'),
+    ...document.querySelectorAll<HTMLElement>('[role="menu"]'),
+  ];
+
+  for (const layer of openLayers) {
+    if (isElementVisible(layer)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function shouldHandleBackKey(event: KeyboardEvent, pageKey: string): boolean {
+  if (event.key === 'Backspace') {
+    return true;
+  }
+
+  // Player uses Escape to reveal controls in TV mode; keep that behavior.
+  return event.key === 'Escape' && pageKey !== 'player';
+}
+
 interface TvPageShellProps {
   pageKey: string;
   autoFocusFirst?: boolean;
@@ -437,12 +462,42 @@ export function TvPageShell({
         return;
       }
 
+      const activeElement = document.activeElement;
+      if (shouldHandleBackKey(event, pageKey)) {
+        if (hasOpenDialogLayer()) {
+          return;
+        }
+
+        if (
+          activeElement instanceof HTMLElement
+          && isEditableElement(activeElement)
+          && !isSelectElement(activeElement)
+        ) {
+          return;
+        }
+
+        const hasBackHistory = window.history.length > 1;
+        const atRootRoute = window.location.pathname === '/';
+
+        if (hasBackHistory) {
+          event.preventDefault();
+          window.history.back();
+          return;
+        }
+
+        if (!atRootRoute) {
+          event.preventDefault();
+          window.location.assign('/');
+        }
+
+        return;
+      }
+
       const direction = directionForKey(event.key);
       if (!direction) {
         return;
       }
 
-      const activeElement = document.activeElement;
       if (!(activeElement instanceof HTMLElement) || !shellElement.contains(activeElement)) {
         return;
       }

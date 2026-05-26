@@ -32,7 +32,11 @@ export function UserSettingsOverviewSidebar({
   onOpenCategory,
 }: UserSettingsOverviewSidebarProps) {
   return (
-    <aside className="user-settings-layout-sidebar" aria-label="Profile quick summary">
+    <aside
+      className="user-settings-layout-sidebar"
+      aria-label="Profile quick summary"
+      data-tv-focus-lane-id="user-settings-overview"
+    >
       <section className="user-settings-overview-card user-settings-overview-left-column" aria-label="Profile summary">
         <div className="user-settings-avatar-preview-shell user-settings-avatar-preview-shell-large">
           {avatarPreviewUrl ? (
@@ -78,7 +82,11 @@ export function UserSettingsOverviewSidebar({
         </div>
       </section>
 
-      <nav className="system-settings-nav user-settings-quick-actions" aria-label="Profile quick actions">
+      <nav
+        className="system-settings-nav user-settings-quick-actions"
+        aria-label="Profile quick actions"
+        data-tv-focus-lane-id="user-settings-quick-actions"
+      >
         <p className="settings-section-kicker">Quick Actions</p>
 
         <ul className="system-settings-nav-list user-settings-quick-actions-list">

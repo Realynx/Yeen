@@ -87,6 +87,7 @@ export function SystemSettingsQuickJumpNav({
     <nav
       className={navClassName}
       aria-label="System settings categories"
+      data-tv-focus-lane-id="system-settings-quick-jump"
     >
       <p className="settings-section-kicker">Quick Jump</p>
       <ul

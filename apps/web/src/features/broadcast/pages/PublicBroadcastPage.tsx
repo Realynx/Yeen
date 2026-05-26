@@ -33,6 +33,7 @@ import {
   resolveSourceEpochTransition,
   shouldRunStallRecovery,
 } from '../services/publicBroadcastSyncState';
+import { useClientExperience } from '../../navigation/services/clientExperience';
 import './public-broadcast-page.css';
 
 const STATUS_AND_SYNC_INTERVAL_MS = 2000;
@@ -50,6 +51,14 @@ const LOW_BUFFER_AHEAD_SECONDS = 0.4;
 const SEGMENT_503_WINDOW_MS = 30000;
 const MAX_SEGMENT_503S_PER_WINDOW = 6;
 const NETWORK_RECOVERY_RESET_WINDOW_MS = 12000;
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+}
 
 function resolveBufferedAheadSeconds(
   video: HTMLVideoElement,
@@ -72,6 +81,8 @@ interface PublicBroadcastPageProps {
 }
 
 export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
+  const experience = useClientExperience();
+  const isTvExperience = experience === 'tv';
   const resolvedShareToken = shareToken?.trim() || '';
 
   const [statusSnapshot, setStatusSnapshot] = useState<BroadcastStatusSnapshot | null>(null);
@@ -85,6 +96,7 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
   const [failedPrimarySubtitleKey, setFailedPrimarySubtitleKey] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const startPlaybackButtonRef = useRef<HTMLButtonElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const manifestUrlRef = useRef<string | null>(null);
   const statusRef = useRef<BroadcastStatusSnapshot | null>(null);
@@ -1082,6 +1094,53 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
       });
   }, []);
 
+  useEffect(() => {
+    if (!isTvExperience || !showStartPlaybackButton) {
+      return;
+    }
+
+    const focusTimer = window.setTimeout(() => {
+      startPlaybackButtonRef.current?.focus({ preventScroll: true });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+    };
+  }, [isTvExperience, showStartPlaybackButton]);
+
+  useEffect(() => {
+    if (!isTvExperience) {
+      return;
+    }
+
+    function handleTvBackKey(event: KeyboardEvent) {
+      const isBackKey = event.key === 'Escape' || event.key === 'Backspace';
+      if (!isBackKey) {
+        return;
+      }
+
+      if (event.key === 'Backspace' && isEditableTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
+      window.location.assign('/');
+    }
+
+    document.addEventListener('keydown', handleTvBackKey, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleTvBackKey, true);
+    };
+  }, [isTvExperience]);
+
   if (!resolvedShareToken) {
     return (
       <main className="broadcast-public-page">
@@ -1156,6 +1215,7 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
 
             {showStartPlaybackButton ? (
               <button
+                ref={startPlaybackButtonRef}
                 type="button"
                 className="broadcast-start-playback-button"
                 onClick={handleStartPlaybackClick}

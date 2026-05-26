@@ -36,11 +36,16 @@ export function MediaExploreControls({
   onResetExplore,
 }: MediaExploreControlsProps) {
   return (
-    <section className="library-toolbar" aria-label="Explore controls">
+    <section className="library-toolbar" aria-label="Explore controls" data-tv-focus-zone="shelf">
       <div className="library-filters">
         <div className="library-filter-group">
           <p className="library-filter-label">Catalog</p>
-          <div className="library-chip-row" role="group" aria-label="Select catalog type">
+          <div
+            className="library-chip-row"
+            role="group"
+            aria-label="Select catalog type"
+            data-tv-focus-lane-id="explore-catalog-filter"
+          >
             <button
               type="button"
               className={
@@ -62,7 +67,12 @@ export function MediaExploreControls({
 
         <div className="library-filter-group">
           <p className="library-filter-label">Type</p>
-          <div className="library-chip-row" role="group" aria-label="Filter by media type">
+          <div
+            className="library-chip-row"
+            role="group"
+            aria-label="Filter by media type"
+            data-tv-focus-lane-id="explore-type-filter"
+          >
             <button
               type="button"
               className={typeFilter === 'all' ? 'library-chip is-active' : 'library-chip'}
@@ -90,7 +100,11 @@ export function MediaExploreControls({
           </div>
         </div>
 
-        <label className="library-filter-group" htmlFor="explore-tag-select">
+        <label
+          className="library-filter-group"
+          htmlFor="explore-tag-select"
+          data-tv-focus-lane-id="explore-tag-filter"
+        >
           <span className="library-filter-label">Tag</span>
           <select
             id="explore-tag-select"
@@ -113,7 +127,12 @@ export function MediaExploreControls({
 
         <div className="library-filter-group">
           <p className="library-filter-label">Popular Tags</p>
-          <div className="library-chip-row" role="group" aria-label="Quick tag searches">
+          <div
+            className="library-chip-row"
+            role="group"
+            aria-label="Quick tag searches"
+            data-tv-focus-lane-id="explore-quick-tags"
+          >
             {quickTags.map((tag) => {
               const isActiveTag = tagFilter.trim().toLowerCase() === tag.toLowerCase();
 
@@ -132,7 +151,7 @@ export function MediaExploreControls({
         </div>
       </div>
 
-      <div className="library-stat-block" aria-live="polite">
+      <div className="library-stat-block" aria-live="polite" data-tv-focus-lane-id="explore-toolbar-actions">
         <span className="library-stat-value">{filteredCount.toLocaleString()}</span>
         <span className="library-stat-label">Titles Shown</span>
         {tagFilter ? (

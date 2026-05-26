@@ -31,7 +31,7 @@ export function DownloadControlPage({
     <main className="browse-page admin-page settings-page-v2">
       <AdminNav user={user} onLogout={onLogout} />
 
-      <section className="settings-content-grid">
+      <section className="settings-content-grid" data-tv-focus-zone="shelf">
         {systemSettingsState.systemError ? (
           <p className="error-text">{systemSettingsState.systemError}</p>
         ) : null}

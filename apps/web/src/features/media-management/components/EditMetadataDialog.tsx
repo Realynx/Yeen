@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   updateMediaMetadata,
@@ -10,6 +10,7 @@ import {
 import { useMetadataSuggestions } from '../services/useMetadataSuggestions';
 import type { MediaItem } from '../../shared/services/types';
 import { MetadataSuggestionList } from './MetadataSuggestionList';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 interface EditMetadataDialogProps {
   token: string;
@@ -64,6 +65,18 @@ export function EditMetadataDialog({
   const [candidateBackdropUrl, setCandidateBackdropUrl] = useState<string | null>(null);
   const [candidateRemoteSource, setCandidateRemoteSource] = useState<'tmdb' | 'jikan' | null>(null);
   const [candidateRemoteSourceId, setCandidateRemoteSourceId] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogLayer({
+    open: true,
+    containerRef: dialogRef,
+    onRequestClose: () => {
+      if (!saving && !detecting) {
+        onClose();
+      }
+    },
+    initialFocusSelector: 'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+  });
 
   const parsedYear = Number.parseInt(releaseYear, 10);
   const safeYear = Number.isFinite(parsedYear) ? parsedYear : null;
@@ -98,16 +111,6 @@ export function EditMetadataDialog({
     setCandidateRemoteSource(candidate.remoteSource);
     setCandidateRemoteSourceId(candidate.remoteSourceId);
   }
-
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !saving && !detecting) {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, saving, detecting]);
 
   async function handleDetectFromFilename() {
     setDetecting(true);
@@ -174,6 +177,7 @@ export function EditMetadataDialog({
   return (
       <div className="metadata-modal-backdrop" role="presentation" onClick={() => !saving && !detecting && onClose()}>
       <div
+        ref={dialogRef}
         className="metadata-modal"
         role="dialog"
         aria-modal="true"

@@ -337,7 +337,7 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   const quickActions = useMemo(() => createUserSettingsQuickActions(isAdmin, availableInvites), [availableInvites, isAdmin]);
 
   return (
-    <section className="settings-content-grid">
+    <section className="settings-content-grid" data-tv-focus-zone="shelf">
       <article className="settings-surface settings-surface-full settings-surface-categorized">
         <header className="settings-surface-header user-settings-title-panel">
           <div className="user-settings-title-copy">
@@ -360,7 +360,10 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
             onOpenCategory={openAndScrollToCategory}
           />
 
-          <div className="settings-categories user-settings-categories">
+          <div
+            className="settings-categories user-settings-categories"
+            data-tv-focus-lane-id="user-settings-categories"
+          >
             <UserProfileDetailsSection
               isOpen={expandedCategories.profile}
               hasProfileChanges={hasProfileChanges}

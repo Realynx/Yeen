@@ -275,7 +275,7 @@ export function SystemSettingsTab({
     : 'settings-categories system-settings-layout';
 
   return (
-    <section className={contentGridClassName}>
+    <section className={contentGridClassName} data-tv-focus-zone="shelf">
       {phoneFloatingQuickJumpBar
         ? (
           <SystemSettingsQuickJumpNav
@@ -313,7 +313,7 @@ export function SystemSettingsTab({
               />
             )}
 
-          <div className="system-settings-sections">
+          <div className="system-settings-sections" data-tv-focus-lane-id="system-settings-sections">
             <div className="system-settings-media-runtime-categories">
               <MediaLocationsCategory
                 mediaLocationsState={mediaLocationsState}

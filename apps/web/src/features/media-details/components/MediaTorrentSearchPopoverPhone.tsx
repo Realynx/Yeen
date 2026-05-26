@@ -6,6 +6,7 @@ import {
   TORRENT_TRACKERS,
 } from '../services/torrentSearchTypes';
 import type { MediaTorrentSearchPopoverProps } from './MediaTorrentSearchPopover';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 const SHEET_CLOSE_SWIPE_THRESHOLD = 96;
 const SHEET_MAX_DRAG_OFFSET = 220;
@@ -39,23 +40,14 @@ export function MediaTorrentSearchPopoverPhone({
   const swipeStartYRef = useRef<number | null>(null);
   const swipePointerIdRef = useRef<number | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose, open]);
+  useDialogLayer({
+    open,
+    containerRef: dialogRef,
+    onRequestClose: onClose,
+    initialFocusSelector: 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  });
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -158,6 +150,7 @@ export function MediaTorrentSearchPopoverPhone({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         className={`media-torrent-phone-sheet${sheetDragActive ? ' is-dragging' : ''}`}
         role="dialog"
         aria-modal="true"

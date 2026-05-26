@@ -1,12 +1,14 @@
-import type {
-  FormEvent,
-  KeyboardEvent as ReactKeyboardEvent,
+import {
+  useRef,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import type {
   AdminAccountActivityItem,
   AdminManagedAccount,
 } from '../../shared/services/types';
 import { toLastSeenLabel } from './adminAccountsViewUtils';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 interface AdminAccountsManageCardProps {
   accounts: AdminManagedAccount[];
@@ -80,6 +82,16 @@ export function AdminAccountsManageCard({
   onSaveAccountEdits,
   onResetPassword,
 }: AdminAccountsManageCardProps) {
+  const accountEditorRef = useRef<HTMLElement | null>(null);
+  const editorOpen = selectedAccount !== null;
+
+  useDialogLayer({
+    open: editorOpen,
+    containerRef: accountEditorRef,
+    onRequestClose: onCloseAccountEditor,
+    initialFocusSelector: 'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+  });
+
   return (
     <article className="settings-surface settings-profile-card admin-accounts-manage-card">
       <header className="settings-surface-header">
@@ -207,6 +219,7 @@ export function AdminAccountsManageCard({
           onClick={onCloseAccountEditor}
         >
           <article
+            ref={accountEditorRef}
             className="admin-accounts-editor-card"
             onClick={(event) => event.stopPropagation()}
             role="dialog"

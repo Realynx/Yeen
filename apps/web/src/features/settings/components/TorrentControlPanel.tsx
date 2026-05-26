@@ -61,7 +61,10 @@ export function TorrentControlPanel({
   } = useTorrentControlState({ token });
 
   return (
-    <article className="settings-surface settings-surface-full settings-surface-categorized">
+    <article
+      className="settings-surface settings-surface-full settings-surface-categorized"
+      data-tv-focus-zone="shelf"
+    >
       <header className="settings-surface-header torrent-control-title-panel">
         <div className="torrent-control-title-copy">
           <p className="settings-section-kicker">Download Control</p>
@@ -70,7 +73,7 @@ export function TorrentControlPanel({
         <span className="settings-pill torrent-control-title-pill">Categorized Controls</span>
       </header>
 
-      <div className="settings-categories torrent-control-categories">
+      <div className="settings-categories torrent-control-categories" data-tv-focus-lane-id="torrent-control-categories">
         <TorrentAddSection
           defaultOrderMode={defaultOrderMode}
           isOpen={expandedSections.addTorrent}
