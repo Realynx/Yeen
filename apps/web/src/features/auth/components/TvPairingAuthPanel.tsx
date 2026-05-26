@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FocusEvent, FormEvent } from 'react';
 import {
   getConfiguredApiBaseUrl,
   getRuntimeApiBaseUrl,
@@ -15,6 +15,10 @@ import type {
 import './TvPairingAuthPanel.css';
 
 const TV_PAIRING_CLIENT_ID_STORAGE_KEY = 'yeen_tv_pairing_client_id';
+const TV_PAIRING_CLIENT_ID_MIN_LENGTH = 6;
+const TV_PAIRING_CLIENT_ID_MAX_LENGTH = 128;
+const TV_PAIRING_DEVICE_NAME_MAX_LENGTH = 64;
+const TV_PAIRING_DEVICE_PLATFORM_MAX_LENGTH = 160;
 
 interface TvPairingAuthPanelProps {
   onAuthenticated: (response: AuthResponse) => void;
@@ -54,20 +58,49 @@ function createClientId(): string {
   return `tv-${Math.random().toString(36).slice(2, 12)}`;
 }
 
+function normalizeOptionalText(
+  value: string | null | undefined,
+  maxLength: number,
+): string | undefined {
+  const normalized = (value ?? '').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, maxLength);
+}
+
+function isValidTvPairingClientId(value: string): boolean {
+  const normalized = value.trim();
+  return (
+    normalized.length >= TV_PAIRING_CLIENT_ID_MIN_LENGTH
+    && normalized.length <= TV_PAIRING_CLIENT_ID_MAX_LENGTH
+  );
+}
+
+function createValidTvPairingClientId(): string {
+  const candidate = createClientId().trim();
+  if (isValidTvPairingClientId(candidate)) {
+    return candidate;
+  }
+
+  return `tv-${Math.random().toString(36).slice(2, 14)}`;
+}
+
 function getOrCreateTvPairingClientId(): string {
   try {
     const existing = window.localStorage
       .getItem(TV_PAIRING_CLIENT_ID_STORAGE_KEY)
       ?.trim();
-    if (existing) {
+    if (existing && isValidTvPairingClientId(existing)) {
       return existing;
     }
 
-    const created = createClientId();
+    const created = createValidTvPairingClientId();
     window.localStorage.setItem(TV_PAIRING_CLIENT_ID_STORAGE_KEY, created);
     return created;
   } catch {
-    return createClientId();
+    return createValidTvPairingClientId();
   }
 }
 
@@ -94,10 +127,17 @@ export function TvPairingAuthPanel({
     setStatusMessage('');
 
     try {
+      const deviceName =
+        normalizeOptionalText('Yeen TV App', TV_PAIRING_DEVICE_NAME_MAX_LENGTH)
+        ?? 'Yeen TV';
+      const devicePlatform = normalizeOptionalText(
+        window.navigator.userAgent,
+        TV_PAIRING_DEVICE_PLATFORM_MAX_LENGTH,
+      );
       const response = await requestTvPairingCode({
         clientId: getOrCreateTvPairingClientId(),
-        deviceName: 'Yeen TV App',
-        devicePlatform: window.navigator.userAgent,
+        deviceName,
+        devicePlatform,
       });
 
       setPairing(response);
@@ -144,6 +184,20 @@ export function TvPairingAuthPanel({
     setError(null);
     setStatusMessage(`Using default server ${defaultApiBase}. Requesting a TV code...`);
     void startPairing();
+  }
+
+  function handlePanelFocus(event: FocusEvent<HTMLElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+      });
+    });
   }
 
   useEffect(() => {
@@ -271,7 +325,7 @@ export function TvPairingAuthPanel({
 
   return (
     <main className="auth-page tv-pairing-page">
-      <section className="auth-panel tv-pairing-panel">
+      <section className="auth-panel tv-pairing-panel" onFocusCapture={handlePanelFocus}>
         <p className="eyebrow">Yeen for TV</p>
         <h1>Sign In with a Code</h1>
         <p className="subline">
@@ -328,6 +382,7 @@ export function TvPairingAuthPanel({
             onClick={() => {
               void startPairing();
             }}
+            autoFocus
             disabled={loadingPairing}
           >
             {loadingPairing ? 'Generating...' : 'Request New Code'}

@@ -97,6 +97,7 @@ interface PlayerPanelContainerProps {
   source: PlaybackSource | null;
   redactedStreamUrl: string | null;
   activeTheaterMode: boolean;
+  isTvMode: boolean;
   trackState: PlayerTrackState;
   playbackState: PlayerPlaybackState;
   capabilities: PlayerCapabilityState;
@@ -114,6 +115,7 @@ export function PlayerPanelContainer({
   source,
   redactedStreamUrl,
   activeTheaterMode,
+  isTvMode,
   trackState,
   playbackState,
   capabilities,
@@ -154,6 +156,7 @@ export function PlayerPanelContainer({
       playbackRate={playbackState.playbackRate}
       subtitleFontPreset={playbackState.subtitleFontPreset}
       theaterMode={activeTheaterMode}
+      isTvMode={isTvMode}
       currentTime={playbackState.currentTime}
       totalDuration={playbackState.totalDuration}
       safeDuration={playbackState.safeDuration}

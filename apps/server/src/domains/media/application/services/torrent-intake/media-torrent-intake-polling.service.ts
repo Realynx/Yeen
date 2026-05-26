@@ -18,6 +18,8 @@ export class MediaTorrentIntakePollingService
   private readonly logger = new Logger(MediaTorrentIntakePollingService.name);
   private automaticTorrentIntakeTimer: NodeJS.Timeout | null = null;
   private automaticTorrentIntakeRunning = false;
+  private automaticTorrentIntakeStopping = false;
+  private activePollPromise: Promise<void> | null = null;
 
   constructor(
     private readonly mediaScanStore: MediaScanStore,
@@ -26,16 +28,36 @@ export class MediaTorrentIntakePollingService
   ) {}
 
   onModuleInit(): void {
+    this.automaticTorrentIntakeStopping = false;
     this.automaticTorrentIntakeTimer = setInterval(() => {
-      void this.runAutomaticTorrentIntakePoll();
+      this.queueAutomaticTorrentIntakePoll();
     }, this.automaticTorrentIntakePollMs);
 
     this.automaticTorrentIntakeTimer.unref?.();
-    void this.runAutomaticTorrentIntakePoll();
+    this.queueAutomaticTorrentIntakePoll();
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
+    this.automaticTorrentIntakeStopping = true;
     this.stopAutomaticTorrentIntakePolling();
+
+    if (this.activePollPromise) {
+      await this.activePollPromise;
+    }
+  }
+
+  private queueAutomaticTorrentIntakePoll(): void {
+    if (this.automaticTorrentIntakeStopping) {
+      return;
+    }
+
+    const nextPollPromise = this.runAutomaticTorrentIntakePoll();
+    const trackedPromise = nextPollPromise.finally(() => {
+      if (this.activePollPromise === trackedPromise) {
+        this.activePollPromise = null;
+      }
+    });
+    this.activePollPromise = trackedPromise;
   }
 
   private stopAutomaticTorrentIntakePolling(): void {
@@ -48,6 +70,10 @@ export class MediaTorrentIntakePollingService
   }
 
   private async runAutomaticTorrentIntakePoll(): Promise<void> {
+    if (this.automaticTorrentIntakeStopping) {
+      return;
+    }
+
     if (this.automaticTorrentIntakeRunning) {
       return;
     }
@@ -60,6 +86,10 @@ export class MediaTorrentIntakePollingService
 
     try {
       const listResult = await this.torrentService.listTorrents();
+      if (this.automaticTorrentIntakeStopping) {
+        return;
+      }
+
       const torrents = Array.isArray(listResult.items) ? listResult.items : [];
       if (torrents.length === 0) {
         return;
@@ -89,6 +119,10 @@ export class MediaTorrentIntakePollingService
         .slice(0, this.automaticTorrentIntakeBatchSize);
 
       for (const candidate of candidates) {
+        if (this.automaticTorrentIntakeStopping) {
+          break;
+        }
+
         const normalizedHash = candidate.hash.trim().toLowerCase();
         if (!normalizedHash) {
           continue;
@@ -108,8 +142,10 @@ export class MediaTorrentIntakePollingService
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.debug(`Automatic torrent intake poll failed: ${message}`);
+      if (!this.automaticTorrentIntakeStopping) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.debug(`Automatic torrent intake poll failed: ${message}`);
+      }
     } finally {
       this.automaticTorrentIntakeRunning = false;
     }

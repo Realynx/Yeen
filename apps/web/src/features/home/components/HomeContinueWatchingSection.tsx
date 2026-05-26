@@ -20,9 +20,9 @@ export function HomeContinueWatchingSection({
   onOpenPlayer,
 }: HomeContinueWatchingSectionProps) {
   return (
-    <section className="browse-section is-first-row" id="row-continue">
+    <section className="browse-section is-first-row" id="row-continue" data-tv-focus-zone="shelf">
       <h2 className="section-title">Continue Watching for {firstName}</h2>
-      <MediaRow>
+      <MediaRow focusLaneId="shelf-row-continue">
         {continueWatching.map(({ item, percent }) => (
           <MediaTile
             key={item.id}

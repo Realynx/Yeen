@@ -61,6 +61,7 @@ export interface PlayerVideoPanelProps {
   subtitleFontPreset: SubtitleFontPreset;
   theaterMode: boolean;
   isPhoneMode?: boolean;
+  isTvMode?: boolean;
   currentTime: number;
   totalDuration: number;
   safeDuration: number;

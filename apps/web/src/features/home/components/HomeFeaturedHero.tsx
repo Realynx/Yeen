@@ -34,6 +34,7 @@ export function HomeFeaturedHero({
     <section
       className="hero-banner"
       id="home-featured"
+      data-tv-focus-zone="hero"
       style={heroBackgroundImage ? { backgroundImage: `url(${heroBackgroundImage})` } : undefined}
     >
       <div className="hero-overlay" aria-hidden="true" />
@@ -43,6 +44,7 @@ export function HomeFeaturedHero({
           <button
             type="button"
             className="hero-nav-button hero-nav-button-prev"
+            data-tv-focus-priority="low"
             onClick={onShowPrevious}
             aria-label="Show previous featured media"
           >
@@ -53,6 +55,7 @@ export function HomeFeaturedHero({
           <button
             type="button"
             className="hero-nav-button hero-nav-button-next"
+            data-tv-focus-priority="low"
             onClick={onShowNext}
             aria-label="Show next featured media"
           >
@@ -80,7 +83,7 @@ export function HomeFeaturedHero({
           {featuredItem ? <span>{featuredItem.extension.replace('.', '').toUpperCase()}</span> : null}
         </div>
 
-        <div className="hero-actions">
+        <div className="hero-actions" data-tv-focus-lane-id="hero-actions">
           {featuredItem ? (
             <button
               className="accent-button"
@@ -109,7 +112,13 @@ export function HomeFeaturedHero({
         ) : null}
 
         {featuredItems.length > 1 ? (
-          <div className="hero-featured-switcher" role="group" aria-label="Choose featured media">
+          <div
+            className="hero-featured-switcher"
+            role="group"
+            aria-label="Choose featured media"
+            data-tv-focus-lane-id="hero-switcher"
+            data-tv-focus-priority="low"
+          >
             {featuredItems.map((item, index) => {
               const isActive = index === activeFeaturedIndex;
 
@@ -118,6 +127,7 @@ export function HomeFeaturedHero({
                   key={item.id}
                   type="button"
                   className={isActive ? 'hero-switch-dot is-active' : 'hero-switch-dot'}
+                  data-tv-focus-priority="low"
                   onClick={() => onSelectFeatured(index)}
                   aria-label={`Show featured: ${item.title}`}
                   aria-pressed={isActive}

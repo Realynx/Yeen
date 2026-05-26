@@ -1,0 +1,554 @@
+.tv-page-shell {
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+
+.tv-page-shell > .browse-page,
+.tv-page-shell > .media-details-page,
+.tv-page-shell > .player-page {
+  min-height: 100dvh;
+}
+
+.tv-page-shell > .browse-page,
+.tv-page-shell > .media-details-page {
+  padding-inline: clamp(0.92rem, 2.6vw, 2.1rem);
+  padding-top: clamp(0.68rem, 1.3vh, 1.12rem);
+}
+
+:root[data-yeen-experience='tv'] .top-nav {
+  height: 46px;
+  min-height: 46px;
+  padding: 0 clamp(0.56rem, 1.6vw, 1.2rem);
+  gap: 0.38rem;
+}
+
+:root[data-yeen-experience='tv'] .top-nav-left {
+  gap: 0.58rem;
+  padding-left: clamp(0.14rem, 0.45vw, 0.32rem);
+}
+
+:root[data-yeen-experience='tv'] .top-nav-right {
+  gap: 0.34rem;
+}
+
+:root[data-yeen-experience='tv'] .brand-mark {
+  font-size: 1.36rem;
+}
+
+:root[data-yeen-experience='tv'] .top-nav .ghost-button,
+:root[data-yeen-experience='tv'] .top-nav .accent-button {
+  min-height: 28px;
+  padding: 0.24rem 0.56rem;
+  font-size: 0.68rem;
+}
+
+:root[data-yeen-experience='tv'] .top-nav .profile-avatar-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+:root[data-yeen-experience='tv'] .top-nav .profile-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 0.58rem;
+}
+
+:root[data-yeen-experience='tv'] .browse-link {
+  min-height: 30px;
+  padding: 0.14rem 0.48rem;
+  font-size: 0.72rem;
+}
+
+:root[data-yeen-experience='tv'] .search-row input,
+:root[data-yeen-experience='tv'] .search-row button {
+  min-height: 30px;
+}
+
+:root[data-yeen-experience='tv'] .search-row {
+  width: min(286px, 100%);
+  padding: 0.1rem;
+}
+
+:root[data-yeen-experience='tv'] .search-row input {
+  padding: 0.2rem 0.66rem;
+  font-size: 0.7rem;
+}
+
+:root[data-yeen-experience='tv'] .search-row button[type='submit'] {
+  min-width: 62px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.62rem;
+}
+
+:root[data-yeen-experience='tv'] .search-row .search-random-button {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+}
+
+:root[data-yeen-experience='tv'] .search-row .search-random-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+:root[data-yeen-experience='tv'] .top-nav-broadcast-indicator {
+  width: clamp(152px, 20vw, 250px);
+  max-width: clamp(152px, 20vw, 250px);
+  padding: 0.16rem 0.48rem;
+  font-size: 0.62rem;
+}
+
+:root[data-yeen-experience='tv'] .top-nav-broadcast-direct-link {
+  max-width: 112px;
+  padding: 0.16rem 0.42rem;
+  font-size: 0.58rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-toolbar {
+  gap: 0.72rem;
+  margin-top: 0.12rem;
+  padding: 0.58rem 0.72rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-filters {
+  gap: 0.52rem 0.8rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-filter-group {
+  gap: 0.26rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-filter-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-chip-row {
+  gap: 0.34rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-chip {
+  gap: 0.26rem;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.68rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-chip-count {
+  font-size: 0.62rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-select {
+  min-width: 160px;
+  border-radius: 8px;
+  padding: 0.36rem 0.46rem;
+  font-size: 0.72rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-stat-block {
+  min-width: 114px;
+  gap: 0.08rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-stat-value {
+  font-size: 1.5rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-stat-label {
+  font-size: 0.64rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-clear-button {
+  padding: 0.24rem 0.52rem;
+  font-size: 0.66rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-bar {
+  gap: 0.52rem 0.9rem;
+  margin: 0.34rem 0 0.72rem;
+  padding: 0.56rem 0.72rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-info {
+  gap: 0.48rem;
+  font-size: 0.74rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-info strong {
+  font-size: 0.9rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-actions {
+  gap: 0.34rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-actions .ghost-button,
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-actions .accent-button,
+:root[data-yeen-experience='tv'] .tv-page-shell-library .library-manage-actions .danger-button {
+  border-radius: 10px;
+  padding: 0.3rem 0.58rem;
+  font-size: 0.68rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid {
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 0.68rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid.is-compact {
+  grid-template-columns: repeat(auto-fill, minmax(156px, 196px));
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-hover-panel {
+  padding: 0.46rem 0.52rem 0.56rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-hover-title {
+  min-height: 2.24em;
+  font-size: 0.84rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-hover-description {
+  font-size: 0.67rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-hover-tech {
+  font-size: 0.62rem;
+}
+
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-tile:hover,
+:root[data-yeen-experience='tv'] .media-library-page .library-grid .media-tile:focus-visible {
+  transform: scale(1.02) translateY(-3px);
+}
+
+:root[data-yeen-experience='tv'] .media-row {
+  padding-bottom: 13rem;
+}
+
+:root[data-yeen-experience='tv'] .media-tile {
+  flex-basis: clamp(206px, 20vw, 270px);
+}
+
+:root[data-yeen-experience='tv'] .media-row .media-tile:focus-visible {
+  transform: scale(1.07);
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) {
+  transform: none;
+  z-index: auto;
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) .media-thumb {
+  border-radius: 8px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) .media-hover-panel {
+  transform: translateY(-100%);
+  border-color: transparent;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 7, 12, 0) 0%,
+    rgba(5, 7, 12, 0.64) 58%,
+    rgba(5, 7, 12, 0.9) 100%
+  );
+  box-shadow: none;
+  padding: 0.42rem 0.66rem 0.52rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) .media-hover-title {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.78);
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) .media-hover-body {
+  margin-top: 0;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-0.26rem);
+}
+
+:root[data-yeen-experience='tv'] .home-page .media-row .media-tile:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
+:root[data-yeen-experience='tv'] .media-row-arrow {
+  display: none;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-banner {
+  margin-top: 0.58rem;
+  min-height: clamp(252px, 41vh, 336px);
+  max-height: clamp(252px, 41vh, 336px);
+  background-position: center center;
+  background-size: cover;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-content {
+  width: min(520px, 88%);
+  padding: clamp(0.88rem, 2vw, 1.3rem);
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-banner h1 {
+  margin-top: 0.34rem;
+  max-width: 16ch;
+  min-height: 1.92em;
+  font-size: clamp(1.52rem, 3.4vw, 2.28rem);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-description {
+  margin-top: 0.44rem;
+  max-width: 50ch;
+  min-height: 2.7em;
+  max-height: 2.7em;
+  font-size: 0.84rem;
+  line-height: 1.34;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-kicker {
+  gap: 0.46rem;
+  font-size: 0.66rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-rotation-note {
+  padding: 0.08rem 0.4rem;
+  font-size: 0.6rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-meta-strip {
+  margin-top: 0.58rem;
+  min-height: 0;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+  overflow: visible;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-meta-strip span {
+  padding: 0.2rem 0.52rem;
+  font-size: 0.64rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-actions {
+  margin-top: 0.72rem;
+  gap: 0.46rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-actions .accent-button,
+:root[data-yeen-experience='tv'] .home-page .hero-actions .ghost-button {
+  min-height: 32px;
+  padding: 0.34rem 0.7rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-actions .accent-button {
+  min-width: 102px;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-nav-button {
+  display: none;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-nav-button-prev {
+  left: clamp(0.36rem, 1.2vw, 0.7rem);
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-nav-button-next {
+  right: clamp(0.36rem, 1.2vw, 0.7rem);
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-resume {
+  margin-top: 0.42rem;
+  font-size: 0.74rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-featured-switcher {
+  margin-top: 0.4rem;
+  gap: 0.28rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .hero-switch-dot {
+  width: 0.54rem;
+  height: 0.54rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .browse-section.is-first-row {
+  margin-top: 1rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .browse-section + .browse-section {
+  margin-top: 1.1rem;
+}
+
+:root[data-yeen-experience='tv'] .home-page .browse-section .section-title {
+  margin-bottom: 0.3rem;
+  font-size: 1rem;
+}
+
+:root[data-yeen-experience='tv'] .player-page.tv-player-page {
+  padding-inline: clamp(0.92rem, 2.6vw, 2rem);
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode {
+  padding: 1.24rem 1.42rem 1.04rem;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-icon-button {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-icon-button-primary {
+  width: 58px;
+  height: 58px;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-icon-button-primary svg {
+  width: 30px;
+  height: 30px;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-volume-slider {
+  width: 126px;
+}
+
+:root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode .player-menu-item {
+  min-height: 42px;
+}
+
+:root[data-yeen-experience='tv'] button:focus-visible,
+:root[data-yeen-experience='tv'] a:focus-visible,
+:root[data-yeen-experience='tv'] [role='button']:focus-visible,
+:root[data-yeen-experience='tv'] input:focus-visible,
+:root[data-yeen-experience='tv'] select:focus-visible {
+  outline: 3px solid rgba(255, 176, 94, 0.96);
+  outline-offset: 3px;
+}
+
+:root[data-yeen-experience='tv'] .auth-page {
+  min-height: 100dvh;
+  place-items: start center;
+  padding: clamp(0.8rem, 2.1vh, 1.4rem) clamp(1rem, 3.2vw, 2.6rem);
+}
+
+:root[data-yeen-experience='tv'] .auth-panel {
+  width: min(520px, 88vw);
+  padding: clamp(0.9rem, 2vw, 1.45rem);
+  border-radius: 18px;
+  max-height: min(88dvh, 700px);
+  overflow-y: auto;
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(229, 9, 20, 0.12);
+}
+
+:root[data-yeen-experience='tv'] .auth-panel h1 {
+  margin-top: 0.38rem;
+  font-size: clamp(1.46rem, 3.2vw, 2.08rem);
+  letter-spacing: 0.03em;
+}
+
+:root[data-yeen-experience='tv'] .auth-panel .subline {
+  margin-top: 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.34;
+}
+
+:root[data-yeen-experience='tv'] .auth-page .auth-form {
+  margin-top: 0.85rem;
+  gap: 0.62rem;
+}
+
+:root[data-yeen-experience='tv'] .auth-page .auth-form label {
+  gap: 0.24rem;
+  font-size: 0.78rem;
+}
+
+:root[data-yeen-experience='tv'] .auth-page .auth-form input,
+:root[data-yeen-experience='tv'] .auth-page .auth-form button,
+:root[data-yeen-experience='tv'] .auth-page .tv-install-download-button,
+:root[data-yeen-experience='tv'] .auth-page .tv-pairing-actions button {
+  min-height: 2.35rem;
+}
+
+:root[data-yeen-experience='tv'] .auth-page .auth-form input {
+  padding: 0.52rem 0.68rem;
+  border-radius: 11px;
+}
+
+:root[data-yeen-experience='tv'] .auth-page .auth-form button,
+:root[data-yeen-experience='tv'] .auth-page .tv-install-download-button,
+:root[data-yeen-experience='tv'] .auth-page .tv-pairing-actions button {
+  padding-block: 0.44rem;
+  border-radius: 11px;
+}
+
+:root[data-yeen-experience='tv'] .tv-pairing-panel,
+:root[data-yeen-experience='tv'] .tv-install-panel {
+  width: min(520px, 88vw);
+}
+
+:root[data-yeen-experience='tv'] .tv-pairing-server-actions,
+:root[data-yeen-experience='tv'] .tv-pairing-actions {
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-pairing-code {
+  margin: 0.72rem 0 0.44rem;
+  padding: 0.62rem 0.8rem;
+  font-size: clamp(1.24rem, 4.1vw, 2.2rem);
+  letter-spacing: 0.1em;
+}
+
+:root[data-yeen-experience='tv'] .tv-pairing-active-server {
+  margin-top: 0.62rem;
+  font-size: 0.82rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-pairing-countdown {
+  font-size: 0.88rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-install-actions {
+  margin: 0.82rem 0 0.92rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-install-download-button {
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+}
+
+@media (max-height: 760px) {
+  :root[data-yeen-experience='tv'] .auth-page {
+    padding-block: 0.36rem;
+  }
+
+  :root[data-yeen-experience='tv'] .auth-panel {
+    padding: 0.7rem 0.84rem 0.84rem;
+    max-height: 96dvh;
+  }
+
+  :root[data-yeen-experience='tv'] .auth-panel h1 {
+    font-size: clamp(1.3rem, 2.8vw, 1.9rem);
+  }
+
+  :root[data-yeen-experience='tv'] .tv-pairing-server-actions,
+  :root[data-yeen-experience='tv'] .tv-pairing-actions {
+    grid-template-columns: 1fr;
+  }
+}

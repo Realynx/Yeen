@@ -35,6 +35,7 @@ interface PlayerControlsRightProps {
   onSelectSubtitle: (subtitleId: string) => void;
   onExtractSubtitle: (track: SubtitleTrack) => void;
   isPhoneMode: boolean;
+  isTvMode: boolean;
   playbackRate: number;
   subtitleFontPreset: SubtitleFontPreset;
   videoBitrateQuotaKbps: number;
@@ -84,6 +85,7 @@ export function PlayerControlsRight({
   onSelectSubtitle,
   onExtractSubtitle,
   isPhoneMode,
+  isTvMode,
   playbackRate,
   subtitleFontPreset,
   videoBitrateQuotaKbps,
@@ -134,7 +136,7 @@ export function PlayerControlsRight({
         selectedSubtitleId={selectedSubtitleId}
         subtitleTracks={subtitleTracks}
         extractingSubtitleTrackId={extractingSubtitleTrackId}
-        isPhoneMode={isPhoneMode}
+        isPhoneMode={isPhoneMode || isTvMode}
         onToggle={() => onToggleMenu('subs')}
         onClose={onCloseMenu}
         onSelectSubtitle={onSelectSubtitle}
@@ -185,7 +187,7 @@ export function PlayerControlsRight({
         </button>
       ) : null}
 
-      {!isPhoneMode ? (
+      {!isPhoneMode && !isTvMode ? (
         <button
           type="button"
           className={`player-icon-button ${theaterMode ? 'is-active' : ''}`}
@@ -203,7 +205,7 @@ export function PlayerControlsRight({
           className={`player-icon-button ${isPictureInPicture ? 'is-active' : ''}`}
           onClick={onTogglePictureInPicture}
           aria-label={isPictureInPicture ? 'Exit picture-in-picture' : 'Enter picture-in-picture'}
-          title={isPhoneMode ? 'Picture-in-picture' : 'Picture-in-picture (P)'}
+          title={isPhoneMode || isTvMode ? 'Picture-in-picture' : 'Picture-in-picture (P)'}
         >
           <PipIcon />
         </button>
@@ -214,7 +216,7 @@ export function PlayerControlsRight({
         className={`player-icon-button ${isFullscreen ? 'is-active' : ''}`}
         onClick={onToggleFullscreen}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        title={isPhoneMode ? 'Fullscreen' : 'Fullscreen (F)'}
+        title={isPhoneMode || isTvMode ? 'Fullscreen' : 'Fullscreen (F)'}
       >
         {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
       </button>

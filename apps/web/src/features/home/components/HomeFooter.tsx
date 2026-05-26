@@ -14,9 +14,9 @@ export function HomeFooter({
   storageSummaryError,
 }: HomeFooterProps) {
   return (
-    <footer className="home-footer" aria-label="Home page footer">
+    <footer className="home-footer" aria-label="Home page footer" data-tv-focus-zone="footer">
       <div className="home-footer-meta">
-        <div className="home-footer-links">
+        <div className="home-footer-links" data-tv-focus-lane-id="home-footer-links">
           <NavLink className="home-footer-link" to="/library">
             Library
           </NavLink>

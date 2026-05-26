@@ -13,6 +13,7 @@
 @import './foundation/shared-keyframes.css';
 @import './responsive/shared-motion.css';
 @import './responsive/shared-breakpoints.css';
+@import './layouts/tv-shell.css';
 
 @import './layouts/phone-shell-details.css';
 @import './responsive/phone-motion.css';
