@@ -44,16 +44,14 @@ export async function request<T>(
 
   if (!response.ok) {
     const fallback = `${response.status} ${response.statusText}`;
-
-    try {
-      const payload = (await response.json()) as { message?: string | string[] };
-      const message = Array.isArray(payload.message)
-        ? payload.message.join(', ')
-        : payload.message ?? fallback;
-      throw new ApiError(message, response.status);
-    } catch {
-      throw new ApiError(fallback, response.status);
-    }
+    const payload = await response.json().catch(() => null) as {
+      message?: string | string[];
+      error?: string;
+    } | null;
+    const message = Array.isArray(payload?.message)
+      ? payload.message.join(', ')
+      : payload?.message ?? payload?.error ?? fallback;
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {

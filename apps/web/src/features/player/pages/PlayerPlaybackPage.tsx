@@ -119,7 +119,8 @@ export function PlayerPlaybackPage({
   });
 
   const {
-    previousEpisode, nextEpisode, previousEpisodeImage, nextEpisodeImage, withAutoAdvance,
+    previousEpisode, nextEpisode, previousEpisodeImage, nextEpisodeImage,
+    autoAdvanceSeconds, cancelAutoAdvance, withAutoAdvance,
   } = useShowEpisodes(token, media, mediaId);
 
   // Must be memoized — `usePlayerMediaSource` lists this in its effect deps.
@@ -341,7 +342,15 @@ export function PlayerPlaybackPage({
       onPreferredAudioBitrateChange: handlePreferredAudioBitrateChange,
       onPreferredResolutionChange: handlePreferredResolutionChange,
     },
-    episodeNavigationContext: { previousEpisode, nextEpisode, previousEpisodeImage, nextEpisodeImage, navigate },
+    episodeNavigationContext: {
+      previousEpisode,
+      nextEpisode,
+      previousEpisodeImage,
+      nextEpisodeImage,
+      autoAdvanceSeconds,
+      cancelAutoAdvance,
+      navigate,
+    },
     detailsContext: { totalDuration, currentTime, onOpenDetails: openCurrentDetails },
   });
 

@@ -24,6 +24,8 @@ interface EpisodeNavigationContext {
   nextEpisode: EpisodeNavigationProps['nextEpisode'];
   previousEpisodeImage: EpisodeNavigationProps['previousEpisodeImage'];
   nextEpisodeImage: EpisodeNavigationProps['nextEpisodeImage'];
+  autoAdvanceSeconds: EpisodeNavigationProps['autoAdvanceSeconds'];
+  cancelAutoAdvance: EpisodeNavigationProps['onCancelAutoAdvance'];
   navigate: NavigateFunction;
 }
 
@@ -158,6 +160,8 @@ export function usePlayerPlaybackViewState({
     nextEpisode: episodeNavigationContext.nextEpisode,
     previousEpisodeImage: episodeNavigationContext.previousEpisodeImage,
     nextEpisodeImage: episodeNavigationContext.nextEpisodeImage,
+    autoAdvanceSeconds: episodeNavigationContext.autoAdvanceSeconds,
+    onCancelAutoAdvance: episodeNavigationContext.cancelAutoAdvance,
     onNavigateToEpisode: (episodeId) => episodeNavigationContext.navigate(`/player/${episodeId}`),
   };
 

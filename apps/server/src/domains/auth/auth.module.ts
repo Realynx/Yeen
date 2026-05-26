@@ -10,6 +10,7 @@ import { AuthController } from './presentation/controllers/auth.controller';
 import { AuthAvatarService } from './application/services/auth-avatar.service';
 import { AuthService } from './application/services/auth.service';
 import { AuthAdminAccountService } from './application/services/auth-admin-account.service';
+import { AuthPasswordResetService } from './application/services/auth-password-reset.service';
 import { AuthTvPairingService } from './application/services/auth-tv-pairing.service';
 import { InviteTokensStore } from './infrastructure/stores/invite-tokens.store';
 import { TvPairingsStore } from './infrastructure/stores/tv-pairings.store';
@@ -37,6 +38,7 @@ import { JwtStrategy } from './infrastructure/jwt.strategy';
   providers: [
     AuthService,
     AuthAdminAccountService,
+    AuthPasswordResetService,
     AuthTvPairingService,
     AuthAvatarService,
     AccountsStore,

@@ -12,13 +12,16 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AdminGuard } from '../guards/admin.guard';
+import { AuthPasswordResetService } from '../../application/services/auth-password-reset.service';
 import { AuthService } from '../../application/services/auth.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { ChangePasswordDto } from '../../application/dto/change-password.dto';
 import { ClaimTvPairingCodeDto } from '../../application/dto/claim-tv-pairing-code.dto';
+import { ConfirmPasswordResetDto } from '../../application/dto/confirm-password-reset.dto';
 import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto';
 import { LoginDto } from '../../application/dto/login.dto';
 import { PollTvPairingDto } from '../../application/dto/poll-tv-pairing.dto';
+import { RequestPasswordResetDto } from '../../application/dto/request-password-reset.dto';
 import { RequestTvPairingDto } from '../../application/dto/request-tv-pairing.dto';
 import { ResetAccountPasswordDto } from '../../application/dto/reset-account-password.dto';
 import { RegisterDto } from '../../application/dto/register.dto';
@@ -32,7 +35,10 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly authPasswordResetService: AuthPasswordResetService,
+  ) {}
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -42,6 +48,16 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('password-reset/request')
+  requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
+    return this.authPasswordResetService.requestPasswordReset(dto);
+  }
+
+  @Post('password-reset/confirm')
+  confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
+    return this.authPasswordResetService.confirmPasswordReset(dto);
   }
 
   @Post('tv/pairings')

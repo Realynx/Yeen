@@ -132,6 +132,13 @@ export async function getSeriesEpisodeTracker(token: string, mediaId: string) {
   );
 }
 
+export async function getEpisodeNavigation(token: string, mediaId: string) {
+  return request<{
+    previousEpisode: MediaItem | null;
+    nextEpisode: MediaItem | null;
+  }>(`/media/${encodeURIComponent(mediaId)}/next-episode`, {}, token);
+}
+
 export async function getRemoteMedia(token: string, remoteId: string) {
   return request<MediaItem>(
     `/media/remote/${encodeURIComponent(remoteId)}`,

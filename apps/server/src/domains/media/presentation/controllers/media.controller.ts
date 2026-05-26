@@ -35,6 +35,7 @@ import { PurgeRecycleDeletionsDto } from '../../application/dto/purge-recycle-de
 import { IptorrentsSearchService } from '../../application/services/torrent-search/iptorrents-search.service';
 import { NyaaSearchService } from '../../application/services/torrent-search/nyaa-search.service';
 import { MediaFsCommitService } from '../../application/services/filesystem/media-fs-commit.service';
+import { MediaEpisodeNavigationService } from '../../application/services/media-episode-navigation.service';
 import { MediaService } from '../../application/services/media.service';
 import { TorrentService } from '../../../torrent/application/services/torrent.service';
 import { MediaSearchTorrentDownloadService } from '../../application/services/torrent-intake/media-search-torrent-download.service';
@@ -51,6 +52,7 @@ import {
 export class MediaController {
   constructor(
     private readonly mediaService: MediaService,
+    private readonly mediaEpisodeNavigationService: MediaEpisodeNavigationService,
     private readonly mediaFsCommitService: MediaFsCommitService,
     private readonly iptorrentsSearchService: IptorrentsSearchService,
     private readonly nyaaSearchService: NyaaSearchService,
@@ -260,6 +262,11 @@ export class MediaController {
   @Get(':mediaId/series-tracker')
   getSeriesEpisodeTracker(@Param('mediaId') mediaId: string) {
     return this.mediaService.getSeriesEpisodeTracker(mediaId);
+  }
+
+  @Get(':mediaId/next-episode')
+  getEpisodeNavigation(@Param('mediaId') mediaId: string) {
+    return this.mediaEpisodeNavigationService.getEpisodeNavigation(mediaId);
   }
 
   @Get('metadata/search')

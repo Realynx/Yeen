@@ -26,6 +26,7 @@ export interface HlsSession {
   // Runtime-only counters for startup-segment self-healing.
   startSegmentRecoverableWindowStartedAtMs?: number;
   startSegmentRecoverableFailures?: number;
+  lastAccessedAtMs?: number;
 }
 
 @Injectable()
@@ -39,23 +40,37 @@ export class HlsSessionStore {
     audioBitrateKbps: number,
     maxOutputHeight: number,
   ): HlsSession | undefined {
-    return [...this.sessions.values()].find(
-      (session) =>
+    for (const session of this.sessions.values()) {
+      const matches =
         session.mediaId === mediaId &&
         session.selectedAudioStreamIndex === selectedAudioStreamIndex &&
         session.maxVideoBitrateKbps === maxVideoBitrateKbps &&
         session.audioBitrateKbps === audioBitrateKbps &&
         session.maxOutputHeight === maxOutputHeight &&
-        existsSync(session.manifestPath),
-    );
+        existsSync(session.manifestPath);
+
+      if (matches) {
+        session.lastAccessedAtMs = Date.now();
+        return session;
+      }
+    }
+
+    return undefined;
   }
 
   get(sessionId: string): HlsSession | undefined {
-    return this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.lastAccessedAtMs = Date.now();
+    }
+    return session;
   }
 
   set(session: HlsSession): void {
-    this.sessions.set(session.sessionId, session);
+    this.sessions.set(session.sessionId, {
+      ...session,
+      lastAccessedAtMs: Date.now(),
+    });
   }
 
   delete(sessionId: string): void {
@@ -64,5 +79,23 @@ export class HlsSessionStore {
 
   all(): HlsSession[] {
     return [...this.sessions.values()];
+  }
+
+  deleteStale(maxIdleMs: number): HlsSession[] {
+    const now = Date.now();
+    const deleted: HlsSession[] = [];
+
+    for (const [sessionId, session] of this.sessions.entries()) {
+      const lastAccessedAtMs =
+        session.lastAccessedAtMs ?? Date.parse(session.startedAt);
+      if (now - lastAccessedAtMs <= maxIdleMs) {
+        continue;
+      }
+
+      this.sessions.delete(sessionId);
+      deleted.push(session);
+    }
+
+    return deleted;
   }
 }

@@ -43,6 +43,7 @@ import { MediaMetadataImportNormalizerService } from './application/services/met
 import { MediaFileResolutionService } from './application/services/path-resolution/media-file-resolution.service';
 import { MediaImageStreamService } from './application/services/media-image-stream.service';
 import { MediaPlaybackService } from './application/services/media-playback.service';
+import { MediaEpisodeNavigationService } from './application/services/media-episode-navigation.service';
 import { MediaScanExecutionService } from './application/services/media-scan-execution.service';
 import { MediaRecycleDeletionsService } from './application/services/recycle-deletions/media-recycle-deletions.service';
 import { MediaPermanentDeleteService } from './application/services/recycle-deletions/media-permanent-delete.service';
@@ -91,6 +92,7 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaFileResolutionService,
     MediaImageStreamService,
     MediaPlaybackService,
+    MediaEpisodeNavigationService,
     MediaScanExecutionService,
     MediaRecycleDeletionsService,
     MediaPermanentDeleteService,
@@ -99,6 +101,6 @@ import { TorrentModule } from '../torrent/torrent.module';
     NyaaSearchService,
     MediaService,
   ],
-  exports: [MediaService],
+  exports: [MediaService, MediaEpisodeNavigationService],
 })
 export class MediaModule {}
