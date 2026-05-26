@@ -1,23 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../../media-management/components/AssignToShowDialog';
 import { DeleteMediaDialog } from '../../media-management/components/DeleteMediaDialog';
 import { EditMetadataDialog } from '../../media-management/components/EditMetadataDialog';
-import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { LibraryManageBar } from '../components/LibraryManageBar';
-import { ProfileMenu } from '../../navigation/components/ProfileMenu';
+import { MediaLibraryTopNav } from '../components/MediaLibraryTopNav';
 import { StorageUsageMeter } from '../components/StorageUsageMeter';
 import { type BulkDeleteMediaResult } from '../../shared/services/api';
 import type { MediaItem, User } from '../../shared/services/types';
 import {
   LIBRARY_SEARCH_QUERY_PARAM,
+  LIBRARY_SHELF_QUERY_PARAM,
   normalizeLibrarySearchTerm,
+  parseLibraryFilterState,
   pickRandomItem,
-  toLibrarySearchPath,
+  toLibraryPath,
   toRandomDetailsCandidates,
 } from '../services/librarySearchUtils';
+import type { MediaLibraryFilterState } from '../services/mediaLibraryFilterUtils';
 import {
   toDownloadProgressMap,
   toLibraryItemGroups,
@@ -31,6 +32,7 @@ import { useRemoteLibrarySearch } from '../services/useRemoteLibrarySearch';
 import { useSelectedLibraryItems } from '../services/useSelectedLibraryItems';
 import { useMediaLibrary } from '../services/useMediaLibrary';
 import { useMediaSelection } from '../services/useMediaSelection';
+import { useClientExperience } from '../../navigation/services/clientExperience';
 import { useMediaStorageSummary } from '../services/useMediaStorageSummary';
 
 interface MediaLibraryPageProps {
@@ -42,8 +44,15 @@ interface MediaLibraryPageProps {
 export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const experience = useClientExperience();
+  const searchParamString = searchParams.toString();
   const routeSearchTerm = normalizeLibrarySearchTerm(
     searchParams.get(LIBRARY_SEARCH_QUERY_PARAM),
+  );
+  const routeShelf = searchParams.get(LIBRARY_SHELF_QUERY_PARAM);
+  const routeFilters = useMemo(
+    () => parseLibraryFilterState(new URLSearchParams(searchParamString)),
+    [searchParamString],
   );
 
   const {
@@ -68,11 +77,21 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     [libraryItemGroups],
   );
 
+  const updateLibraryRouteFilters = useCallback((nextFilters: MediaLibraryFilterState) => {
+    navigate(toLibraryPath({
+      q: routeSearchTerm,
+      filters: nextFilters,
+      shelf: routeShelf,
+    }), { replace: true });
+  }, [navigate, routeSearchTerm, routeShelf]);
+
   const libraryFilters = useMediaLibraryFilters({
     routeSearchTerm,
+    routeFilters,
     activeSearch: activeSearchTerm,
     libraryItems,
     progressItems,
+    onFilterStateChange: updateLibraryRouteFilters,
   });
   const {
     query,
@@ -130,23 +149,35 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    navigate(toLibrarySearchPath(query));
+    navigate(toLibraryPath({
+      q: query,
+      filters: libraryFilters.filterState,
+      shelf: routeShelf,
+    }));
   }
 
   useEffect(() => {
+    if (experience === 'tv') {
+      return;
+    }
+
     const normalizedQuery = normalizeLibrarySearchTerm(query);
     if (normalizedQuery === routeSearchTerm) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      navigate(toLibrarySearchPath(normalizedQuery), { replace: true });
+      navigate(toLibraryPath({
+        q: normalizedQuery,
+        filters: libraryFilters.filterState,
+        shelf: routeShelf,
+      }), { replace: true });
     }, 300);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [navigate, query, routeSearchTerm]);
+  }, [experience, libraryFilters.filterState, navigate, query, routeSearchTerm, routeShelf]);
 
   function handleClearSearch() { setQuery(''); resetFilters(); navigate('/library'); }
 
@@ -225,48 +256,15 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
 
   return (
     <main className="browse-page media-library-page">
-      <header className="top-nav" data-tv-focus-zone="top-nav">
-        <div className="top-nav-left" data-tv-focus-lane-id="top-nav-links">
-          <p className="brand-mark">YEEN</p>
-          <nav className="browse-links" aria-label="Browse">
-            <NavLink
-              className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')}
-              end
-              to="/"
-            >
-              Home
-            </NavLink>
-            <NavLink
-              className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')}
-              to="/library"
-            >
-              Library
-            </NavLink>
-            <NavLink
-              className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')}
-              to="/explore"
-            >
-              Explore
-            </NavLink>
-          </nav>
-        </div>
-
-        <div data-tv-focus-lane-id="top-nav-broadcast">
-          <BroadcastNavBadge />
-        </div>
-
-        <div className="top-nav-right" data-tv-focus-lane-id="top-nav-actions">
-          <LibrarySearchForm
-            query={query}
-            onQueryChange={setQuery}
-            onSearchSubmit={handleSearch}
-            placeholder="Search titles and paths"
-            onOpenRandomDetails={openRandomDetails}
-            randomDisabled={!hasRandomDetailsCandidate}
-          />
-          <ProfileMenu user={user} onLogout={onLogout} />
-        </div>
-      </header>
+      <MediaLibraryTopNav
+        query={query}
+        onQueryChange={setQuery}
+        onSearchSubmit={handleSearch}
+        onOpenRandomDetails={openRandomDetails}
+        hasRandomDetailsCandidate={hasRandomDetailsCandidate}
+        user={user}
+        onLogout={onLogout}
+      />
 
       <StorageUsageMeter
         className="library-storage-meter"

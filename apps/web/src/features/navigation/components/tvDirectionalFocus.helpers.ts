@@ -1,11 +1,20 @@
 const TV_FOCUSABLE_SELECTOR = [
   'a[href]:not([tabindex="-1"])',
   'button:not([disabled]):not([tabindex="-1"])',
-  'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
+  'input[data-tv-text-entry="true"]:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
   'select:not([disabled]):not([tabindex="-1"])',
-  'textarea:not([disabled]):not([tabindex="-1"])',
+  'textarea[data-tv-text-entry="true"]:not([disabled]):not([tabindex="-1"])',
+  '[contenteditable="true"][data-tv-text-entry="true"]:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
+
+const TV_BACK_KEYS = new Set([
+  'Back',
+  'Backspace',
+  'BrowserBack',
+  'Escape',
+  'GoBack',
+]);
 
 function isElementVisible(element: HTMLElement): boolean {
   if (!element.isConnected) {
@@ -20,7 +29,8 @@ function isElementVisible(element: HTMLElement): boolean {
     if (
       current.hidden ||
       current.getAttribute('aria-hidden') === 'true' ||
-      current.hasAttribute('inert')
+      current.hasAttribute('inert') ||
+      current.hasAttribute('data-tv-skip-focus')
     ) {
       return false;
     }
@@ -36,7 +46,7 @@ function isElementVisible(element: HTMLElement): boolean {
     }
   }
 
-  if (element.closest('[aria-hidden="true"], [inert]')) {
+  if (element.closest('[aria-hidden="true"], [inert], [data-tv-skip-focus]')) {
     return false;
   }
 
@@ -89,9 +99,6 @@ export function shouldHandleBackKey(
   event: KeyboardEvent,
   pageKey: string,
 ): boolean {
-  if (event.key === 'Backspace') {
-    return true;
-  }
-
-  return event.key === 'Escape' && pageKey !== 'player';
+  void pageKey;
+  return TV_BACK_KEYS.has(event.key);
 }

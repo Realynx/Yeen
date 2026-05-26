@@ -289,8 +289,11 @@ export function usePlayerBroadcastSync({
       maxVideoBitrateKbps: sourceSnapshot.maxVideoBitrateKbps,
       audioBitrateKbps: sourceSnapshot.audioBitrateKbps,
       maxOutputHeight: sourceSnapshot.maxOutputHeight,
+    }).then(() => {
+      pushBroadcastPlaybackState();
     });
   }, [
+    activeSubtitleUrl,
     broadcastEnabled,
     hasBroadcastPlayerLock,
     mediaId,
@@ -301,6 +304,7 @@ export function usePlayerBroadcastSync({
     source?.hlsSessionId,
     source?.maxOutputHeight,
     source?.maxVideoBitrateKbps,
+    pushBroadcastPlaybackState,
     updateBroadcastSource,
     hasValidBroadcastPlayerLockOwnership,
   ]);
@@ -328,6 +332,24 @@ export function usePlayerBroadcastSync({
     hasBroadcastPlayerLock,
     hasValidBroadcastPlayerLockOwnership,
     mediaId,
+    pushBroadcastPlaybackState,
+  ]);
+
+  useEffect(() => {
+    if (
+      !broadcastEnabled
+      || !hasBroadcastPlayerLock
+      || !hasValidBroadcastPlayerLockOwnership()
+    ) {
+      return;
+    }
+
+    pushBroadcastPlaybackState();
+  }, [
+    broadcastEnabled,
+    hasBroadcastPlayerLock,
+    hasValidBroadcastPlayerLockOwnership,
+    isPlaying,
     pushBroadcastPlaybackState,
   ]);
 

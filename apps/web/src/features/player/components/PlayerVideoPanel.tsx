@@ -134,6 +134,8 @@ export function PlayerVideoPanel({
     || isBuffering
     || openMenu !== null
     || contextMenu !== null;
+  const controlsCanBeDismissed =
+    isControlsVisible || openMenu !== null || contextMenu !== null;
   const subtitleFontFamily =
     SUBTITLE_FONT_OPTIONS.find((option) => option.id === subtitleFontPreset)?.family
     ?? SUBTITLE_FONT_OPTIONS[0].family;
@@ -176,6 +178,7 @@ export function PlayerVideoPanel({
       tabIndex={isTvMode ? 0 : undefined}
       aria-label={isTvMode ? 'Video player surface' : undefined}
       data-player-video-surface={isTvMode ? 'true' : undefined}
+      data-tv-controls-dismissible={isTvMode && controlsCanBeDismissed ? 'true' : undefined}
       data-tv-focus-key={isTvMode ? 'player:surface' : undefined}
       onMouseMove={onRevealControls}
       onMouseLeave={() => {

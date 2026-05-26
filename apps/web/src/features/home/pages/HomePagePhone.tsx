@@ -7,7 +7,7 @@ import {
 	toProgressPercent,
 	toSeasonEpisodeLabel,
 } from '../services/homePageUtils';
-import { pickRandomItem, toLibrarySearchPath, toRandomDetailsCandidates } from '../../library/services/librarySearchUtils';
+import { pickRandomItem, toLibraryPath, toLibrarySearchPath, toRandomDetailsCandidates } from '../../library/services/librarySearchUtils';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 import { HomePhoneFeaturedHero } from '../components/HomePhoneFeaturedHero';
@@ -276,6 +276,7 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 					items={recentItems}
 					progressMap={progressMap}
 					onOpen={openDetails}
+					onViewAll={() => navigate(toLibraryPath({ shelf: 'new' }))}
 				/>
 
 				<HomePhoneScrollShelf
@@ -284,6 +285,7 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 					items={discoverItems}
 					progressMap={progressMap}
 					onOpen={openDetails}
+					onViewAll={() => navigate(toLibraryPath({ shelf: 'discover', filters: { watchStatusFilter: 'unwatched' } }))}
 				/>
 
 				{becauseYouWatchedItems.length > 0 ? (
@@ -293,6 +295,7 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 						items={becauseYouWatchedItems}
 						progressMap={progressMap}
 						onOpen={openDetails}
+						onViewAll={() => navigate(toLibraryPath({ shelf: 'because-you-watched', filters: { watchStatusFilter: 'unwatched' } }))}
 					/>
 				) : null}
 
@@ -304,6 +307,7 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 						items={row.items}
 						progressMap={progressMap}
 						onOpen={openDetails}
+						onViewAll={() => navigate(toLibraryPath({ shelf: 'tag', filters: { typeFilter: 'movie', tagFilter: row.label, sortOrder: 'title-asc' } }))}
 					/>
 				))}
 			</main>

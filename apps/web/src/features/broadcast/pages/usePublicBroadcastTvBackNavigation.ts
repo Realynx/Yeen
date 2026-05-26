@@ -27,12 +27,9 @@ export function usePublicBroadcastTvBackNavigation(isTvExperience: boolean) {
       event.preventDefault();
       event.stopPropagation();
 
-      if (window.history.length > 1) {
-        window.history.back();
-        return;
+      if (window.location.pathname !== '/') {
+        window.location.assign('/');
       }
-
-      window.location.assign('/');
     }
 
     document.addEventListener('keydown', handleTvBackKey, true);

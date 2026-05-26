@@ -14,7 +14,7 @@ import { HomeFooter } from '../components/HomeFooter';
 import { HomeLoadingSkeleton } from '../components/HomeLoadingSkeleton';
 import { HomeMediaShelfRow } from '../components/HomeMediaShelfRow';
 import { HomeTopNav } from '../components/HomeTopNav';
-import { toLibrarySearchPath } from '../../library/services/librarySearchUtils';
+import { toLibraryPath, toLibrarySearchPath } from '../../library/services/librarySearchUtils';
 import { useHomeFeed } from '../services/useHomeFeed';
 import { useHomeCuration } from '../services/useHomeCuration';
 
@@ -215,10 +215,10 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             items={recentItems}
             progressMap={progressMap}
             onOpen={openDetails}
-            onViewAll={() => navigate('/library')}
+            onViewAll={() => navigate(toLibraryPath({ shelf: 'new' }))}
           />
           {becauseYouWatchedItems.length > 0 ? (
-            <HomeMediaShelfRow className="browse-section" id="row-because-you-watched" title="Because You Watched" items={becauseYouWatchedItems} progressMap={progressMap} onOpen={openDetails} onViewAll={() => navigate('/library')} />
+            <HomeMediaShelfRow className="browse-section" id="row-because-you-watched" title="Because You Watched" items={becauseYouWatchedItems} progressMap={progressMap} onOpen={openDetails} onViewAll={() => navigate(toLibraryPath({ shelf: 'because-you-watched', filters: { watchStatusFilter: 'unwatched' } }))} />
           ) : null}
 
           <HomeDiscoverSections
@@ -226,7 +226,8 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             movieRowsByTag={taggedRows}
             progressMap={progressMap}
             onOpenDetails={openDetails}
-            onViewTag={(tag) => navigate(toLibrarySearchPath(tag))}
+            onViewDiscover={() => navigate(toLibraryPath({ shelf: 'discover', filters: { watchStatusFilter: 'unwatched' } }))}
+            onViewTag={(tag) => navigate(toLibraryPath({ shelf: 'tag', filters: { typeFilter: 'movie', tagFilter: tag, sortOrder: 'title-asc' } }))}
           />
         </>
       )}

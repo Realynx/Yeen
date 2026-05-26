@@ -39,6 +39,7 @@ import { MediaTorrentSearchPopoverPhone } from '../components/MediaTorrentSearch
 import { useMediaDetailsTorrentSearch } from '../services/useMediaDetailsTorrentSearch';
 import { useMissingMediaRedirect } from '../services/useMissingMediaRedirect';
 import { useSeriesEpisodeTracker } from '../services/useSeriesEpisodeTracker';
+import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
 
 interface MediaDetailsPageProps {
   token: string;
@@ -59,6 +60,7 @@ export function MediaDetailsPage({
 }: MediaDetailsPageProps) {
   const { mediaId = '' } = useParams();
   const navigate = useNavigate();
+  const navigateBackSafely = useSafeBackNavigation('/library');
   const [query, setQuery] = useState('');
   const hasTorrentAccess = canAccessTorrentTools(user.role);
 
@@ -74,11 +76,7 @@ export function MediaDetailsPage({
   );
 
   const handleBackNavigation = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-    navigate('/');
+    navigateBackSafely();
   };
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {

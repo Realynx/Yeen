@@ -6,6 +6,7 @@ import { toLibrarySearchPath } from '../../library/services/librarySearchUtils';
 import type { User } from '../../shared/services/types';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
+import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
 
 interface MediaDetailsPagePhoneProps {
 	token: string;
@@ -15,6 +16,7 @@ interface MediaDetailsPagePhoneProps {
 
 export function MediaDetailsPagePhone({ token, user, onLogout }: MediaDetailsPagePhoneProps) {
 	const navigate = useNavigate();
+	const navigateBackSafely = useSafeBackNavigation('/library');
 	const [query, setQuery] = useState('');
 
 	const handleSearchSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -23,13 +25,8 @@ export function MediaDetailsPagePhone({ token, user, onLogout }: MediaDetailsPag
 	}, [navigate, query]);
 
 	const handleBackNavigation = useCallback(() => {
-		if (window.history.length > 1) {
-			navigate(-1);
-			return;
-		}
-
-		navigate('/library');
-	}, [navigate]);
+		navigateBackSafely();
+	}, [navigateBackSafely]);
 
 	return (
 		<PhonePageShell pageKey="details">

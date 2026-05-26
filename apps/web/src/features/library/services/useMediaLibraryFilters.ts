@@ -4,6 +4,7 @@ import {
   normalizeTags,
   toLibraryType,
 } from './mediaLibraryUtils';
+import { defaultLibraryFilterState } from './librarySearchUtils';
 import {
   filterAndSortMediaLibraryItems,
   hasActiveLibraryFilters,
@@ -34,34 +35,33 @@ export interface LibraryTagCount {
 
 interface UseMediaLibraryFiltersArgs {
   routeSearchTerm: string;
+  routeFilters: MediaLibraryFilterState;
   activeSearch: string | null;
   libraryItems: MediaItem[];
   progressItems: ProgressEntry[];
+  onFilterStateChange?: (state: MediaLibraryFilterState) => void;
 }
 
 export function useMediaLibraryFilters({
   routeSearchTerm,
+  routeFilters,
   activeSearch,
   libraryItems,
   progressItems,
+  onFilterStateChange,
 }: UseMediaLibraryFiltersArgs) {
   const [queryState, setQueryState] = useState({
     routeSearchTerm,
     value: routeSearchTerm,
   });
-  const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>('all');
-  const [tagFilter, setTagFilter] = useState('');
-  const [watchStatusFilter, setWatchStatusFilter] = useState<WatchStatusFilter>('all');
-  const [subtitleAvailabilityFilter, setSubtitleAvailabilityFilter] =
-    useState<SubtitleAvailabilityFilter>('all');
-  const [qualityFilter, setQualityFilter] = useState<QualityFilter>('all');
-  const [runtimeFilter, setRuntimeFilter] = useState<RuntimeFilter>('all');
-  const [releaseYearFilter, setReleaseYearFilter] = useState<ReleaseYearFilter>('all');
-  const [artworkFilter, setArtworkFilter] = useState<ArtworkFilter>('all');
-  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
-  const [videoCodecFilter, setVideoCodecFilter] = useState<VideoCodecFilter>('all');
-  const [sortOrder, setSortOrder] = useState<MediaSortOrder>('updated-desc');
+  const routeFilterKey = useMemo(
+    () => serializeFilterState(routeFilters),
+    [routeFilters],
+  );
+  const [filterStateState, setFilterStateState] = useState({
+    routeFilterKey,
+    value: routeFilters,
+  });
 
   const query =
     queryState.routeSearchTerm === routeSearchTerm
@@ -77,6 +77,74 @@ export function useMediaLibraryFilters({
     },
     [routeSearchTerm],
   );
+  const filterState =
+    filterStateState.routeFilterKey === routeFilterKey
+      ? filterStateState.value
+      : routeFilters;
+  const {
+    typeFilter,
+    tagFilter,
+    watchStatusFilter,
+    subtitleAvailabilityFilter,
+    qualityFilter,
+    runtimeFilter,
+    releaseYearFilter,
+    artworkFilter,
+    chapterFilter,
+    formatFilter,
+    videoCodecFilter,
+    sortOrder,
+  } = filterState;
+  const updateFilterState = useCallback(
+    (updates: Partial<MediaLibraryFilterState>) => {
+      const nextState = {
+        ...filterState,
+        ...updates,
+      };
+      setFilterStateState({
+        routeFilterKey,
+        value: nextState,
+      });
+      onFilterStateChange?.(nextState);
+    },
+    [filterState, onFilterStateChange, routeFilterKey],
+  );
+  const setTypeFilter = useCallback((value: MediaTypeFilter) => {
+    updateFilterState({ typeFilter: value });
+  }, [updateFilterState]);
+  const setTagFilter = useCallback((value: string) => {
+    updateFilterState({ tagFilter: value });
+  }, [updateFilterState]);
+  const setWatchStatusFilter = useCallback((value: WatchStatusFilter) => {
+    updateFilterState({ watchStatusFilter: value });
+  }, [updateFilterState]);
+  const setSubtitleAvailabilityFilter = useCallback((value: SubtitleAvailabilityFilter) => {
+    updateFilterState({ subtitleAvailabilityFilter: value });
+  }, [updateFilterState]);
+  const setQualityFilter = useCallback((value: QualityFilter) => {
+    updateFilterState({ qualityFilter: value });
+  }, [updateFilterState]);
+  const setRuntimeFilter = useCallback((value: RuntimeFilter) => {
+    updateFilterState({ runtimeFilter: value });
+  }, [updateFilterState]);
+  const setReleaseYearFilter = useCallback((value: ReleaseYearFilter) => {
+    updateFilterState({ releaseYearFilter: value });
+  }, [updateFilterState]);
+  const setArtworkFilter = useCallback((value: ArtworkFilter) => {
+    updateFilterState({ artworkFilter: value });
+  }, [updateFilterState]);
+  const setChapterFilter = useCallback((value: ChapterFilter) => {
+    updateFilterState({ chapterFilter: value });
+  }, [updateFilterState]);
+  const setFormatFilter = useCallback((value: FormatFilter) => {
+    updateFilterState({ formatFilter: value });
+  }, [updateFilterState]);
+  const setVideoCodecFilter = useCallback((value: VideoCodecFilter) => {
+    updateFilterState({ videoCodecFilter: value });
+  }, [updateFilterState]);
+  const setSortOrder = useCallback((value: MediaSortOrder) => {
+    updateFilterState({ sortOrder: value });
+  }, [updateFilterState]);
 
   const typeCounts = useMemo<LibraryTypeCounts>(() => {
     let movie = 0;
@@ -138,34 +206,6 @@ export function useMediaLibraryFilters({
     });
   }, [libraryItems]);
 
-  const filterState = useMemo<MediaLibraryFilterState>(() => ({
-    typeFilter,
-    tagFilter,
-    watchStatusFilter,
-    subtitleAvailabilityFilter,
-    qualityFilter,
-    runtimeFilter,
-    releaseYearFilter,
-    artworkFilter,
-    chapterFilter,
-    formatFilter,
-    videoCodecFilter,
-    sortOrder,
-  }), [
-    artworkFilter,
-    chapterFilter,
-    formatFilter,
-    qualityFilter,
-    releaseYearFilter,
-    runtimeFilter,
-    tagFilter,
-    typeFilter,
-    sortOrder,
-    subtitleAvailabilityFilter,
-    videoCodecFilter,
-    watchStatusFilter,
-  ]);
-
   const filteredItems = useMemo(() => {
     return filterAndSortMediaLibraryItems(libraryItems, progressMap, filterState);
   }, [filterState, libraryItems, progressMap]);
@@ -183,19 +223,8 @@ export function useMediaLibraryFilters({
   const hasSearchOrTagFilter = hasActiveLibraryFilters(activeSearch, filterState);
 
   const resetFilters = useCallback(() => {
-    setTypeFilter('all');
-    setTagFilter('');
-    setWatchStatusFilter('all');
-    setSubtitleAvailabilityFilter('all');
-    setQualityFilter('all');
-    setRuntimeFilter('all');
-    setReleaseYearFilter('all');
-    setArtworkFilter('all');
-    setChapterFilter('all');
-    setFormatFilter('all');
-    setVideoCodecFilter('all');
-    setSortOrder('updated-desc');
-  }, []);
+    updateFilterState(defaultLibraryFilterState());
+  }, [updateFilterState]);
 
   return {
     query,
@@ -224,6 +253,7 @@ export function useMediaLibraryFilters({
     setVideoCodecFilter,
     sortOrder,
     setSortOrder,
+    filterState,
     typeCounts,
     availableTags,
     filteredItems,
@@ -234,3 +264,20 @@ export function useMediaLibraryFilters({
 }
 
 export type MediaLibraryFilters = ReturnType<typeof useMediaLibraryFilters>;
+
+function serializeFilterState(state: MediaLibraryFilterState): string {
+  return [
+    state.typeFilter,
+    state.tagFilter,
+    state.watchStatusFilter,
+    state.subtitleAvailabilityFilter,
+    state.qualityFilter,
+    state.runtimeFilter,
+    state.releaseYearFilter,
+    state.artworkFilter,
+    state.chapterFilter,
+    state.formatFilter,
+    state.videoCodecFilter,
+    state.sortOrder,
+  ].join('\u001f');
+}

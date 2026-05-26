@@ -63,8 +63,8 @@ export function usePublicBroadcastSessionPolling({
 
     async function refreshStatus() {
       try {
-        const receivedAtMs = Date.now();
         const nextStatus = await getPublicBroadcastSession(resolvedShareToken);
+        const receivedAtMs = Date.now();
         if (cancelled) {
           return;
         }

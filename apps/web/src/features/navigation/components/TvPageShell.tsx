@@ -12,6 +12,7 @@ import {
   nextElementByDomOrder,
   shouldCenterFocusedMediaTile,
 } from './tvDirectionalFocus.navigation.helpers';
+import { useSafeBackNavigation } from '../services/safeBackNavigation';
 
 type TvFocusDirection = NonNullable<ReturnType<typeof directionForKey>>;
 
@@ -146,8 +147,16 @@ function rememberedLaneTarget(
   return remembered;
 }
 
-function playerControlsAreVisible(root: HTMLElement): boolean {
-  return Boolean(root.querySelector('.video-shell.controls-visible'));
+function playerControlsCanBeDismissed(root: HTMLElement): boolean {
+  return Boolean(root.querySelector('[data-tv-controls-dismissible="true"]'));
+}
+
+function editableHasText(element: HTMLElement): boolean {
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    return element.value.length > 0;
+  }
+
+  return (element.textContent ?? '').length > 0;
 }
 
 export function TvPageShell({
@@ -156,6 +165,7 @@ export function TvPageShell({
   children,
 }: PropsWithChildren<TvPageShellProps>) {
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const navigateBackSafely = useSafeBackNavigation();
 
   useEffect(() => {
     const shellElement = shellRef.current;
@@ -236,29 +246,24 @@ export function TvPageShell({
           && isEditableElement(activeElement)
           && !isSelectElement(activeElement)
         ) {
+          if (event.key === 'Backspace' && editableHasText(activeElement)) {
+            return;
+          }
+
+          event.preventDefault();
+          activeElement.blur();
+          initialFocusTarget(shellElement)?.focus({ preventScroll: true });
           return;
         }
 
-        if (pageKey === 'player' && playerControlsAreVisible(shellElement)) {
+        if (pageKey === 'player' && playerControlsCanBeDismissed(shellElement)) {
           event.preventDefault();
           window.dispatchEvent(new CustomEvent(PLAYER_DISMISS_CONTROLS_EVENT));
           return;
         }
 
-        const hasBackHistory = window.history.length > 1;
-        const atRootRoute = window.location.pathname === '/';
-
-        if (hasBackHistory) {
-          event.preventDefault();
-          window.history.back();
-          return;
-        }
-
-        if (!atRootRoute) {
-          event.preventDefault();
-          window.location.assign('/');
-        }
-
+        event.preventDefault();
+        navigateBackSafely();
         return;
       }
 
@@ -317,7 +322,7 @@ export function TvPageShell({
     return () => {
       window.removeEventListener('keydown', handleDirectionalKeydown, true);
     };
-  }, [pageKey]);
+  }, [navigateBackSafely, pageKey]);
 
   return (
     <div

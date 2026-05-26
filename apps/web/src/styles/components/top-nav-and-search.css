@@ -409,6 +409,31 @@
   outline: none;
 }
 
+.search-row-tv-activation {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.search-tv-activate-button {
+  min-width: 148px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  background: rgba(10, 10, 12, 0.78);
+  color: rgba(245, 245, 247, 0.94);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-tv-activate-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.56);
+  outline-offset: 2px;
+}
+
 .search-row button[type='submit'] {
   min-width: 92px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -478,4 +503,3 @@
   color: rgba(245, 245, 247, 0.62);
   cursor: default;
 }
-

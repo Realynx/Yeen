@@ -9,6 +9,7 @@ interface HomePhoneScrollShelfProps {
   items: MediaItem[];
   progressMap: Map<string, ProgressEntry>;
   onOpen: (mediaId: string) => void;
+  onViewAll?: () => void;
   topRightLabelForItem?: (item: MediaItem) => string | null | undefined;
   actionForItem?: (item: MediaItem) => {
     label: string;
@@ -23,6 +24,7 @@ export function HomePhoneScrollShelf({
   items,
   progressMap,
   onOpen,
+  onViewAll,
   topRightLabelForItem,
   actionForItem,
 }: HomePhoneScrollShelfProps) {
@@ -30,6 +32,15 @@ export function HomePhoneScrollShelf({
     <section className="browse-section phone-home-section">
       <div className="section-heading-row">
         <h2 className="section-title">{title}</h2>
+        {onViewAll ? (
+          <button
+            type="button"
+            className="home-shelf-view-all"
+            onClick={onViewAll}
+          >
+            View All
+          </button>
+        ) : null}
       </div>
 
       <div className="phone-home-scroll-row" role="list" aria-label={ariaLabel}>
