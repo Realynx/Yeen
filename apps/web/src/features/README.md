@@ -31,6 +31,7 @@ This folder uses a feature-first structure. Keep names predictable so imports ar
 ## Current Primary Feature Paths
 
 - features/auth
+- features/broadcast
 - features/home
 - features/library
 - features/media-details

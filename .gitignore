@@ -13,3 +13,4 @@ apps/web/android/capacitor-cordova-android-plugins/
 deploy/
 artifacts/
 *.log
+/.vs

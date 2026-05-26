@@ -26,6 +26,7 @@ Current domains:
 - domains/auth
 - domains/media
 - domains/stream
+- domains/broadcast
 - domains/subtitle
 - domains/progress
 - domains/system-settings
