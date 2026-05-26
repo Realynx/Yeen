@@ -38,6 +38,10 @@ export function usePlayerKeyboardShortcuts({
     }
 
     function handleKeyboardShortcuts(event: KeyboardEvent) {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName ?? '';
       if (

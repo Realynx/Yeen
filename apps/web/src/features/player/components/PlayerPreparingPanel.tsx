@@ -17,6 +17,7 @@ import {
   toLibrarySearchPath,
   toRandomDetailsCandidates,
 } from '../../library/services/librarySearchUtils';
+import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
 import { formatBytes, formatEta, formatRate } from '../services/torrentPrepareFormatting';
 
 const PREPARE_POLL_INTERVAL_MS = 3_000;
@@ -43,6 +44,7 @@ export function PlayerPreparingPanel({
   headerContent = null,
 }: PlayerPreparingPanelProps) {
   const navigate = useNavigate();
+  const navigateBackSafely = useSafeBackNavigation('/library');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TorrentStatusResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(() =>
@@ -144,12 +146,7 @@ export function PlayerPreparingPanel({
       return;
     }
 
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-
-    navigate('/library');
+    navigateBackSafely();
   }
 
   return (

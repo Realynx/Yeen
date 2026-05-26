@@ -7,6 +7,7 @@ import {
   toLibrarySearchPath,
   toRandomDetailsCandidates,
 } from '../../library/services/librarySearchUtils';
+import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
 
 interface UsePlayerTopBarActionsOptions {
   token: string;
@@ -29,15 +30,11 @@ export function usePlayerTopBarActions({
   navigate,
 }: UsePlayerTopBarActionsOptions): PlayerTopBarActions {
   const [query, setQuery] = useState('');
+  const navigateBackSafely = useSafeBackNavigation('/');
 
   const handleBackNavigation = useCallback(() => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-
-    navigate('/');
-  }, [navigate]);
+    navigateBackSafely();
+  }, [navigateBackSafely]);
 
   const handleSearch = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

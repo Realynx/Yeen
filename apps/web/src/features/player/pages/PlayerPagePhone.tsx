@@ -11,6 +11,7 @@ import {
 } from '../../library/services/librarySearchUtils';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
+import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
 
 interface PlayerPagePhoneProps {
   token: string;
@@ -20,6 +21,7 @@ interface PlayerPagePhoneProps {
 
 export function PlayerPagePhone({ token, user, onLogout }: PlayerPagePhoneProps) {
   const navigate = useNavigate();
+  const navigateBackSafely = useSafeBackNavigation('/library');
   const [query, setQuery] = useState('');
 
   const handleSearchSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -28,13 +30,8 @@ export function PlayerPagePhone({ token, user, onLogout }: PlayerPagePhoneProps)
   }, [navigate, query]);
 
   const handleBackNavigation = useCallback(() => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-
-    navigate('/library');
-  }, [navigate]);
+    navigateBackSafely();
+  }, [navigateBackSafely]);
 
   const openRandomDetails = useCallback(async () => {
     try {

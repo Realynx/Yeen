@@ -6,11 +6,14 @@ import { MediaLibraryFilterControls } from '../components/MediaLibraryFilterCont
 import type { User } from '../../shared/services/types';
 import {
 	LIBRARY_SEARCH_QUERY_PARAM,
+	LIBRARY_SHELF_QUERY_PARAM,
 	normalizeLibrarySearchTerm,
+	parseLibraryFilterState,
 	pickRandomItem,
-	toLibrarySearchPath,
+	toLibraryPath,
 	toRandomDetailsCandidates,
 } from '../services/librarySearchUtils';
+import type { MediaLibraryFilterState } from '../services/mediaLibraryFilterUtils';
 import {
 	artworkUrlForMedia,
 	toDownloadProgressMap,
@@ -33,9 +36,23 @@ interface MediaLibraryPagePhoneProps {
 export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPagePhoneProps) {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
+	const searchParamString = searchParams.toString();
 	const routeSearchTerm = normalizeLibrarySearchTerm(
 		searchParams.get(LIBRARY_SEARCH_QUERY_PARAM),
 	);
+	const routeShelf = searchParams.get(LIBRARY_SHELF_QUERY_PARAM);
+	const routeFilters = useMemo(
+		() => parseLibraryFilterState(new URLSearchParams(searchParamString)),
+		[searchParamString],
+	);
+
+	const updateLibraryRouteFilters = useCallback((nextFilters: MediaLibraryFilterState) => {
+		navigate(toLibraryPath({
+			q: routeSearchTerm,
+			filters: nextFilters,
+			shelf: routeShelf,
+		}), { replace: true });
+	}, [navigate, routeSearchTerm, routeShelf]);
 
 	const {
 		mediaItems,
@@ -78,6 +95,7 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 		setVideoCodecFilter,
 		sortOrder,
 		setSortOrder,
+		filterState,
 		typeCounts,
 		availableTags,
 		filteredItems,
@@ -86,9 +104,11 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 		resetFilters,
 	} = useMediaLibraryFilters({
 		routeSearchTerm,
+		routeFilters,
 		activeSearch: activeSearch ?? null,
 		libraryItems,
 		progressItems,
+		onFilterStateChange: updateLibraryRouteFilters,
 	});
 
 	const {
@@ -121,7 +141,7 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 
 	function handleSearch(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		navigate(toLibrarySearchPath(query));
+		navigate(toLibraryPath({ q: query, filters: filterState, shelf: routeShelf }));
 	}
 
 	function handleClearSearch() {
