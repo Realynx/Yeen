@@ -23,6 +23,16 @@ import { UpdateBroadcastPlaybackDto } from '../../application/dto/update-broadca
 import { UpdateBroadcastSourceDto } from '../../application/dto/update-broadcast-source.dto';
 import { UpdatePublicViewerHeartbeatDto } from '../../application/dto/update-public-viewer-heartbeat.dto';
 import {
+  buildPublicDirectMasterManifest,
+  buildPublicDirectSubtitleManifest,
+  parseSourceEpoch,
+  redirectToDirectMaster,
+  resolveRequestBaseUrl,
+  sendServiceUnavailable,
+  toPublicSubtitleUrl,
+  withDirectSubtitleQuery,
+} from './broadcast.controller.helpers';
+import {
   BroadcastService,
   BroadcastSourceEpochMismatchError,
 } from '../../application/services/broadcast.service';
@@ -83,22 +93,16 @@ export class BroadcastController {
     const status = await this.broadcastService.getPublicStatus(shareToken);
     const subtitleUrl = await this.resolveDirectSubtitleUrl(status);
     if (!(status.enabled && status.isLive && status.manifestUrl)) {
-      response.setHeader('Cache-Control', 'no-store');
-      response.setHeader('Retry-After', '2');
-      response.status(503).send({
-        statusCode: 503,
-        message: 'Broadcast stream is not active.',
-        error: 'Service Unavailable',
-      });
+      sendServiceUnavailable(response, 'Broadcast stream is not active.');
       return;
     }
 
     response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     response.setHeader('Cache-Control', 'no-store');
     response.send(
-      this.buildPublicDirectMasterManifest(
+      buildPublicDirectMasterManifest(
         status,
-        this.resolveRequestBaseUrl(request),
+        resolveRequestBaseUrl(request),
         subtitleUrl,
       ),
     );
@@ -113,7 +117,7 @@ export class BroadcastController {
   ) {
     const status = await this.broadcastService.getPublicStatus(shareToken);
     const subtitleUrl = await this.resolveDirectSubtitleUrl(status);
-    const requestedSourceEpoch = this.parseSourceEpoch(sourceEpoch);
+    const requestedSourceEpoch = parseSourceEpoch(sourceEpoch);
 
     if (
       !(status.enabled && status.isLive && subtitleUrl) ||
@@ -126,17 +130,11 @@ export class BroadcastController {
         status.isLive &&
         requestedSourceEpoch !== status.sourceEpoch
       ) {
-        this.redirectToDirectMaster(response, shareToken);
+        redirectToDirectMaster(response, shareToken);
         return;
       }
 
-      response.setHeader('Cache-Control', 'no-store');
-      response.setHeader('Retry-After', '2');
-      response.status(503).send({
-        statusCode: 503,
-        message: 'Broadcast subtitles are not active.',
-        error: 'Service Unavailable',
-      });
+      sendServiceUnavailable(response, 'Broadcast subtitles are not active.');
       return;
     }
 
@@ -148,7 +146,7 @@ export class BroadcastController {
       );
     } catch (error) {
       if (error instanceof BroadcastSourceEpochMismatchError) {
-        this.redirectToDirectMaster(response, shareToken);
+        redirectToDirectMaster(response, shareToken);
         return;
       }
 
@@ -160,9 +158,9 @@ export class BroadcastController {
     response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     response.setHeader('Cache-Control', 'no-store');
     response.send(
-      this.buildPublicDirectSubtitleManifest(
+      buildPublicDirectSubtitleManifest(
         subtitleUrl,
-        this.resolveRequestBaseUrl(request),
+        resolveRequestBaseUrl(request),
         stats.totalDurationSeconds,
       ),
     );
@@ -201,7 +199,12 @@ export class BroadcastController {
     @Param('fileName') fileName: string,
     @Res() response: Response,
   ) {
-    return this.streamPublicHlsFile(shareToken, fileName, response, sourceEpoch);
+    return this.streamPublicHlsFile(
+      shareToken,
+      fileName,
+      response,
+      sourceEpoch,
+    );
   }
 
   @Get('public/:shareToken/hls/:fileName')
@@ -232,13 +235,10 @@ export class BroadcastController {
       );
     } catch (error) {
       if (error instanceof BroadcastSourceEpochMismatchError) {
-        response.setHeader('Cache-Control', 'no-store');
-        response.setHeader('Retry-After', '2');
-        response.status(503).send({
-          statusCode: 503,
-          message: 'Broadcast source switched. Refreshing stream.',
-          error: 'Service Unavailable',
-        });
+        sendServiceUnavailable(
+          response,
+          'Broadcast source switched. Refreshing stream.',
+        );
         return;
       }
 
@@ -258,7 +258,7 @@ export class BroadcastController {
     fileName: string,
     response: Response,
   ) {
-    const normalizedSourceEpoch = this.parseSourceEpoch(sourceEpoch);
+    const normalizedSourceEpoch = parseSourceEpoch(sourceEpoch);
     if (normalizedSourceEpoch === null) {
       throw new BadRequestException('Source epoch is required.');
     }
@@ -276,7 +276,7 @@ export class BroadcastController {
       );
     } catch (error) {
       if (error instanceof BroadcastSourceEpochMismatchError) {
-        this.redirectToDirectMaster(response, shareToken);
+        redirectToDirectMaster(response, shareToken);
         return;
       }
 
@@ -299,7 +299,7 @@ export class BroadcastController {
     return {
       tracks: listed.tracks.map((track) => ({
         ...track,
-        url: this.toPublicSubtitleUrl(track.url, shareToken),
+        url: toPublicSubtitleUrl(track.url, shareToken),
       })),
     };
   }
@@ -327,109 +327,11 @@ export class BroadcastController {
     stream.pipe(response);
   }
 
-  private toPublicSubtitleUrl(
-    trackUrl: string | null,
-    shareToken: string,
-  ): string | null {
-    if (!trackUrl) {
-      return null;
-    }
-
-    try {
-      const parsed = new URL(trackUrl, 'http://localhost');
-      const parts = parsed.pathname.split('/');
-
-      if (
-        parts.length < 6 ||
-        parts[1] !== 'api' ||
-        parts[2] !== 'subtitles' ||
-        parts[3] !== 'file'
-      ) {
-        return trackUrl;
-      }
-
-      const fileName = parts.slice(5).join('/');
-      if (!fileName) {
-        return trackUrl;
-      }
-
-      return `/api/broadcast/public/${encodeURIComponent(shareToken)}/subtitles/${fileName}`;
-    } catch {
-      return trackUrl;
-    }
-  }
-
-  private buildPublicDirectMasterManifest(
-    status: BroadcastPublicSessionStatus,
-    requestBaseUrl: string,
-    subtitleUrl: string | null,
-  ): string {
-    const lines = ['#EXTM3U', '#EXT-X-VERSION:6', '#EXT-X-INDEPENDENT-SEGMENTS'];
-    const subtitleManifestUrl =
-      subtitleUrl
-        ? this.toManifestUri(
-            `/api/broadcast/public/${encodeURIComponent(status.shareToken)}/direct/${status.sourceEpoch}/subtitles.m3u8`,
-            requestBaseUrl,
-          )
-        : null;
-
-    if (subtitleManifestUrl) {
-      lines.push(
-        `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Broadcast Subtitles",LANGUAGE="en",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,URI="${subtitleManifestUrl}"`,
-      );
-    }
-
-    const subtitleAttribute = subtitleManifestUrl ? ',SUBTITLES="subs"' : '';
-    lines.push(
-      `#EXT-X-STREAM-INF:BANDWIDTH=4000000,CLOSED-CAPTIONS=NONE${subtitleAttribute}`,
-    );
-    lines.push(
-      this.toManifestUri(
-        `/api/broadcast/public/${encodeURIComponent(status.shareToken)}/direct/hls/${status.sourceEpoch}/master.m3u8`,
-        requestBaseUrl,
-      ) ?? '',
-    );
-    lines.push('');
-
-    return lines.join('\n');
-  }
-
-  private buildPublicDirectSubtitleManifest(
-    subtitleUrl: string,
-    requestBaseUrl: string,
-    totalDurationSeconds: number,
-  ): string {
-    const resolvedSubtitleUrl = this.toManifestUri(subtitleUrl, requestBaseUrl);
-    if (!resolvedSubtitleUrl) {
-      return '#EXTM3U\n';
-    }
-
-    const durationSeconds =
-      Number.isFinite(totalDurationSeconds) && totalDurationSeconds > 0
-        ? totalDurationSeconds
-        : 1;
-    const targetDuration = Math.max(1, Math.ceil(durationSeconds));
-
-    const lines = [
-      '#EXTM3U',
-      '#EXT-X-VERSION:6',
-      `#EXT-X-TARGETDURATION:${targetDuration}`,
-      '#EXT-X-MEDIA-SEQUENCE:0',
-      '#EXT-X-PLAYLIST-TYPE:VOD',
-      `#EXTINF:${durationSeconds.toFixed(3)},`,
-      resolvedSubtitleUrl,
-      '#EXT-X-ENDLIST',
-      '',
-    ];
-
-    return lines.join('\n');
-  }
-
   private async resolveDirectSubtitleUrl(
     status: BroadcastPublicSessionStatus,
   ): Promise<string | null> {
     if (status.subtitleUrl) {
-      return this.withDirectSubtitleQuery(status.subtitleUrl, status);
+      return withDirectSubtitleQuery(status.subtitleUrl, status);
     }
 
     if (!status.mediaId) {
@@ -438,84 +340,12 @@ export class BroadcastController {
 
     const listed = await this.subtitleListingService.list(status.mediaId, null);
     for (const track of listed.tracks) {
-      const publicUrl = this.toPublicSubtitleUrl(track.url, status.shareToken);
+      const publicUrl = toPublicSubtitleUrl(track.url, status.shareToken);
       if (publicUrl) {
-        return this.withDirectSubtitleQuery(publicUrl, status);
+        return withDirectSubtitleQuery(publicUrl, status);
       }
     }
 
     return null;
-  }
-
-  private withDirectSubtitleQuery(
-    pathOrUrl: string,
-    status: BroadcastPublicSessionStatus,
-  ): string {
-    try {
-      const parsed = new URL(pathOrUrl, 'http://localhost');
-      parsed.searchParams.set('sourceEpoch', String(status.sourceEpoch));
-      if (status.streamKey) {
-        parsed.searchParams.set('stream', status.streamKey);
-      }
-
-      return /^https?:\/\//i.test(pathOrUrl)
-        ? parsed.toString()
-        : `${parsed.pathname}${parsed.search}`;
-    } catch {
-      const params = new URLSearchParams();
-      params.set('sourceEpoch', String(status.sourceEpoch));
-      if (status.streamKey) {
-        params.set('stream', status.streamKey);
-      }
-
-      const separator = pathOrUrl.includes('?') ? '&' : '?';
-      return `${pathOrUrl}${separator}${params.toString()}`;
-    }
-  }
-
-  private resolveRequestBaseUrl(request: Request): string {
-    const forwardedProto = request.header('x-forwarded-proto')?.split(',')[0]?.trim();
-    const forwardedHost = request.header('x-forwarded-host')?.split(',')[0]?.trim();
-    const protocol = forwardedProto || request.protocol || 'http';
-    const host = forwardedHost || request.get('host') || '';
-
-    return host ? `${protocol}://${host}` : '';
-  }
-
-  private parseSourceEpoch(value: string): number | null {
-    const parsed = Number.parseInt(value.trim(), 10);
-    if (!Number.isSafeInteger(parsed) || parsed < 0) {
-      return null;
-    }
-
-    return parsed;
-  }
-
-  private redirectToDirectMaster(
-    response: Response,
-    shareToken: string,
-  ): void {
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader(
-      'Location',
-      `/api/broadcast/public/${encodeURIComponent(shareToken)}/direct/master.m3u8`,
-    );
-    response.status(307).send();
-  }
-
-  private toManifestUri(
-    pathOrUrl: string | null,
-    requestBaseUrl = '',
-  ): string | null {
-    if (!pathOrUrl) {
-      return null;
-    }
-
-    const resolved =
-      !/^https?:\/\//i.test(pathOrUrl) && pathOrUrl.startsWith('/') && requestBaseUrl
-        ? `${requestBaseUrl}${pathOrUrl}`
-        : pathOrUrl;
-
-    return resolved.replace(/"/g, '%22');
   }
 }

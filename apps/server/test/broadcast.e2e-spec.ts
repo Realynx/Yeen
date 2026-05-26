@@ -4,8 +4,6 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { Response } from 'express';
-import { Readable } from 'node:stream';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import type {
@@ -13,6 +11,16 @@ import type {
   BroadcastPublicSessionStatus,
   BroadcastViewerHeartbeatResponse,
 } from '@yeen/shared-contracts';
+import {
+  configureSource,
+  createBroadcastSessionStore,
+  createJwtAuthGuard,
+  createStreamService,
+  createSubtitleFileStreamService,
+  createSubtitleListingService,
+  enableBroadcast,
+  pushPlayback,
+} from './broadcast.e2e.helpers';
 import { BroadcastController } from '../src/domains/broadcast/presentation/controllers/broadcast.controller';
 import { BroadcastService } from '../src/domains/broadcast/application/services/broadcast.service';
 import { BroadcastSessionStore } from '../src/domains/broadcast/infrastructure/stores/broadcast-session.store';
@@ -21,12 +29,6 @@ import { StreamService } from '../src/domains/stream/application/services/stream
 import { SubtitleListingService } from '../src/domains/subtitle/application/services/subtitle-listing.service';
 import { SubtitleFileStreamService } from '../src/domains/subtitle/application/services/subtitle-file-stream.service';
 import { JwtAuthGuard } from '../src/domains/auth/presentation/guards/jwt-auth.guard';
-
-function cloneSession(session: BroadcastSession): BroadcastSession {
-  return {
-    ...session,
-  };
-}
 
 describe('BroadcastController (integration e2e)', () => {
   let app: INestApplication<App>;
@@ -45,147 +47,20 @@ describe('BroadcastController (integration e2e)', () => {
     role: 'user',
   } as const;
 
-  async function enableBroadcast(): Promise<string> {
-    const enabledResponse = await request(app.getHttpServer())
-      .put('/api/broadcast/enabled')
-      .send({ enabled: true })
-      .expect(200);
-
-    const enabledBody = enabledResponse.body as BroadcastOwnerSessionStatus;
-    const shareToken = enabledBody.shareToken;
-    if (!shareToken) {
-      throw new Error('shareToken missing from enabled response');
-    }
-
-    return shareToken;
-  }
-
-  async function configureSource(
-    mediaId: string,
-    hlsSessionId: string,
-    subtitleFileName: string | null = 'broadcast_sub.vtt',
-  ): Promise<void> {
-    streamMediaBySessionId.set(hlsSessionId, mediaId);
-
-    await request(app.getHttpServer())
-      .put('/api/broadcast/source')
-      .send({
-        mediaId,
-        hlsSessionId,
-        subtitleFileName,
-        selectedAudioStreamIndex: 0,
-        maxVideoBitrateKbps: 5000,
-        audioBitrateKbps: 128,
-        maxOutputHeight: 1080,
-      })
-      .expect(200);
-  }
-
-  async function pushPlayback(
-    positionSeconds: number,
-    playbackIsPlaying: boolean,
-    activePlayer: boolean,
-  ): Promise<void> {
-    await request(app.getHttpServer())
-      .put('/api/broadcast/playback')
-      .send({
-        positionSeconds,
-        playbackIsPlaying,
-        activePlayer,
-        syncTimestampMs: Date.now(),
-      })
-      .expect(200);
-  }
-
   beforeEach(async () => {
     sessionsByOwner = new Map<string, BroadcastSession>();
     streamMediaBySessionId = new Map<string, string>();
     streamFailureBySessionId = new Map<string, Error>();
 
-    broadcastSessionStore = {
-      getByOwner: jest.fn((ownerAccountId: string) => {
-        const session = sessionsByOwner.get(ownerAccountId);
-        return session ? cloneSession(session) : undefined;
-      }),
-      getByShareToken: jest.fn((shareToken: string) => {
-        for (const session of sessionsByOwner.values()) {
-          if (session.shareToken === shareToken) {
-            return cloneSession(session);
-          }
-        }
+    broadcastSessionStore = createBroadcastSessionStore(sessionsByOwner);
+    streamService = createStreamService(
+      streamMediaBySessionId,
+      streamFailureBySessionId,
+    );
 
-        return undefined;
-      }),
-      upsert: jest.fn((next: BroadcastSession) => {
-        sessionsByOwner.set(next.ownerAccountId, cloneSession(next));
-        return cloneSession(next);
-      }),
-    } as unknown as BroadcastSessionStore;
-
-    streamService = {
-      getHlsSessionStats: jest.fn((sessionId: string) => {
-        const failure = streamFailureBySessionId.get(sessionId);
-        if (failure) {
-          throw failure;
-        }
-
-        const mediaId = streamMediaBySessionId.get(sessionId);
-        if (!mediaId) {
-          throw new NotFoundException('HLS session not found.');
-        }
-
-        return {
-          mediaId,
-          segmentSeconds: 6,
-          readyThroughSeconds: 84,
-          contiguousReadySegments: 14,
-          highestReadySegment: 13,
-          nextSegmentIndex: 14,
-        };
-      }),
-      streamHlsFile: jest.fn(
-        (sessionId: string, fileName: string, response: Response) => {
-          response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-          response.status(200).send(`#EXTM3U\n# ${sessionId}/${fileName}`);
-        },
-      ),
-    } as unknown as StreamService;
-
-    const subtitleListingService = {
-      list: jest.fn((mediaId: string) => {
-        return {
-          tracks: [
-            {
-              id: 'track-1',
-              kind: 'external',
-              label: 'English',
-              language: 'en',
-              format: 'vtt',
-              extractable: true,
-              url: `/api/subtitles/file/${mediaId}/broadcast_sub.vtt`,
-            },
-          ],
-        };
-      }),
-    } as unknown as SubtitleListingService;
-
-    const subtitleFileStreamService = {
-      getSubtitleFile: jest.fn(() => {
-        return Readable.from([
-          'WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello broadcast\n',
-        ]);
-      }),
-    } as unknown as SubtitleFileStreamService;
-
-    const jwtAuthGuard = {
-      canActivate: (context: {
-        switchToHttp: () => { getRequest: () => Record<string, unknown> };
-      }) => {
-        const requestObject = context.switchToHttp().getRequest();
-        requestObject.user = ownerUser;
-        return true;
-      },
-    };
+    const subtitleListingService = createSubtitleListingService();
+    const subtitleFileStreamService = createSubtitleFileStreamService();
+    const jwtAuthGuard = createJwtAuthGuard(ownerUser);
 
     const moduleBuilder = Test.createTestingModule({
       controllers: [BroadcastController],
@@ -232,9 +107,9 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('supports owner and public broadcast flow end-to-end', async () => {
-    const shareToken = await enableBroadcast();
-    await configureSource('media-1', 'hls-session-1');
-    await pushPlayback(126.5, true, true);
+    const shareToken = await enableBroadcast(app);
+    await configureSource(app, streamMediaBySessionId, 'media-1', 'hls-session-1');
+    await pushPlayback(app, 126.5, true, true);
 
     const ownerSession = await request(app.getHttpServer())
       .get('/api/broadcast/session')
@@ -314,9 +189,9 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('maps upstream stream outages to bad gateway for public HLS', async () => {
-    const shareToken = await enableBroadcast();
-    await configureSource('media-2', 'hls-session-2');
-    await pushPlayback(30, true, true);
+    const shareToken = await enableBroadcast(app);
+    await configureSource(app, streamMediaBySessionId, 'media-2', 'hls-session-2');
+    await pushPlayback(app, 30, true, true);
 
     streamFailureBySessionId.set('hls-session-2', new Error('upstream down'));
 
@@ -333,9 +208,9 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('maps missing upstream stream sessions to not found for public HLS', async () => {
-    const shareToken = await enableBroadcast();
-    await configureSource('media-3', 'hls-session-3');
-    await pushPlayback(45, true, true);
+    const shareToken = await enableBroadcast(app);
+    await configureSource(app, streamMediaBySessionId, 'media-3', 'hls-session-3');
+    await pushPlayback(app, 45, true, true);
 
     streamFailureBySessionId.set(
       'hls-session-3',
@@ -355,10 +230,10 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('handles owner media switch and disable-enable transitions', async () => {
-    const shareToken = await enableBroadcast();
+    const shareToken = await enableBroadcast(app);
 
-    await configureSource('media-a', 'hls-session-a');
-    await pushPlayback(88, true, true);
+    await configureSource(app, streamMediaBySessionId, 'media-a', 'hls-session-a');
+    await pushPlayback(app, 88, true, true);
 
     const initialPublicStatus = await request(app.getHttpServer())
       .get(`/api/broadcast/public/${encodeURIComponent(shareToken)}`)
@@ -366,7 +241,7 @@ describe('BroadcastController (integration e2e)', () => {
     const initialBody =
       initialPublicStatus.body as BroadcastPublicSessionStatus;
 
-    await configureSource('media-b', 'hls-session-b');
+    await configureSource(app, streamMediaBySessionId, 'media-b', 'hls-session-b');
 
     const switchedPublicStatus = await request(app.getHttpServer())
       .get(`/api/broadcast/public/${encodeURIComponent(shareToken)}`)
@@ -424,9 +299,9 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('ignores stale playback updates that arrive after a source switch', async () => {
-    const shareToken = await enableBroadcast();
+    const shareToken = await enableBroadcast(app);
 
-    await configureSource('media-race-a', 'hls-session-race-a');
+    await configureSource(app, streamMediaBySessionId, 'media-race-a', 'hls-session-race-a');
 
     await request(app.getHttpServer())
       .put('/api/broadcast/playback')
@@ -438,7 +313,7 @@ describe('BroadcastController (integration e2e)', () => {
       })
       .expect(200);
 
-    await configureSource('media-race-b', 'hls-session-race-b');
+    await configureSource(app, streamMediaBySessionId, 'media-race-b', 'hls-session-race-b');
 
     const stalePlayback = await request(app.getHttpServer())
       .put('/api/broadcast/playback')
@@ -467,9 +342,9 @@ describe('BroadcastController (integration e2e)', () => {
   });
 
   it('returns timing metadata after playback updates for latency compensation', async () => {
-    const shareToken = await enableBroadcast();
-    await configureSource('media-timing', 'hls-session-timing');
-    await pushPlayback(33, true, true);
+    const shareToken = await enableBroadcast(app);
+    await configureSource(app, streamMediaBySessionId, 'media-timing', 'hls-session-timing');
+    await pushPlayback(app, 33, true, true);
 
     const publicStatus = await request(app.getHttpServer())
       .get(`/api/broadcast/public/${encodeURIComponent(shareToken)}`)

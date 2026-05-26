@@ -1,8 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  HttpException,
-  HttpStatus,
   Injectable,
   Logger,
   OnModuleInit,
@@ -29,44 +27,27 @@ import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { AccountInviteRecord } from '../../domain/entities/account-invite-record.entity';
 import { AccountRecord } from '../../domain/entities/account-record.entity';
 import { AuthUser } from '../../domain/entities/auth-user.entity';
-import { TvPairingRecord } from '../../domain/entities/tv-pairing-record.entity';
 import { InviteTokensStore } from '../../infrastructure/stores/invite-tokens.store';
-import { TvPairingsStore } from '../../infrastructure/stores/tv-pairings.store';
 import { AuthAdminAccountService } from './auth-admin-account.service';
+import {
+  AuthAvatarService,
+  UploadedAvatarImage,
+} from './auth-avatar.service';
+import { AuthTvPairingService } from './auth-tv-pairing.service';
 import { toSafeAccount } from '../helpers/auth-account-helpers';
-
-interface UploadedAvatarImage {
-  buffer: Buffer;
-  mimetype: string;
-}
 
 @Injectable()
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
-  private static readonly MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-  private static readonly TV_PAIRING_CODE_LENGTH = 6;
-  private static readonly TV_PAIRING_CODE_ALPHABET =
-    'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  private static readonly TV_PAIRING_EXPIRES_MS = 10 * 60 * 1000;
-  private static readonly TV_PAIRING_POLL_INTERVAL_SECONDS = 2;
-  private static readonly TV_PAIRING_POLL_TIMEOUT_SECONDS = 120;
-  private static readonly TV_PAIRING_RATE_LIMIT_WINDOW_MS = 60 * 1000;
-  private static readonly TV_PAIRING_RATE_LIMIT_MAX_ATTEMPTS = 8;
-  private static readonly ALLOWED_AVATAR_MIME_TYPES = new Set([
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-  ]);
-  private readonly tvPairingStartAttempts = new Map<string, number[]>();
 
   constructor(
     private readonly accountsStore: AccountsStore,
     private readonly inviteTokensStore: InviteTokensStore,
-    private readonly tvPairingsStore: TvPairingsStore,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly authAdminAccountService: AuthAdminAccountService,
+    private readonly authTvPairingService: AuthTvPairingService,
+    private readonly authAvatarService: AuthAvatarService,
   ) {}
 
   async onModuleInit() {
@@ -204,194 +185,15 @@ export class AuthService implements OnModuleInit {
   }
 
   async requestTvPairing(dto: RequestTvPairingDto) {
-    await this.tvPairingsStore.removeStaleRecords();
-
-    const clientId = this.normalizeOptionalText(dto.clientId, 128);
-    const deviceName = this.normalizeOptionalText(dto.deviceName, 64);
-    const devicePlatform = this.normalizeOptionalText(dto.devicePlatform, 160);
-
-    this.enforceTvPairingStartRateLimit(clientId ?? 'anonymous');
-
-    const createdAt = new Date();
-    const expiresAt = new Date(
-      createdAt.getTime() + AuthService.TV_PAIRING_EXPIRES_MS,
-    );
-
-    const pairing = await this.tvPairingsStore.create({
-      code: await this.generateUniqueTvPairingCode(),
-      pollToken: randomBytes(24).toString('base64url'),
-      clientId,
-      deviceName,
-      devicePlatform,
-      createdAt: createdAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-    });
-
-    return {
-      pairingId: pairing.id,
-      code: pairing.code,
-      pollToken: pairing.pollToken,
-      expiresAt: pairing.expiresAt,
-      pollIntervalSeconds: AuthService.TV_PAIRING_POLL_INTERVAL_SECONDS,
-      pollTimeoutSeconds: AuthService.TV_PAIRING_POLL_TIMEOUT_SECONDS,
-    };
+    return this.authTvPairingService.requestTvPairing(dto);
   }
 
   async claimTvPairingCode(user: AuthUser, dto: ClaimTvPairingCodeDto) {
-    await this.tvPairingsStore.removeStaleRecords();
-
-    const account = await this.requireAccount(user.sub);
-    const normalizedCode = this.normalizeTvPairingCode(dto.code);
-    if (!normalizedCode) {
-      throw new BadRequestException('Pairing code is invalid.');
-    }
-
-    const pairing = await this.tvPairingsStore.findByCode(normalizedCode);
-    if (!pairing) {
-      throw new BadRequestException('Pairing code is invalid.');
-    }
-
-    if (pairing.consumedAt) {
-      throw new BadRequestException('Pairing code has already been used.');
-    }
-
-    if (this.isTvPairingExpired(pairing)) {
-      throw new BadRequestException(
-        'Pairing code has expired. Request a new code on your TV.',
-      );
-    }
-
-    if (pairing.claimedByAccountId && pairing.claimedByAccountId !== account.id) {
-      throw new ConflictException(
-        'Pairing code has already been approved for another account.',
-      );
-    }
-
-    if (pairing.claimedAt && pairing.claimedByAccountId === account.id) {
-      return {
-        pairingId: pairing.id,
-        code: pairing.code,
-        status: 'claimed' as const,
-        claimedAt: pairing.claimedAt,
-        expiresAt: pairing.expiresAt,
-      };
-    }
-
-    const claimedAt = new Date().toISOString();
-    const updated = await this.tvPairingsStore.updateById(pairing.id, {
-      claimedAt,
-      claimedByAccountId: account.id,
-    });
-
-    if (!updated) {
-      throw new BadRequestException('Pairing request no longer exists.');
-    }
-
-    return {
-      pairingId: updated.id,
-      code: updated.code,
-      status: 'claimed' as const,
-      claimedAt: updated.claimedAt ?? claimedAt,
-      expiresAt: updated.expiresAt,
-    };
+    return this.authTvPairingService.claimTvPairingCode(user, dto);
   }
 
   async pollTvPairingStatus(pairingId: string, dto: PollTvPairingDto) {
-    await this.tvPairingsStore.removeStaleRecords();
-
-    const normalizedPairingId = pairingId.trim();
-    if (!normalizedPairingId) {
-      throw new BadRequestException('Pairing request is invalid.');
-    }
-
-    const pairing = await this.tvPairingsStore.findById(normalizedPairingId);
-    if (!pairing) {
-      throw new BadRequestException('Pairing request is invalid.');
-    }
-
-    const pollToken = dto.pollToken.trim();
-    if (!pollToken || pollToken !== pairing.pollToken) {
-      throw new UnauthorizedException('Pairing token is invalid.');
-    }
-
-    if (pairing.consumedAt) {
-      return this.buildTvPairingPollResponse(
-        pairing,
-        'consumed',
-        'Pairing has already completed. Request a new code on your TV.',
-      );
-    }
-
-    if (this.isTvPairingExpired(pairing)) {
-      return this.buildTvPairingPollResponse(
-        pairing,
-        'expired',
-        'Pairing code has expired. Request a new code on your TV.',
-      );
-    }
-
-    if (!pairing.claimedAt || !pairing.claimedByAccountId) {
-      return this.buildTvPairingPollResponse(pairing, 'pending');
-    }
-
-    const consumedPairing = await this.tvPairingsStore.consumeIfClaimed(
-      pairing.id,
-      new Date().toISOString(),
-    );
-
-    if (!consumedPairing) {
-      const refreshed = await this.tvPairingsStore.findById(pairing.id);
-      if (!refreshed) {
-        return this.buildTvPairingPollResponse(
-          pairing,
-          'denied',
-          'Pairing request is no longer available.',
-        );
-      }
-
-      if (refreshed.consumedAt) {
-        return this.buildTvPairingPollResponse(
-          refreshed,
-          'consumed',
-          'Pairing has already completed. Request a new code on your TV.',
-        );
-      }
-
-      if (this.isTvPairingExpired(refreshed)) {
-        return this.buildTvPairingPollResponse(
-          refreshed,
-          'expired',
-          'Pairing code has expired. Request a new code on your TV.',
-        );
-      }
-
-      return this.buildTvPairingPollResponse(refreshed, 'pending');
-    }
-
-    const accountId = consumedPairing.claimedByAccountId;
-    if (!accountId) {
-      return this.buildTvPairingPollResponse(
-        consumedPairing,
-        'denied',
-        'Pairing approval is invalid.',
-      );
-    }
-
-    const account = await this.accountsStore.findById(accountId);
-    if (!account) {
-      return this.buildTvPairingPollResponse(
-        consumedPairing,
-        'denied',
-        'Pairing approval is invalid.',
-      );
-    }
-
-    const auth = await this.buildAuthResponse(account);
-
-    return {
-      ...this.buildTvPairingPollResponse(consumedPairing, 'approved'),
-      auth,
-    };
+    return this.authTvPairingService.pollTvPairingStatus(pairingId, dto);
   }
 
   async me(user: AuthUser) {
@@ -453,50 +255,11 @@ export class AuthService implements OnModuleInit {
   }
 
   async uploadAvatar(user: AuthUser, image: UploadedAvatarImage | undefined) {
-    if (!image) {
-      throw new BadRequestException('Please choose an image file to upload.');
-    }
-
-    const account = await this.requireAccount(user.sub);
-    const mimeType = image.mimetype.trim().toLowerCase();
-
-    if (!AuthService.ALLOWED_AVATAR_MIME_TYPES.has(mimeType)) {
-      throw new BadRequestException(
-        'Profile picture must be a PNG, JPEG, WEBP, or GIF image.',
-      );
-    }
-
-    if (!Buffer.isBuffer(image.buffer) || image.buffer.length === 0) {
-      throw new BadRequestException('Uploaded image is empty.');
-    }
-
-    if (image.buffer.length > AuthService.MAX_AVATAR_BYTES) {
-      throw new BadRequestException('Profile picture must be 2 MB or smaller.');
-    }
-
-    const avatarDataUrl = `data:${mimeType};base64,${image.buffer.toString('base64')}`;
-    const updated = await this.accountsStore.updateById(account.id, {
-      avatarDataUrl,
-    });
-
-    if (!updated) {
-      throw new UnauthorizedException('Account not found.');
-    }
-
-    return toSafeAccount(updated);
+    return this.authAvatarService.uploadAvatar(user, image);
   }
 
   async removeAvatar(user: AuthUser) {
-    const account = await this.requireAccount(user.sub);
-    const updated = await this.accountsStore.updateById(account.id, {
-      avatarDataUrl: null,
-    });
-
-    if (!updated) {
-      throw new UnauthorizedException('Account not found.');
-    }
-
-    return toSafeAccount(updated);
+    return this.authAvatarService.removeAvatar(user);
   }
 
   private async buildAuthResponse(account: AccountRecord) {
@@ -552,114 +315,6 @@ export class AuthService implements OnModuleInit {
     });
 
     this.logger.log(`Seeded default admin account for ${email}.`);
-  }
-
-  private buildTvPairingPollResponse(
-    pairing: TvPairingRecord,
-    status: 'pending' | 'approved' | 'expired' | 'consumed' | 'denied',
-    message?: string,
-  ) {
-    return {
-      pairingId: pairing.id,
-      code: pairing.code,
-      status,
-      expiresAt: pairing.expiresAt,
-      pollIntervalSeconds: AuthService.TV_PAIRING_POLL_INTERVAL_SECONDS,
-      ...(message ? { message } : {}),
-    };
-  }
-
-  private enforceTvPairingStartRateLimit(key: string) {
-    const now = Date.now();
-    const normalizedKey = key.trim().toLowerCase() || 'anonymous';
-    const recentAttempts = (
-      this.tvPairingStartAttempts.get(normalizedKey) ?? []
-    ).filter(
-      (timestamp) =>
-        now - timestamp <= AuthService.TV_PAIRING_RATE_LIMIT_WINDOW_MS,
-    );
-
-    if (
-      recentAttempts.length >= AuthService.TV_PAIRING_RATE_LIMIT_MAX_ATTEMPTS
-    ) {
-      throw new HttpException(
-        'Too many pairing requests. Please wait a moment and try again.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    recentAttempts.push(now);
-    this.tvPairingStartAttempts.set(normalizedKey, recentAttempts);
-
-    for (const [attemptKey, attempts] of this.tvPairingStartAttempts.entries()) {
-      const activeAttempts = attempts.filter(
-        (timestamp) =>
-          now - timestamp <= AuthService.TV_PAIRING_RATE_LIMIT_WINDOW_MS,
-      );
-
-      if (activeAttempts.length === 0) {
-        this.tvPairingStartAttempts.delete(attemptKey);
-      } else if (activeAttempts.length !== attempts.length) {
-        this.tvPairingStartAttempts.set(attemptKey, activeAttempts);
-      }
-    }
-  }
-
-  private isTvPairingExpired(pairing: TvPairingRecord, nowMs = Date.now()) {
-    const expiresAtMs = Date.parse(pairing.expiresAt);
-    if (!Number.isFinite(expiresAtMs)) {
-      return true;
-    }
-
-    return nowMs >= expiresAtMs;
-  }
-
-  private normalizeOptionalText(
-    value: string | undefined,
-    maxLength: number,
-  ): string | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const normalized = value.trim();
-    if (!normalized) {
-      return null;
-    }
-
-    return normalized.slice(0, maxLength);
-  }
-
-  private normalizeTvPairingCode(rawCode: string): string | null {
-    const normalized = rawCode.replace(/[^a-z0-9]/gi, '').toUpperCase();
-    return normalized.length === AuthService.TV_PAIRING_CODE_LENGTH
-      ? normalized
-      : null;
-  }
-
-  private async generateUniqueTvPairingCode(): Promise<string> {
-    for (let attempt = 0; attempt < 16; attempt += 1) {
-      const code = this.createTvPairingCode();
-      const existing = await this.tvPairingsStore.findByCode(code);
-
-      if (!existing || existing.consumedAt || this.isTvPairingExpired(existing)) {
-        return code;
-      }
-    }
-
-    throw new BadRequestException('Unable to generate a pairing code right now.');
-  }
-
-  private createTvPairingCode() {
-    const alphabet = AuthService.TV_PAIRING_CODE_ALPHABET;
-    const bytes = randomBytes(AuthService.TV_PAIRING_CODE_LENGTH);
-    let output = '';
-
-    for (let index = 0; index < AuthService.TV_PAIRING_CODE_LENGTH; index += 1) {
-      output += alphabet[bytes[index] % alphabet.length];
-    }
-
-    return output;
   }
 
   private async requireUnusedInvite(

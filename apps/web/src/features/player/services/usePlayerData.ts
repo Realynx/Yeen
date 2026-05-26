@@ -9,11 +9,7 @@ import {
   toApiErrorMessage,
   withAccessToken,
 } from '../../shared/services/api';
-import type {
-  MediaItem,
-  PlaybackAudioTrack,
-  SubtitleTrack,
-} from '../../shared/services/types';
+import type { MediaItem, PlaybackAudioTrack, SubtitleTrack } from '../../shared/services/types';
 import { normalizeShowKey } from '../../media-details/services/mediaDetailsUtils';
 import {
   pickPreferredAudioStreamIndex,
@@ -21,18 +17,10 @@ import {
   pickPreferredSubtitleTrackId,
   toSeriesPlaybackPreference,
 } from './playerDataPreferences';
-import type {
-  PlaybackSource,
-  PlayerDataState,
-  PlayerTranscodePreferences,
-} from './playerData.types';
+import type { PlaybackSource, PlayerDataState, PlayerTranscodePreferences } from './playerData.types';
 import { extractSubtitleTrackAndReload } from './playerDataSubtitleExtraction';
 
-export type {
-  PlaybackSource,
-  PlayerDataState,
-  PlayerTranscodePreferences,
-} from './playerData.types';
+export type { PlaybackSource, PlayerDataState, PlayerTranscodePreferences } from './playerData.types';
 
 export function usePlayerData(
   token: string,
@@ -41,7 +29,6 @@ export function usePlayerData(
 ): PlayerDataState {
   const AUTO_HLS_RESTART_WINDOW_MS = 30000;
   const MAX_AUTO_HLS_RESTARTS_PER_WINDOW = 2;
-
   const [media, setMedia] = useState<MediaItem | null>(null);
   const [source, setSource] = useState<PlaybackSource | null>(null);
   const [streamTorrentHash, setStreamTorrentHash] = useState<string | null>(null);
@@ -74,7 +61,6 @@ export function usePlayerData(
   const selectedSubtitle = useMemo(() => {
     return subtitleTracks.find((track) => track.id === selectedSubtitleId) ?? null;
   }, [selectedSubtitleId, subtitleTracks]);
-
   const pickDefaultAudioStreamIndex = useCallback((tracks: PlaybackAudioTrack[]): number | null => {
     if (tracks.length === 0) {
       return null;
@@ -82,7 +68,6 @@ export function usePlayerData(
 
     return tracks.find((track) => track.isDefault)?.streamIndex ?? tracks[0].streamIndex;
   }, []);
-
   const switchToHls = useCallback(async (options?: {
     forceFresh?: boolean;
     audioStreamIndex?: number | null;
@@ -180,7 +165,6 @@ export function usePlayerData(
     transcodePreferences.maxOutputHeight,
     transcodePreferences.maxVideoBitrateKbps,
   ]);
-
   const fetchTracks = useCallback(async (options?: {
     preferredSubtitleLanguage?: string | null;
     subtitlePreferenceEnabled?: boolean | null;
@@ -237,15 +221,12 @@ export function usePlayerData(
       return firstTrack?.id ?? '';
     });
   }, [mediaId, token]);
-
   useEffect(() => {
     let cancelled = false;
 
     async function loadPlayer() {
       setLoading(true);
       setError(null);
-      // Prevent stale resume offsets from a previous episode when the new
-      // episode has no saved progress (or was previously completed).
       setResumeAtSeconds(0);
       setExtractingSubtitleTrackId(null);
       setStreamTorrentHash(null);
@@ -302,14 +283,8 @@ export function usePlayerData(
           ) {
             return previous;
           }
-
           return initialAudioStreamIndex;
         });
-
-        // Apply the saved resume position BEFORE setting the source so that
-        // the video element's `loadedmetadata` handler sees a non-zero value
-        // and can seek into the stream. Otherwise the initial-seek guard
-        // latches at 0 and the saved position is never honored.
         const entry = progressEntries.find((progress) => progress.mediaId === mediaId);
         if (entry && !entry.completed && entry.positionSeconds > 0) {
           setResumeAtSeconds(entry.positionSeconds);
@@ -378,7 +353,6 @@ export function usePlayerData(
       cancelled = true;
     };
   }, [fetchTracks, mediaId, pickDefaultAudioStreamIndex, token]);
-
   async function extractTrack(track: SubtitleTrack) {
     if (!track.extractable || typeof track.streamIndex !== 'number') {
       return;
@@ -389,7 +363,6 @@ export function usePlayerData(
     }
 
     setExtractingSubtitleTrackId(track.id);
-
     try {
       const result = await extractSubtitleTrackAndReload(token, mediaId, track);
       setSubtitleTracks(result.tracks);

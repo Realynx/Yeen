@@ -6,6 +6,7 @@ import { PlayerPanelContainer } from './PlayerPanelContainer';
 interface PlayerPlaybackPageViewProps {
   playerPageClassName: string;
   hideTopNav: boolean;
+  isTvMode: boolean;
   headerContent: ReactNode;
   playerTitle: string;
   query: string;
@@ -29,6 +30,7 @@ interface PlayerPlaybackPageViewProps {
 export function PlayerPlaybackPageView({
   playerPageClassName,
   hideTopNav,
+  isTvMode,
   headerContent,
   playerTitle,
   query,
@@ -52,6 +54,7 @@ export function PlayerPlaybackPageView({
     <PlayerPlaybackLayout
       playerPageClassName={playerPageClassName}
       hideTopNav={hideTopNav}
+      isTvMode={isTvMode}
       headerContent={headerContent}
       playerTitle={playerTitle}
       query={query}

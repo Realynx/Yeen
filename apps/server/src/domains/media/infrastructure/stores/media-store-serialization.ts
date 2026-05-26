@@ -228,8 +228,11 @@ function parseChapterThumbnails(raw: string): MediaChapterThumbnail[] {
       .filter(
         (
           entry,
-        ): entry is { imagePath: string; second: number; name: string | null } =>
-          !!entry,
+        ): entry is {
+          imagePath: string;
+          second: number;
+          name: string | null;
+        } => !!entry,
       );
   } catch {
     return [];

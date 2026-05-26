@@ -60,8 +60,8 @@ export class HlsSegmentTranscoder {
     const totalInflight = this.inflight.size;
     const sessionInflight = this.getInflightCountForSession(request.sessionId);
     if (
-      totalInflight >= this.maxGlobalInflightJobs
-      || sessionInflight >= this.maxSessionInflightJobs
+      totalInflight >= this.maxGlobalInflightJobs ||
+      sessionInflight >= this.maxSessionInflightJobs
     ) {
       this.logger.warn(
         `Backpressure: rejecting segment ${request.segmentIndex} for session ${request.sessionId} (global=${totalInflight}/${this.maxGlobalInflightJobs}, session=${sessionInflight}/${this.maxSessionInflightJobs}).`,

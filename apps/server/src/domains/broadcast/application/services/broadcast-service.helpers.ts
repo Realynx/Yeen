@@ -222,10 +222,10 @@ function resolveFreshestPlaybackTimestampMs(
 
   const playbackSyncTimestampMs = session.playbackSyncTimestampMs;
   const hasUsableSyncTimestamp =
-    typeof playbackSyncTimestampMs === 'number'
-    && Number.isFinite(playbackSyncTimestampMs)
-    && playbackSyncTimestampMs >= 0
-    && playbackSyncTimestampMs <= nowMs + liveStateGraceMs;
+    typeof playbackSyncTimestampMs === 'number' &&
+    Number.isFinite(playbackSyncTimestampMs) &&
+    playbackSyncTimestampMs >= 0 &&
+    playbackSyncTimestampMs <= nowMs + liveStateGraceMs;
 
   if (hasUsableSyncTimestamp) {
     freshestTimestampMs = Number.isFinite(freshestTimestampMs)
@@ -233,9 +233,7 @@ function resolveFreshestPlaybackTimestampMs(
       : playbackSyncTimestampMs;
   }
 
-  return Number.isFinite(freshestTimestampMs)
-    ? freshestTimestampMs
-    : null;
+  return Number.isFinite(freshestTimestampMs) ? freshestTimestampMs : null;
 }
 
 export function normalizeAccountId(value: string): string {

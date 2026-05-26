@@ -48,6 +48,21 @@ export function usePlayerKeyboardShortcuts({
       }
 
       const key = event.key.toLowerCase();
+      const isTvDirectionalKey =
+        key === 'arrowright'
+        || key === 'arrowleft'
+        || key === 'arrowup'
+        || key === 'arrowdown';
+
+      if (isTvMode && isTvDirectionalKey) {
+        revealControls();
+        return;
+      }
+
+      const interactiveElement = target?.closest(
+        'button, a[href], input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])',
+      ) as HTMLElement | null;
+
       const isInteractiveTarget = Boolean(
         target
         && (
@@ -56,23 +71,25 @@ export function usePlayerKeyboardShortcuts({
           || tagName === 'INPUT'
           || tagName === 'TEXTAREA'
           || tagName === 'SELECT'
-          || target.closest(
-            'button, a[href], input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])',
-          )
+          || interactiveElement
         ),
       );
 
       if (
         isTvMode
         && isInteractiveTarget
-        && (
-          key === 'enter'
-          || key === 'arrowright'
-          || key === 'arrowleft'
-          || key === 'arrowup'
-          || key === 'arrowdown'
-        )
+        && key === 'enter'
       ) {
+        if (interactiveElement) {
+          const interactiveOpacity = Number.parseFloat(
+            window.getComputedStyle(interactiveElement).opacity,
+          );
+          if (Number.isFinite(interactiveOpacity) && interactiveOpacity < 0.08) {
+            event.preventDefault();
+            revealControls();
+          }
+        }
+
         return;
       }
 
@@ -125,6 +142,10 @@ export function usePlayerKeyboardShortcuts({
           toggleMute();
           break;
         case 'f':
+          if (isTvMode) {
+            break;
+          }
+
           event.preventDefault();
           void toggleFullscreen();
           break;

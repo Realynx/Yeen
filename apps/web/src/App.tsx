@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import type { ReactElement } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
   BrowserRouter,
@@ -10,71 +9,20 @@ import {
   useNavigationType,
   useParams,
 } from 'react-router-dom';
+import {
+  buildExperienceRoutes,
+  buildGuardedExperienceRoutes,
+  routeElementForExperience,
+} from './appRouteCatalog';
 import { AuthPanel } from './features/auth/components/AuthPanel';
 import { InviteSignupPanel } from './features/auth/components/InviteSignupPanel';
 import { TvPairingAuthPanel } from './features/auth/components/TvPairingAuthPanel';
 import { TvInstallPanel } from './features/auth/components/TvInstallPanel';
 import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
 import { useClientExperience } from './features/navigation/services/clientExperience';
-import type { ClientExperience } from './features/navigation/services/clientExperience';
 import type { AuthResponse, User } from './features/shared/services/types';
-import { canAccessTorrentTools, isAdminRole } from './features/auth/services/roles';
 import { PublicBroadcastPage } from './features/broadcast/pages/PublicBroadcastPage';
 import { BroadcastProvider } from './features/broadcast/services/broadcast-context';
-import { HomePage } from './features/home/pages/HomePage';
-import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePage';
-import { HomePagePhone } from './features/home/pages/HomePagePhone';
-import { HomePageTv } from './features/home/pages/HomePageTv';
-import { MediaExplorePagePhone } from './features/media-explore/pages/MediaExplorePagePhone';
-import { MediaExplorePageTv } from './features/media-explore/pages/MediaExplorePageTv';
-import { MediaLibraryPage } from './features/library/pages/MediaLibraryPage';
-import { MediaLibraryPagePhone } from './features/library/pages/MediaLibraryPagePhone';
-import { MediaLibraryPageTv } from './features/library/pages/MediaLibraryPageTv';
-import { MediaDetailsPage } from './features/media-details/pages/MediaDetailsPage';
-import { MediaDetailsPagePhone } from './features/media-details/pages/MediaDetailsPagePhone';
-import { MediaDetailsPageTv } from './features/media-details/pages/MediaDetailsPageTv';
-import { SettingsPage } from './features/settings/pages/SettingsPage';
-import { SettingsPagePhone } from './features/settings/pages/SettingsPagePhone';
-import { SettingsPageTv } from './features/settings/pages/SettingsPageTv';
-import { SystemSettingsPage } from './features/settings/pages/SystemSettingsPage';
-import { SystemSettingsPagePhone } from './features/settings/pages/SystemSettingsPagePhone';
-import { SystemSettingsPageTv } from './features/settings/pages/SystemSettingsPageTv';
-import { AccountAccessPage } from './features/settings/pages/AccountAccessPage';
-import { AccountAccessPagePhone } from './features/settings/pages/AccountAccessPagePhone';
-import { AccountAccessPageTv } from './features/settings/pages/AccountAccessPageTv';
-import { DownloadControlPage } from './features/settings/pages/DownloadControlPage';
-import { DownloadControlPagePhone } from './features/settings/pages/DownloadControlPagePhone';
-import { DownloadControlPageTv } from './features/settings/pages/DownloadControlPageTv';
-import { PlayerPage } from './features/player/pages/PlayerPage.tsx';
-import { PlayerPagePhone } from './features/player/pages/PlayerPagePhone';
-import { PlayerPageTv } from './features/player/pages/PlayerPageTv';
-
-interface ExperienceRouteDefinition {
-  path: string;
-  desktop: ReactElement;
-  phone: ReactElement;
-  tv?: ReactElement;
-}
-
-interface GuardedExperienceRouteDefinition extends ExperienceRouteDefinition {
-  allowed: boolean;
-  redirectTo: string;
-}
-
-function routeElementForExperience(
-  experience: ClientExperience,
-  route: ExperienceRouteDefinition,
-): ReactElement {
-  if (experience === 'tv') {
-    return route.tv ?? route.desktop;
-  }
-
-  if (experience === 'phone') {
-    return route.phone;
-  }
-
-  return route.desktop;
-}
 
 function titleForPath(pathname: string): string {
   if (pathname === '/') {
@@ -315,87 +263,11 @@ function App() {
     user,
     onLogout: handleLogout,
   };
-
-  const experienceRoutes: ExperienceRouteDefinition[] = [
-    {
-      path: '/',
-      desktop: <HomePage {...commonPageProps} />,
-      phone: <HomePagePhone {...commonPageProps} />,
-      tv: <HomePageTv {...commonPageProps} />,
-    },
-    {
-      path: '/settings',
-      desktop: (
-        <SettingsPage
-          {...commonPageProps}
-          onUserUpdated={setUser}
-        />
-      ),
-      phone: (
-        <SettingsPagePhone
-          {...commonPageProps}
-          onUserUpdated={setUser}
-        />
-      ),
-      tv: (
-        <SettingsPageTv
-          {...commonPageProps}
-          onUserUpdated={setUser}
-        />
-      ),
-    },
-    {
-      path: '/library',
-      desktop: <MediaLibraryPage {...commonPageProps} />,
-      phone: <MediaLibraryPagePhone {...commonPageProps} />,
-      tv: <MediaLibraryPageTv {...commonPageProps} />,
-    },
-    {
-      path: '/explore',
-      desktop: <MediaExplorePage {...commonPageProps} />,
-      phone: <MediaExplorePagePhone {...commonPageProps} />,
-      tv: <MediaExplorePageTv {...commonPageProps} />,
-    },
-    {
-      path: '/details/:mediaId',
-      desktop: <MediaDetailsPage {...commonPageProps} />,
-      phone: <MediaDetailsPagePhone {...commonPageProps} />,
-      tv: <MediaDetailsPageTv {...commonPageProps} />,
-    },
-    {
-      path: '/player/:mediaId',
-      desktop: <PlayerPage {...commonPageProps} />,
-      phone: <PlayerPagePhone {...commonPageProps} />,
-      tv: <PlayerPageTv {...commonPageProps} />,
-    },
-  ];
-
-  const guardedExperienceRoutes: GuardedExperienceRouteDefinition[] = [
-    {
-      path: '/admin/system',
-      allowed: isAdminRole(user.role),
-      redirectTo: '/settings',
-      desktop: <SystemSettingsPage {...commonPageProps} />,
-      phone: <SystemSettingsPagePhone {...commonPageProps} />,
-      tv: <SystemSettingsPageTv {...commonPageProps} />,
-    },
-    {
-      path: '/admin/accounts',
-      allowed: isAdminRole(user.role),
-      redirectTo: '/settings',
-      desktop: <AccountAccessPage {...commonPageProps} />,
-      phone: <AccountAccessPagePhone {...commonPageProps} />,
-      tv: <AccountAccessPageTv {...commonPageProps} />,
-    },
-    {
-      path: '/admin/downloads',
-      allowed: canAccessTorrentTools(user.role),
-      redirectTo: '/',
-      desktop: <DownloadControlPage {...commonPageProps} />,
-      phone: <DownloadControlPagePhone {...commonPageProps} />,
-      tv: <DownloadControlPageTv {...commonPageProps} />,
-    },
-  ];
+  const experienceRoutes = buildExperienceRoutes(commonPageProps, setUser);
+  const guardedExperienceRoutes = buildGuardedExperienceRoutes(
+    commonPageProps,
+    user,
+  );
 
   return (
     <BrowserRouter>

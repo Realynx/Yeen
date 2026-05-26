@@ -349,6 +349,7 @@ export function PlayerPlaybackPage({
     <PlayerPlaybackPageView
       playerPageClassName={playerPageClassName}
       hideTopNav={hideTopNav}
+      isTvMode={isTvMode}
       headerContent={headerContent}
       playerTitle={playerTitle}
       query={query}

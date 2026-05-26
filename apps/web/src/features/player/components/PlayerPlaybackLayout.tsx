@@ -9,6 +9,7 @@ import { PlayerTopBar } from './PlayerTopBar';
 interface PlayerPlaybackLayoutProps {
   playerPageClassName: string;
   hideTopNav: boolean;
+  isTvMode: boolean;
   headerContent: ReactNode;
   playerTitle: string;
   query: string;
@@ -32,6 +33,7 @@ interface PlayerPlaybackLayoutProps {
 export function PlayerPlaybackLayout({
   playerPageClassName,
   hideTopNav,
+  isTvMode,
   headerContent,
   playerTitle,
   query,
@@ -55,7 +57,7 @@ export function PlayerPlaybackLayout({
     <main className={playerPageClassName}>
       {headerContent}
 
-      {!hideTopNav ? (
+      {!hideTopNav && !isTvMode ? (
         <PlayerTopBar
           title={playerTitle}
           query={query}
@@ -68,22 +70,24 @@ export function PlayerPlaybackLayout({
         />
       ) : null}
 
-      <PlayerStatusOverlay
-        loading={loading}
-        switchingToHls={switchingToHls}
-        error={error}
-        playerError={playerError}
-      />
+      {!isTvMode ? (
+        <PlayerStatusOverlay
+          loading={loading}
+          switchingToHls={switchingToHls}
+          error={error}
+          playerError={playerError}
+        />
+      ) : null}
 
-      <PlayerDownloadProgress {...downloadProgressProps} />
+      {!isTvMode ? <PlayerDownloadProgress {...downloadProgressProps} /> : null}
 
       <section className={`player-layout ${activeTheaterMode ? 'player-layout-theater' : ''}`}>
         {videoPanelNode}
       </section>
 
-      <PlayerEpisodeNavigation {...episodeNavigationProps} />
+      {!isTvMode ? <PlayerEpisodeNavigation {...episodeNavigationProps} /> : null}
 
-      <PlayerDetails {...detailsProps} />
+      {!isTvMode ? <PlayerDetails {...detailsProps} /> : null}
     </main>
   );
 }

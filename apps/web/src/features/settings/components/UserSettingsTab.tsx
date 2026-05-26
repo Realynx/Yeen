@@ -10,18 +10,17 @@ import {
 } from '../../shared/services/api';
 import { isAdminRole, roleLabel as toRoleLabel } from '../../auth/services/roles';
 import type { User } from '../../shared/services/types';
-import { UserAvatarSection } from './UserAvatarSection';
-import { UserInvitesSection } from './UserInvitesSection';
-import { UserProfileDetailsSection } from './UserProfileDetailsSection';
-import { UserSecuritySection } from './UserSecuritySection';
 import { UserSettingsOverviewSidebar } from './UserSettingsOverviewSidebar';
-import { UserTvPairingSection } from './UserTvPairingSection';
 import {
-  USER_SETTINGS_SECTION_IDS,
   createUserSettingsQuickActions,
   type UserSettingsCategoryId,
 } from './userSettings.types';
 import { MAX_AVATAR_BYTES } from './userSettingsViewUtils';
+import { UserSettingsSections } from './UserSettingsSections';
+import {
+  openAndScrollToUserSettingsCategory,
+  toggleUserSettingsCategory,
+} from './userSettingsCategoryNavigation';
 
 interface UserSettingsTabProps {
   token: string;
@@ -109,35 +108,6 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
       URL.revokeObjectURL(avatarPreviewUrl);
     };
   }, [avatarPreviewUrl, selectedAvatarFile]);
-
-  function toggleCategory(category: UserSettingsCategoryId) {
-    setExpandedCategories((current) => ({
-      ...current,
-      [category]: !current[category],
-    }));
-  }
-
-  function openAndScrollToCategory(category: UserSettingsCategoryId) {
-    const sectionId = USER_SETTINGS_SECTION_IDS[category];
-
-    setExpandedCategories((current) => ({
-      ...current,
-      [category]: true,
-    }));
-
-    const section = document.getElementById(sectionId);
-    if (!section) {
-      return;
-    }
-
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    const nextHash = `#${sectionId}`;
-    if (window.location.hash !== nextHash) {
-      const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
-      window.history.replaceState(null, '', nextUrl);
-    }
-  }
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -357,91 +327,64 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
             maxBitrateLabel={maxBitrateLabel}
             expandedCategories={expandedCategories}
             quickActions={quickActions}
-            onOpenCategory={openAndScrollToCategory}
+            onOpenCategory={(category) => openAndScrollToUserSettingsCategory(setExpandedCategories, category)}
           />
 
           <div
             className="settings-categories user-settings-categories"
             data-tv-focus-lane-id="user-settings-categories"
           >
-            <UserProfileDetailsSection
-              isOpen={expandedCategories.profile}
+            <UserSettingsSections
+              user={user}
+              isAdmin={isAdmin}
+              availableInvites={availableInvites}
+              expandedCategories={expandedCategories}
               hasProfileChanges={hasProfileChanges}
               name={name}
               email={email}
               savingProfile={savingProfile}
               profileMessage={profileMessage}
               profileError={profileError}
-              onToggle={() => toggleCategory('profile')}
-              onNameChange={setName}
-              onEmailChange={setEmail}
-              onReset={() => {
-                setName(user.name);
-                setEmail(user.email);
-              }}
-              onSubmit={handleSaveProfile}
-            />
-
-            <UserAvatarSection
-              isOpen={expandedCategories.picture}
-              userName={user.name}
-              hasUserAvatar={Boolean(user.avatarDataUrl)}
               avatarPreviewUrl={avatarPreviewUrl}
               selectedAvatarFile={selectedAvatarFile}
               avatarInputKey={avatarInputKey}
               savingAvatar={savingAvatar}
               avatarMessage={avatarMessage}
               avatarError={avatarError}
-              onToggle={() => toggleCategory('picture')}
-              onSelectAvatarFile={setSelectedAvatarFile}
-              onUploadSubmit={handleUploadAvatar}
-              onClearSelection={clearSelectedAvatar}
-              onRemoveCurrentPhoto={() => {
-                void handleRemoveAvatar();
-              }}
-            />
-
-            <UserInvitesSection
-              isOpen={expandedCategories.invites}
-              isAdmin={isAdmin}
-              availableInvites={availableInvites}
               creatingInvite={creatingInvite}
               latestInviteUrl={latestInviteUrl}
               inviteMessage={inviteMessage}
               inviteError={inviteError}
-              onToggle={() => toggleCategory('invites')}
-              onCreateInvite={() => {
-                void handleCreateInvite();
-              }}
-              onCopyLatestInvite={() => {
-                void handleCopyInviteLink();
-              }}
-            />
-
-            <UserSecuritySection
-              isOpen={expandedCategories.security}
               currentPassword={currentPassword}
               newPassword={newPassword}
               confirmPassword={confirmPassword}
               savingPassword={savingPassword}
               passwordMessage={passwordMessage}
               passwordError={passwordError}
-              onToggle={() => toggleCategory('security')}
-              onCurrentPasswordChange={setCurrentPassword}
-              onNewPasswordChange={setNewPassword}
-              onConfirmPasswordChange={setConfirmPassword}
-              onSubmit={handleChangePassword}
-            />
-
-            <UserTvPairingSection
-              isOpen={expandedCategories.tv}
               pairingCode={pairingCode}
               claimingCode={claimingCode}
               pairingMessage={pairingMessage}
               pairingError={pairingError}
-              onToggle={() => toggleCategory('tv')}
+              onToggleCategory={(category) => toggleUserSettingsCategory(setExpandedCategories, category)}
+              onNameChange={setName}
+              onEmailChange={setEmail}
+              onResetProfile={() => {
+                setName(user.name);
+                setEmail(user.email);
+              }}
+              onSaveProfile={handleSaveProfile}
+              onSelectAvatarFile={setSelectedAvatarFile}
+              onUploadAvatar={handleUploadAvatar}
+              onClearAvatarSelection={clearSelectedAvatar}
+              onRemoveCurrentPhoto={() => { void handleRemoveAvatar(); }}
+              onCreateInvite={() => { void handleCreateInvite(); }}
+              onCopyLatestInvite={() => { void handleCopyInviteLink(); }}
+              onCurrentPasswordChange={setCurrentPassword}
+              onNewPasswordChange={setNewPassword}
+              onConfirmPasswordChange={setConfirmPassword}
+              onChangePassword={handleChangePassword}
               onPairingCodeChange={setPairingCode}
-              onSubmit={handleApproveTvCode}
+              onApproveTvCode={handleApproveTvCode}
             />
           </div>
         </div>

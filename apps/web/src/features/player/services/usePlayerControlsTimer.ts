@@ -14,6 +14,7 @@ interface UsePlayerControlsTimerArgs {
 }
 
 const HIDE_DELAY_MS = 2200;
+const TV_HIDE_DELAY_MS = 3000;
 
 export function usePlayerControlsTimer({
   isPlaying,
@@ -33,28 +34,21 @@ export function usePlayerControlsTimer({
   const scheduleControlsAutoHide = useCallback(() => {
     clearControlsTimer();
 
-    if (isTvMode) {
-      setIsControlsVisible(true);
-      return;
-    }
-
     if (!isPlaying || isSeeking) {
       return;
     }
 
+    const hideDelayMs = isTvMode ? TV_HIDE_DELAY_MS : HIDE_DELAY_MS;
+
     hideControlsTimerRef.current = window.setTimeout(() => {
       setIsControlsVisible(false);
-    }, HIDE_DELAY_MS);
+    }, hideDelayMs);
   }, [clearControlsTimer, isPlaying, isSeeking, isTvMode, setIsControlsVisible]);
 
   const revealControls = useCallback(() => {
     setIsControlsVisible(true);
-    if (isTvMode) {
-      return;
-    }
-
     scheduleControlsAutoHide();
-  }, [isTvMode, scheduleControlsAutoHide, setIsControlsVisible]);
+  }, [scheduleControlsAutoHide, setIsControlsVisible]);
 
   return { clearControlsTimer, scheduleControlsAutoHide, revealControls };
 }

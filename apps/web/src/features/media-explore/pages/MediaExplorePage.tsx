@@ -19,6 +19,7 @@ import {
 } from '../services/exploreGrid';
 import { useExploreFilterActions } from '../services/useExploreFilterActions';
 import { useExploreCatalogState } from '../services/useExploreCatalogState';
+import { useExploreLoadMoreSentinel } from '../services/useExploreLoadMoreSentinel';
 import { useClientExperience } from '../../navigation/services/clientExperience';
 
 interface MediaExplorePageProps {
@@ -211,84 +212,24 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     };
   }, [remoteItems.length, typeFilter]);
 
-  useEffect(() => {
-    const viewport = resultsViewportRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!viewport || !sentinel) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (!entry?.isIntersecting) {
-          return;
-        }
-
-        if (entry.intersectionRatio < 0.2) {
-          return;
-        }
-
-        if (loading || loadingMore || !hasMore || loadMoreLockedRef.current) {
-          return;
-        }
-
-        if (tagFilter.trim().length < 2) {
-          return;
-        }
-
-        const isNearBottom =
-          viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 160;
-        const allowInitialAutoFill =
-          !hasUserScrolledResultsRef.current
-          && initialAutoFillCountRef.current < 1
-          && viewport.scrollHeight <= viewport.clientHeight + 120;
-
-        if (!isNearBottom && !allowInitialAutoFill) {
-          return;
-        }
-
-        const now = Date.now();
-        const minGapMs = catalogMode === 'anime' ? 2600 : 850;
-        if (now < nextLoadMoreAllowedAtRef.current) {
-          queueLoadAfterCooldown(nextLoadMoreAllowedAtRef.current - now);
-          return;
-        }
-
-        clearQueuedLoad();
-        nextLoadMoreAllowedAtRef.current = now + minGapMs;
-
-        if (allowInitialAutoFill) {
-          initialAutoFillCountRef.current += 1;
-        }
-
-        loadMoreLockedRef.current = true;
-        setPage((previous) => previous + 1);
-      },
-      {
-        root: viewport,
-        rootMargin: '120px 0px 120px 0px',
-        threshold: 0.2,
-      },
-    );
-
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [
+  useExploreLoadMoreSentinel({
     catalogMode,
     clearQueuedLoad,
+    queueLoadAfterCooldown,
     hasMore,
     loading,
     loadingMore,
-    queueLoadAfterCooldown,
-    remoteItems.length,
+    remoteItemsLength: remoteItems.length,
     setPage,
     tagFilter,
     typeFilter,
-  ]);
+    resultsViewportRef,
+    loadMoreSentinelRef,
+    loadMoreLockedRef,
+    nextLoadMoreAllowedAtRef,
+    hasUserScrolledResultsRef,
+    initialAutoFillCountRef,
+  });
 
   useEffect(() => () => {
     clearQueuedLoad();

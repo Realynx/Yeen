@@ -63,7 +63,8 @@ export class MediaMetadataArtworkRefreshService {
             Math.max(0, input.item.durationSeconds),
           );
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.debug(
             `Chapter probe skipped for ${input.item.filePath}; using random fallback: ${message}`,
           );
