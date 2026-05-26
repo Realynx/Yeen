@@ -295,6 +295,7 @@ export function MediaDetailsPage({
           activeSeason={activeSeason}
           activeSeasonEpisodes={activeSeasonEpisodes}
           progressById={progressById}
+          nextUpEpisodeId={nextUpEpisode?.id ?? null}
           onSelectSeason={setSelectedSeason}
           onNavigate={(to) => navigate(to)}
           isAdmin={isAdmin}
@@ -384,4 +385,3 @@ export function MediaDetailsPage({
     </main>
   );
 }
-

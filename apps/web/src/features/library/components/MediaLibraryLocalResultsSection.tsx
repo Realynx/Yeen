@@ -46,6 +46,26 @@ export function MediaLibraryLocalResultsSection({
     return null;
   }
 
+  function statusLabelFor(
+    downloadProgressPercent: number | undefined,
+    watchedProgressPercent: number | undefined,
+    completed: boolean,
+  ): string | null {
+    if (downloadProgressPercent !== undefined) {
+      return `Downloading ${Math.round(downloadProgressPercent)}%`;
+    }
+
+    if (completed) {
+      return 'Watched';
+    }
+
+    if (typeof watchedProgressPercent === 'number' && watchedProgressPercent > 5) {
+      return `Resume ${Math.round(watchedProgressPercent)}%`;
+    }
+
+    return null;
+  }
+
   return (
     <section className="browse-section library-results">
       <div className="section-heading-row">
@@ -54,10 +74,20 @@ export function MediaLibraryLocalResultsSection({
       </div>
 
       {filteredItems.length > 0 ? (
-        <div className={useCompactResultsGrid ? 'library-grid is-compact' : 'library-grid'}>
+        <div
+          className={useCompactResultsGrid ? 'library-grid is-compact' : 'library-grid'}
+          data-tv-focus-zone="shelf"
+          data-tv-focus-lane-id="library-results-grid"
+        >
           {filteredItems.map((item) => {
             const downloadProgressPercent = downloadProgressMap.get(item.id);
-            const watchedProgressPercent = toProgressPercent(progressMap.get(item.id));
+            const itemProgress = progressMap.get(item.id);
+            const watchedProgressPercent = toProgressPercent(itemProgress);
+            const topRightLabel = statusLabelFor(
+              downloadProgressPercent,
+              watchedProgressPercent,
+              Boolean(itemProgress?.completed),
+            );
 
             return (
               <MediaTile
@@ -66,6 +96,7 @@ export function MediaLibraryLocalResultsSection({
                 imageUrl={artworkUrlForMedia(item)}
                 progressPercent={downloadProgressPercent ?? watchedProgressPercent}
                 progressKind={downloadProgressPercent !== undefined ? 'download' : 'watch'}
+                topRightLabel={topRightLabel}
                 layout="library"
                 onOpen={onOpenDetails}
                 selectable={manageMode}
@@ -78,7 +109,7 @@ export function MediaLibraryLocalResultsSection({
       ) : (
         <article className="library-empty">
           <h2>No titles match this filter</h2>
-          <p>Try switching the media type, tag, or order settings.</p>
+          <p>Try broadening type, tag, watch, quality, runtime, artwork, format, or order filters.</p>
           <div className="library-empty-actions">
             <button
               type="button"

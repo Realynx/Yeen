@@ -10,6 +10,11 @@ interface HomePhoneScrollShelfProps {
   progressMap: Map<string, ProgressEntry>;
   onOpen: (mediaId: string) => void;
   topRightLabelForItem?: (item: MediaItem) => string | null | undefined;
+  actionForItem?: (item: MediaItem) => {
+    label: string;
+    ariaLabel: string;
+    onClick: () => void;
+  } | null;
 }
 
 export function HomePhoneScrollShelf({
@@ -19,6 +24,7 @@ export function HomePhoneScrollShelf({
   progressMap,
   onOpen,
   topRightLabelForItem,
+  actionForItem,
 }: HomePhoneScrollShelfProps) {
   return (
     <section className="browse-section phone-home-section">
@@ -27,18 +33,31 @@ export function HomePhoneScrollShelf({
       </div>
 
       <div className="phone-home-scroll-row" role="list" aria-label={ariaLabel}>
-        {items.map((item) => (
-          <div key={item.id} className="phone-home-scroll-item" role="listitem">
-            <MediaTile
-              media={item}
-              imageUrl={libraryArtworkUrlForMedia(item)}
-              progressPercent={toProgressPercent(progressMap.get(item.id))}
-              topRightLabel={topRightLabelForItem?.(item)}
-              layout="library"
-              onOpen={onOpen}
-            />
-          </div>
-        ))}
+        {items.map((item) => {
+          const action = actionForItem?.(item) ?? null;
+          return (
+            <div key={item.id} className="phone-home-scroll-item" role="listitem">
+              <MediaTile
+                media={item}
+                imageUrl={libraryArtworkUrlForMedia(item)}
+                progressPercent={toProgressPercent(progressMap.get(item.id))}
+                topRightLabel={topRightLabelForItem?.(item)}
+                layout="library"
+                onOpen={onOpen}
+              />
+              {action ? (
+                <button
+                  type="button"
+                  className="continue-watching-dismiss"
+                  aria-label={action.ariaLabel}
+                  onClick={action.onClick}
+                >
+                  {action.label}
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

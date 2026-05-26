@@ -14,6 +14,7 @@ import { PlayerContextMenu } from './video-panel/PlayerContextMenu';
 import { PlayerControlsPanel } from './video-panel/PlayerControlsPanel';
 import { PlayerNerdStatsPanel } from './video-panel/PlayerNerdStatsPanel';
 import { usePlayerVideoPanelMenus } from './video-panel/usePlayerVideoPanelMenus';
+import { usePlayerTvControlsFocus } from './video-panel/usePlayerTvControlsFocus';
 import type {
   PlayerVideoPanelProps,
 } from './video-panel/PlayerVideoPanel.types';
@@ -159,10 +160,23 @@ export function PlayerVideoPanel({
     onRevealControls();
   }, [activeSkipAction, onRevealControls, onSeekTo]);
 
+  usePlayerTvControlsFocus({
+    isTvMode,
+    showControls,
+    hasOpenMenu: openMenu !== null || contextMenu !== null,
+    videoShellRef,
+    closeMenu,
+    onHideControls,
+  });
+
   return (
     <div
       ref={videoShellRef}
       className={`video-shell ${showControls ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'is-fullscreen' : ''} ${isTvMode ? 'is-tv-mode' : ''}`}
+      tabIndex={isTvMode ? 0 : undefined}
+      aria-label={isTvMode ? 'Video player surface' : undefined}
+      data-player-video-surface={isTvMode ? 'true' : undefined}
+      data-tv-focus-key={isTvMode ? 'player:surface' : undefined}
       onMouseMove={onRevealControls}
       onMouseLeave={() => {
         if (!isTvMode && isPlaying && !isSeeking && !openMenu && !contextMenu) {

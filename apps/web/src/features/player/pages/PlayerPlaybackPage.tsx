@@ -18,6 +18,7 @@ import { usePlayerPlaybackViewState } from '../services/usePlayerPlaybackViewSta
 import { useBroadcast } from '../../broadcast/services/broadcast-context';
 import { usePlayerBroadcastSync } from '../services/usePlayerBroadcastSync';
 import { usePlayerPlaybackDerivedState } from '../services/usePlayerPlaybackDerivedState';
+import { usePlayerTrackCycleShortcuts } from '../services/usePlayerTrackCycleShortcuts';
 
 interface PlayerPlaybackPageProps {
   token: string;
@@ -187,6 +188,17 @@ export function PlayerPlaybackPage({
     updateBroadcastPlayback,
   });
 
+  usePlayerTrackCycleShortcuts({
+    enabled: isTvMode,
+    audioTracks,
+    selectedAudioStreamIndex,
+    subtitleTracks,
+    selectedSubtitleId,
+    onSelectAudioTrack: handleSelectAudioTrack,
+    onSelectSubtitle: handleSelectSubtitle,
+    onToggleNerdStats: toggleNerdStats,
+  });
+
   useEffect(() => {
     // Keep local visibility state aligned when subtitle selection changes externally.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -254,6 +266,7 @@ export function PlayerPlaybackPage({
     seekValue,
     isPlaying,
     isSeeking,
+    isControlsVisible,
     muted,
     volume,
     playbackRate,

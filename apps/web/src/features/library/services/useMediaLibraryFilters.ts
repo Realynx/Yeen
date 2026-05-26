@@ -1,12 +1,25 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { MediaItem } from '../../shared/services/types';
+import type { MediaItem, ProgressEntry } from '../../shared/services/types';
 import {
   normalizeTags,
-  sortMediaItems,
   toLibraryType,
-  type MediaSortOrder,
-  type MediaTypeFilter,
 } from './mediaLibraryUtils';
+import {
+  filterAndSortMediaLibraryItems,
+  hasActiveLibraryFilters,
+  toActiveLibraryFilterLabels,
+  type ArtworkFilter,
+  type ChapterFilter,
+  type FormatFilter,
+  type MediaLibraryFilterState,
+  type QualityFilter,
+  type ReleaseYearFilter,
+  type RuntimeFilter,
+  type SubtitleAvailabilityFilter,
+  type VideoCodecFilter,
+  type WatchStatusFilter,
+} from './mediaLibraryFilterUtils';
+import type { MediaSortOrder, MediaTypeFilter } from './mediaLibraryUtils';
 
 export interface LibraryTypeCounts {
   all: number;
@@ -23,12 +36,14 @@ interface UseMediaLibraryFiltersArgs {
   routeSearchTerm: string;
   activeSearch: string | null;
   libraryItems: MediaItem[];
+  progressItems: ProgressEntry[];
 }
 
 export function useMediaLibraryFilters({
   routeSearchTerm,
   activeSearch,
   libraryItems,
+  progressItems,
 }: UseMediaLibraryFiltersArgs) {
   const [queryState, setQueryState] = useState({
     routeSearchTerm,
@@ -36,6 +51,16 @@ export function useMediaLibraryFilters({
   });
   const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>('all');
   const [tagFilter, setTagFilter] = useState('');
+  const [watchStatusFilter, setWatchStatusFilter] = useState<WatchStatusFilter>('all');
+  const [subtitleAvailabilityFilter, setSubtitleAvailabilityFilter] =
+    useState<SubtitleAvailabilityFilter>('all');
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>('all');
+  const [runtimeFilter, setRuntimeFilter] = useState<RuntimeFilter>('all');
+  const [releaseYearFilter, setReleaseYearFilter] = useState<ReleaseYearFilter>('all');
+  const [artworkFilter, setArtworkFilter] = useState<ArtworkFilter>('all');
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
+  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
+  const [videoCodecFilter, setVideoCodecFilter] = useState<VideoCodecFilter>('all');
   const [sortOrder, setSortOrder] = useState<MediaSortOrder>('updated-desc');
 
   const query =
@@ -74,6 +99,14 @@ export function useMediaLibraryFilters({
     };
   }, [libraryItems]);
 
+  const progressMap = useMemo(() => {
+    const map = new Map<string, ProgressEntry>();
+    for (const entry of progressItems) {
+      map.set(entry.mediaId, entry);
+    }
+    return map;
+  }, [progressItems]);
+
   const availableTags = useMemo<LibraryTagCount[]>(() => {
     const counts = new Map<string, LibraryTagCount>();
 
@@ -105,47 +138,62 @@ export function useMediaLibraryFilters({
     });
   }, [libraryItems]);
 
+  const filterState = useMemo<MediaLibraryFilterState>(() => ({
+    typeFilter,
+    tagFilter,
+    watchStatusFilter,
+    subtitleAvailabilityFilter,
+    qualityFilter,
+    runtimeFilter,
+    releaseYearFilter,
+    artworkFilter,
+    chapterFilter,
+    formatFilter,
+    videoCodecFilter,
+    sortOrder,
+  }), [
+    artworkFilter,
+    chapterFilter,
+    formatFilter,
+    qualityFilter,
+    releaseYearFilter,
+    runtimeFilter,
+    tagFilter,
+    typeFilter,
+    sortOrder,
+    subtitleAvailabilityFilter,
+    videoCodecFilter,
+    watchStatusFilter,
+  ]);
+
   const filteredItems = useMemo(() => {
-    const byType =
-      typeFilter === 'all'
-        ? libraryItems
-        : libraryItems.filter((item) => toLibraryType(item) === typeFilter);
-
-    const normalizedTagFilter = tagFilter.trim().toLowerCase();
-    const byTag = normalizedTagFilter
-      ? byType.filter((item) =>
-          item.tags.some(
-            (tag) => tag.trim().toLowerCase() === normalizedTagFilter,
-          ))
-      : byType;
-
-    return sortMediaItems(byTag, sortOrder);
-  }, [libraryItems, sortOrder, tagFilter, typeFilter]);
+    return filterAndSortMediaLibraryItems(libraryItems, progressMap, filterState);
+  }, [filterState, libraryItems, progressMap]);
 
   const activeSearchLabel = useMemo(() => {
-    const searchLabel = activeSearch ? `matches for "${activeSearch}"` : null;
-    const tagLabel = tagFilter ? `tag "${tagFilter}"` : null;
+    const activeLabels = toActiveLibraryFilterLabels(activeSearch, filterState);
 
-    if (searchLabel && tagLabel) {
-      return `Showing ${searchLabel} with ${tagLabel}`;
-    }
-
-    if (searchLabel) {
-      return `Showing ${searchLabel}`;
-    }
-
-    if (tagLabel) {
-      return `Showing items with ${tagLabel}`;
+    if (activeLabels.length > 0) {
+      return `Showing ${activeLabels.join(' with ')}`;
     }
 
     return 'Showing all indexed media';
-  }, [activeSearch, tagFilter]);
+  }, [activeSearch, filterState]);
 
-  const hasSearchOrTagFilter = Boolean(activeSearch) || Boolean(tagFilter);
+  const hasSearchOrTagFilter = hasActiveLibraryFilters(activeSearch, filterState);
 
   const resetFilters = useCallback(() => {
     setTypeFilter('all');
     setTagFilter('');
+    setWatchStatusFilter('all');
+    setSubtitleAvailabilityFilter('all');
+    setQualityFilter('all');
+    setRuntimeFilter('all');
+    setReleaseYearFilter('all');
+    setArtworkFilter('all');
+    setChapterFilter('all');
+    setFormatFilter('all');
+    setVideoCodecFilter('all');
     setSortOrder('updated-desc');
   }, []);
 
@@ -156,6 +204,24 @@ export function useMediaLibraryFilters({
     setTypeFilter,
     tagFilter,
     setTagFilter,
+    watchStatusFilter,
+    setWatchStatusFilter,
+    subtitleAvailabilityFilter,
+    setSubtitleAvailabilityFilter,
+    qualityFilter,
+    setQualityFilter,
+    runtimeFilter,
+    setRuntimeFilter,
+    releaseYearFilter,
+    setReleaseYearFilter,
+    artworkFilter,
+    setArtworkFilter,
+    chapterFilter,
+    setChapterFilter,
+    formatFilter,
+    setFormatFilter,
+    videoCodecFilter,
+    setVideoCodecFilter,
     sortOrder,
     setSortOrder,
     typeCounts,
@@ -166,3 +232,5 @@ export function useMediaLibraryFilters({
     resetFilters,
   };
 }
+
+export type MediaLibraryFilters = ReturnType<typeof useMediaLibraryFilters>;

@@ -150,6 +150,21 @@
   z-index: 2;
 }
 
+.episode-status-badge {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 2;
+  border-radius: 999px;
+  background: rgba(255, 176, 94, 0.9);
+  color: #191006;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.52rem;
+  text-transform: uppercase;
+}
+
 .episode-progress {
   position: absolute;
   left: 0.4rem;
@@ -218,6 +233,15 @@
   text-transform: none;
 }
 
+.episode-status-line {
+  margin: 0.18rem 0 0;
+  color: #ffd2a8;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .episode-info .episode-title {
   margin: 0.2rem 0 0;
   color: #ffffff;
@@ -282,4 +306,3 @@
   background: rgba(255, 138, 31, 0.26);
   border-color: rgba(255, 138, 31, 0.6);
 }
-

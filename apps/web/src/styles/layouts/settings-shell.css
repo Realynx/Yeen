@@ -129,6 +129,40 @@
   height: 100%;
 }
 
+.tv-display-preference-grid {
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tv-display-preference {
+  display: grid;
+  gap: 0.28rem;
+  min-height: 108px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 14px;
+  background: rgba(9, 14, 24, 0.62);
+  color: var(--settings-title);
+  padding: 0.86rem;
+  text-align: left;
+}
+
+.tv-display-preference.is-active {
+  border-color: rgba(255, 176, 94, 0.72);
+  background: linear-gradient(145deg, rgba(255, 138, 31, 0.2), rgba(47, 163, 255, 0.1));
+}
+
+.tv-display-preference-title {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tv-display-preference-note {
+  color: var(--settings-panel-muted);
+  font-size: 0.82rem;
+  line-height: 1.32;
+}
+
 .settings-hero-stats {
   margin-top: 1.05rem;
   display: grid;
@@ -570,5 +604,4 @@
   border-color: var(--settings-input-focus);
   background: var(--settings-input-focus-bg);
 }
-
 

@@ -19,6 +19,8 @@ interface MediaExploreResultsProps {
   waitingForRateLimit: boolean;
   tagFilter: string;
   hasMore: boolean;
+  canLoadMore: boolean;
+  onLoadMore: () => void;
   onOpenDetails: (mediaId: string) => void;
 }
 
@@ -37,12 +39,14 @@ export function MediaExploreResults({
   waitingForRateLimit,
   tagFilter,
   hasMore,
+  canLoadMore,
+  onLoadMore,
   onOpenDetails,
 }: MediaExploreResultsProps) {
   return (
     <section className="library-section" data-tv-focus-zone="shelf">
-      <div className="section-header">
-        <h1 className="section-title">{sectionTitle}</h1>
+      <div className="section-header" data-tv-focus-lane-id="explore-results-heading">
+        <h1 className="section-title" tabIndex={-1} data-tv-focus-key="explore-results-title">{sectionTitle}</h1>
         <p className="section-subtitle">{sectionSubtitle}</p>
       </div>
 
@@ -106,6 +110,18 @@ export function MediaExploreResults({
                 </span>
               </div>
             </div>
+          ) : null}
+
+          {hasMore ? (
+            <button
+              type="button"
+              className="library-load-more-button"
+              data-tv-focus-key="explore-load-more"
+              disabled={!canLoadMore}
+              onClick={onLoadMore}
+            >
+              {waitingForRateLimit ? 'Rate limit cooldown...' : 'Load More'}
+            </button>
           ) : null}
 
           {!hasMore ? (

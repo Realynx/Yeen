@@ -7,6 +7,7 @@ import {
   type SubtitleFontPreset,
 } from '../../services/playerUtils';
 import { SettingsIcon } from '../PlayerIcons';
+import { usePlayerMenuInitialFocus } from './usePlayerMenuInitialFocus';
 
 interface PlayerSettingsMenuProps {
   open: boolean;
@@ -59,6 +60,8 @@ export function PlayerSettingsMenu({
   onPreferredAudioBitrateChange,
   onPreferredResolutionChange,
 }: PlayerSettingsMenuProps) {
+  const menuRef = usePlayerMenuInitialFocus(open);
+
   return (
     <div className="player-menu-anchor">
       <button
@@ -73,7 +76,7 @@ export function PlayerSettingsMenu({
       </button>
 
       {open ? (
-        <div className="player-menu player-menu-unified player-menu-settings" role="menu" aria-label="Playback settings">
+        <div ref={menuRef} className="player-menu player-menu-unified player-menu-settings" role="menu" aria-label="Playback settings">
           <p className="player-menu-heading">Speed</p>
           <div className="player-menu-chiprow">
             {SPEED_OPTIONS.map((speed) => (
@@ -81,6 +84,7 @@ export function PlayerSettingsMenu({
                 key={`speed-${speed}`}
                 type="button"
                 className={`player-menu-chip ${playbackRate === speed ? 'is-active' : ''}`}
+                data-tv-menu-initial-focus={playbackRate === speed ? 'true' : undefined}
                 onClick={() => onPlaybackRateChange(speed)}
               >
                 {speed}×

@@ -2,7 +2,11 @@ import {
   mediaBackdropImageUrl,
   mediaPreviewImageUrl,
 } from '../../shared/services/api';
-import type { MediaItem, ProgressEntry } from '../../shared/services/types';
+import type {
+  MediaItem,
+  MediaTorrentDownloadProgressEntry,
+  ProgressEntry,
+} from '../../shared/services/types';
 import { normalizeShowKey } from '../../media-details/services/mediaDetailsUtils';
 
 export type MediaTypeFilter = 'all' | 'movie' | 'show';
@@ -65,6 +69,16 @@ export function toProgressMap(entries: ProgressEntry[]): Map<string, ProgressEnt
   const map = new Map<string, ProgressEntry>();
   for (const entry of entries) {
     map.set(entry.mediaId, entry);
+  }
+  return map;
+}
+
+export function toDownloadProgressMap(
+  entries: MediaTorrentDownloadProgressEntry[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const entry of entries) {
+    map.set(entry.mediaId, Math.min(100, Math.max(0, entry.progressPercent)));
   }
   return map;
 }

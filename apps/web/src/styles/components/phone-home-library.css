@@ -269,6 +269,7 @@
 }
 
 .phone-home-scroll-item {
+  position: relative;
   flex: 0 0 clamp(7rem, 32vw, 8.9rem);
   min-width: 0;
   scroll-snap-align: start;
@@ -283,6 +284,12 @@
   overflow: hidden;
   isolation: isolate;
   transform: none;
+}
+
+.phone-home-scroll-item:hover .continue-watching-dismiss,
+.phone-home-scroll-item:focus-within .continue-watching-dismiss {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .phone-home-scroll-item .media-tile:hover,
@@ -610,4 +617,3 @@
 .phone-load-more-button {
   min-width: 11.2rem;
 }
-

@@ -46,6 +46,13 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
 }
 
+.player-tv-remote-hint {
+  margin: 0.2rem 0 0;
+  color: rgba(229, 239, 255, 0.72);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 .player-inline-badges {
   display: flex;
   flex-wrap: wrap;

@@ -8,12 +8,14 @@ interface HomeFeaturedHeroProps {
   activeFeaturedIndex: number;
   featuredDescription: string;
   featuredPercent: number | undefined;
+  featuredPlayLabel: string;
   onShowPrevious: () => void;
   onShowNext: () => void;
   onSelectFeatured: (index: number) => void;
   onPlay: (mediaId: string) => void;
   onOpenDetails: (mediaId: string) => void;
   onManageLibrary: () => void;
+  onHeroInteractionChange?: (active: boolean) => void;
 }
 
 export function HomeFeaturedHero({
@@ -23,12 +25,14 @@ export function HomeFeaturedHero({
   activeFeaturedIndex,
   featuredDescription,
   featuredPercent,
+  featuredPlayLabel,
   onShowPrevious,
   onShowNext,
   onSelectFeatured,
   onPlay,
   onOpenDetails,
   onManageLibrary,
+  onHeroInteractionChange,
 }: HomeFeaturedHeroProps) {
   return (
     <section
@@ -36,6 +40,14 @@ export function HomeFeaturedHero({
       id="home-featured"
       data-tv-focus-zone="hero"
       style={heroBackgroundImage ? { backgroundImage: `url(${heroBackgroundImage})` } : undefined}
+      onMouseEnter={() => onHeroInteractionChange?.(true)}
+      onMouseLeave={() => onHeroInteractionChange?.(false)}
+      onFocus={() => onHeroInteractionChange?.(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onHeroInteractionChange?.(false);
+        }
+      }}
     >
       <div className="hero-overlay" aria-hidden="true" />
 
@@ -87,9 +99,11 @@ export function HomeFeaturedHero({
           {featuredItem ? (
             <button
               className="accent-button"
+              data-tv-initial-focus="true"
+              data-tv-focus-key={`home-featured-play:${featuredItem.id}`}
               onClick={() => onPlay(featuredItem.id)}
             >
-              Play
+              {featuredPlayLabel}
             </button>
           ) : null}
 

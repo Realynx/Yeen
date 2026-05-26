@@ -10,6 +10,7 @@ interface HomeMediaShelfRowProps {
   items: MediaItem[];
   progressMap: ReadonlyMap<string, ProgressEntry>;
   onOpen: (mediaId: string) => void;
+  onViewAll?: () => void;
 }
 
 export function HomeMediaShelfRow({
@@ -19,10 +20,24 @@ export function HomeMediaShelfRow({
   items,
   progressMap,
   onOpen,
+  onViewAll,
 }: HomeMediaShelfRowProps) {
   return (
     <section className={className} id={id} data-tv-focus-zone="shelf">
-      <h2 className="section-title">{title}</h2>
+      <div className="home-shelf-heading">
+        <h2 className="section-title">{title}</h2>
+        {onViewAll ? (
+          <button
+            type="button"
+            className="home-shelf-view-all"
+            data-tv-focus-lane-id={`shelf-${id}-actions`}
+            data-tv-focus-priority="low"
+            onClick={onViewAll}
+          >
+            View All
+          </button>
+        ) : null}
+      </div>
       <MediaRow focusLaneId={`shelf-${id}`}>
         {items.map((item) => (
           <MediaTile

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 interface UserSettingsCategorySectionProps {
   id: string;
@@ -22,13 +22,29 @@ export function UserSettingsCategorySection({
   children,
 }: UserSettingsCategorySectionProps) {
   const contentId = `${id}-content`;
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  function handleToggle() {
+    const shouldFocusFirstField = !isOpen
+      && document.documentElement.getAttribute('data-yeen-experience') === 'tv';
+    onToggle();
+
+    if (shouldFocusFirstField) {
+      window.setTimeout(() => {
+        sectionRef.current?.querySelector<HTMLElement>('.settings-category-content')?.querySelector<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+        )?.focus({ preventScroll: true });
+      }, 0);
+    }
+  }
 
   return (
-    <section className={`settings-category${isOpen ? ' is-open' : ''}`}>
+    <section ref={sectionRef} className={`settings-category${isOpen ? ' is-open' : ''}`}>
       <button
         type="button"
         className="settings-category-toggle"
-        onClick={onToggle}
+        data-tv-focus-key={`settings-category:${id}`}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
       >
