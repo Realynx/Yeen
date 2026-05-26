@@ -1,5 +1,6 @@
 import type { PlaybackAudioTrack } from '../../../shared/services/types';
 import { CheckIcon, VolumeHighIcon } from '../PlayerIcons';
+import { usePlayerMenuInitialFocus } from './usePlayerMenuInitialFocus';
 
 interface PlayerAudioMenuProps {
   open: boolean;
@@ -18,6 +19,8 @@ export function PlayerAudioMenu({
   onSelectAudioTrack,
   onClose,
 }: PlayerAudioMenuProps) {
+  const menuRef = usePlayerMenuInitialFocus(open);
+
   return (
     <div className="player-menu-anchor">
       <button
@@ -32,7 +35,7 @@ export function PlayerAudioMenu({
       </button>
 
       {open ? (
-        <div className="player-menu player-menu-unified" role="menu" aria-label="Audio tracks">
+        <div ref={menuRef} className="player-menu player-menu-unified" role="menu" aria-label="Audio tracks">
           <p className="player-menu-heading">Audio</p>
 
           {audioTracks.length === 0 ? (
@@ -48,6 +51,7 @@ export function PlayerAudioMenu({
                 role="menuitemradio"
                 aria-checked={isSelected}
                 className={`player-menu-item ${isSelected ? 'is-active' : ''}`}
+                data-tv-menu-initial-focus={isSelected ? 'true' : undefined}
                 onClick={() => {
                   onSelectAudioTrack(track.streamIndex);
                   onClose();

@@ -1,6 +1,17 @@
 import type { FormEvent } from 'react';
 import { UserSettingsCategorySection } from './UserSettingsCategorySection';
 
+function normalizePairingCode(value: string): string {
+  return value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6);
+}
+
+function formatPairingCode(value: string): string {
+  const normalized = normalizePairingCode(value);
+  return normalized.length > 3
+    ? `${normalized.slice(0, 3)} ${normalized.slice(3)}`
+    : normalized;
+}
+
 interface UserTvPairingSectionProps {
   isOpen: boolean;
   pairingCode: string;
@@ -22,6 +33,9 @@ export function UserTvPairingSection({
   onPairingCodeChange,
   onSubmit,
 }: UserTvPairingSectionProps) {
+  const normalizedPairingCode = normalizePairingCode(pairingCode);
+  const pairingCodeComplete = normalizedPairingCode.length === 6;
+
   return (
     <UserSettingsCategorySection
       id="user-tv-login"
@@ -37,15 +51,18 @@ export function UserTvPairingSection({
           <span className="settings-field-label">TV Pairing Code</span>
           <input
             type="text"
-            value={pairingCode}
-            onChange={(event) => onPairingCodeChange(event.target.value)}
+            value={formatPairingCode(pairingCode)}
+            onChange={(event) => onPairingCodeChange(normalizePairingCode(event.target.value))}
             inputMode="text"
             autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
             maxLength={12}
             placeholder="Example: AB12CD"
+            aria-describedby="tv-pairing-code-hint"
           />
-          <small className="settings-field-hint">
-            Codes expire quickly. Open the Yeen TV app first, then enter the code here.
+          <small id="tv-pairing-code-hint" className="settings-field-hint">
+            Codes expire quickly. Letters are auto-capitalized and grouped as {formatPairingCode('AB12CD')}.
           </small>
         </label>
 
@@ -58,7 +75,8 @@ export function UserTvPairingSection({
             <button
               type="submit"
               className="accent-button !rounded-xl !px-4 !py-2 !text-sm !font-medium"
-              disabled={claimingCode}
+              data-tv-focus-key="settings-tv-pairing-submit"
+              disabled={claimingCode || !pairingCodeComplete}
             >
               {claimingCode ? 'Approving...' : 'Approve TV Code'}
             </button>

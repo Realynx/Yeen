@@ -19,6 +19,7 @@ import {
 } from './playerDataPreferences';
 import type { PlaybackSource, PlayerDataState, PlayerTranscodePreferences } from './playerData.types';
 import { extractSubtitleTrackAndReload } from './playerDataSubtitleExtraction';
+import { readPlaybackPreferences } from './playbackPreferences';
 
 export type { PlaybackSource, PlayerDataState, PlayerTranscodePreferences } from './playerData.types';
 
@@ -255,6 +256,13 @@ export function usePlayerData(
           progressEntries,
           seriesPreferenceKey,
         );
+        const playbackPreferences = readPlaybackPreferences();
+        const preferredSubtitleLanguage =
+          (seriesPlaybackPreference?.preferredSubtitleLanguage
+            ?? playbackPreferences.preferredSubtitleLanguage) || null;
+        const subtitlePreferenceEnabled =
+          seriesPlaybackPreference?.subtitlePreferenceEnabled
+          ?? playbackPreferences.subtitlesEnabled;
 
         const defaultAudioStreamIndex =
           pickDefaultAudioStreamIndex(playbackAudioTracks);
@@ -329,12 +337,7 @@ export function usePlayerData(
           setSelectedAudioStreamIndex(resolvedAudioStreamIndex);
         }
 
-        await fetchTracks({
-          preferredSubtitleLanguage:
-            seriesPlaybackPreference?.preferredSubtitleLanguage ?? null,
-          subtitlePreferenceEnabled:
-            seriesPlaybackPreference?.subtitlePreferenceEnabled ?? null,
-        });
+        await fetchTracks({ preferredSubtitleLanguage, subtitlePreferenceEnabled });
       } catch (loadError) {
         setStreamTorrentHash(null);
         setError(toApiErrorMessage(loadError, 'Unable to prepare playback.'));

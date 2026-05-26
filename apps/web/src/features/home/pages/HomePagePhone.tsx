@@ -4,13 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { MediaItem, User } from '../../shared/services/types';
 import {
 	artworkUrlForMedia as homeArtworkUrlForMedia,
-	consolidateShowSearchResults,
-	seededHash,
-	toFeaturedDedupKey,
-	toProgressMap,
 	toProgressPercent,
-	toRandomizedItems,
-	toRepresentativeTimestamp,
 	toSeasonEpisodeLabel,
 } from '../services/homePageUtils';
 import { pickRandomItem, toLibrarySearchPath, toRandomDetailsCandidates } from '../../library/services/librarySearchUtils';
@@ -18,11 +12,9 @@ import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 import { HomePhoneFeaturedHero } from '../components/HomePhoneFeaturedHero';
 import { HomePhoneScrollShelf } from '../components/HomePhoneScrollShelf';
-import {
-	buildPhoneTaggedRows,
-} from '../services/homePhonePageUtils';
 import { usePhoneInstallPrompt } from '../services/usePhoneInstallPrompt';
 import { useHomeFeed } from '../services/useHomeFeed';
+import { useHomeCuration } from '../services/useHomeCuration';
 
 interface HomePagePhoneProps {
 	token: string;
@@ -77,70 +69,22 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 		navigate(toLibrarySearchPath(query));
 	}
 
-	const progressMap = useMemo(() => toProgressMap(progressItems), [progressItems]);
-
-	const catalogItems = useMemo(() => {
-		return consolidateShowSearchResults(mediaItems).filter((item) => item.digitalMediaType === 'video');
-	}, [mediaItems]);
-
-	const continueWatching = useMemo(() => {
-		return catalogItems
-			.map((item) => {
-				const progress = progressMap.get(item.id);
-				const percent = toProgressPercent(progress);
-				if (!progress || progress.completed || typeof percent !== 'number') {
-					return null;
-				}
-
-				const updatedAtMs = Date.parse(progress.updatedAt);
-				return {
-					item,
-					percent,
-					lastWatchedAt: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
-				};
-			})
-			.filter(
-				(
-					entry,
-				): entry is { item: MediaItem; percent: number; lastWatchedAt: number } => entry !== null,
-			)
-			.sort((left, right) => {
-				if (right.lastWatchedAt !== left.lastWatchedAt) {
-					return right.lastWatchedAt - left.lastWatchedAt;
-				}
-
-				return left.item.title.localeCompare(right.item.title, undefined, {
-					sensitivity: 'base',
-				});
-			})
-			.slice(0, 8);
-	}, [catalogItems, progressMap]);
-
-	const featuredItems = useMemo(() => {
-		const featured: MediaItem[] = [];
-		const seenFeaturedKeys = new Set<string>();
-
-		const randomizedCatalog = toRandomizedItems(
-			catalogItems,
-			randomSeed ^ 0x51ed270b,
-		);
-
-		for (const item of randomizedCatalog) {
-			const dedupeKey = toFeaturedDedupKey(item);
-			if (seenFeaturedKeys.has(dedupeKey)) {
-				continue;
-			}
-
-			seenFeaturedKeys.add(dedupeKey);
-			featured.push(item);
-
-			if (featured.length >= 5) {
-				break;
-			}
-		}
-
-		return featured;
-	}, [catalogItems, randomSeed]);
+	const { feed, dismissContinueWatching } = useHomeCuration({
+		userId: user.id,
+		mediaItems,
+		progressItems,
+		randomSeed,
+		experience: 'phone',
+	});
+	const {
+		progressMap,
+		continueWatching,
+		featuredItems,
+		recentItems,
+		discoverItems,
+		becauseYouWatchedItems,
+		taggedRows,
+	} = feed;
 
 	const featuredPanels = useMemo(() => {
 		const panels: FeaturedPanel[] = showInstallPanel
@@ -241,29 +185,6 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 		return `Ready to stream from ${featuredItem.relativePath}`;
 	}, [featuredItem]);
 
-	const recentItems = useMemo(() => {
-		return [...catalogItems]
-			.sort((left, right) => {
-				const timestampDelta = toRepresentativeTimestamp(right) - toRepresentativeTimestamp(left);
-				if (timestampDelta !== 0) {
-					return timestampDelta;
-				}
-
-				return left.title.localeCompare(right.title, undefined, {
-					sensitivity: 'base',
-				});
-			})
-			.slice(0, 12);
-	}, [catalogItems]);
-
-	const discoverItems = useMemo(() => {
-		return toRandomizedItems(catalogItems, seededHash(`${randomSeed}:discover`)).slice(0, 12);
-	}, [catalogItems, randomSeed]);
-
-	const taggedRows = useMemo(() => {
-		return buildPhoneTaggedRows(mediaItems, randomSeed);
-	}, [mediaItems, randomSeed]);
-
 	const randomDetailsCandidates = useMemo(
 		() => toRandomDetailsCandidates(mediaItems),
 		[mediaItems],
@@ -341,6 +262,11 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 						progressMap={progressMap}
 						onOpen={openPlayer}
 						topRightLabelForItem={toSeasonEpisodeLabel}
+						actionForItem={(item) => ({
+							label: 'Remove',
+							ariaLabel: `Remove ${item.title} from Continue Watching`,
+							onClick: () => dismissContinueWatching(item.id),
+						})}
 					/>
 				) : null}
 
@@ -360,9 +286,19 @@ export function HomePagePhone({ token, user, onLogout }: HomePagePhoneProps) {
 					onOpen={openDetails}
 				/>
 
+				{becauseYouWatchedItems.length > 0 ? (
+					<HomePhoneScrollShelf
+						title="Because You Watched"
+						ariaLabel="Recommended from your watch history"
+						items={becauseYouWatchedItems}
+						progressMap={progressMap}
+						onOpen={openDetails}
+					/>
+				) : null}
+
 				{taggedRows.map((row) => (
 					<HomePhoneScrollShelf
-						key={row.key}
+						key={row.id}
 						title={row.label}
 						ariaLabel={`${row.label} titles`}
 						items={row.items}

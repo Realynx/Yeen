@@ -30,6 +30,7 @@ interface UsePlayerPlaybackRuntimeOptions {
   seekValue: number;
   isPlaying: boolean;
   isSeeking: boolean;
+  isControlsVisible: boolean;
   muted: boolean;
   volume: number;
   playbackRate: number;
@@ -126,6 +127,7 @@ export function usePlayerPlaybackRuntime({
   seekValue,
   isPlaying,
   isSeeking,
+  isControlsVisible,
   muted,
   volume,
   playbackRate,
@@ -175,8 +177,7 @@ export function usePlayerPlaybackRuntime({
     setPlayerError,
   });
 
-  const { clearControlsTimer, scheduleControlsAutoHide, revealControls } =
-    usePlayerControlsTimer({ isPlaying, isSeeking, isTvMode, setIsControlsVisible });
+  const { clearControlsTimer, scheduleControlsAutoHide, revealControls } = usePlayerControlsTimer({ isPlaying, isSeeking, isTvMode, setIsControlsVisible });
 
   const syncProgress = useCallback(
     async (completed = false, keepalive = false) => {
@@ -254,8 +255,8 @@ export function usePlayerPlaybackRuntime({
     setIsPictureInPicture,
   });
   usePlayerKeyboardShortcuts({
-    enabled: !hideTopNav,
-    isTvMode,
+    enabled: !hideTopNav, isTvMode,
+    controlsVisible: isControlsVisible,
     applyVolume,
     revealControls,
     skipBy,

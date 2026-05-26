@@ -151,6 +151,8 @@ export function MediaDetailsHero({
                 <button
                   type="button"
                   className="accent-button play-cta"
+                  data-tv-initial-focus="true"
+                  data-tv-focus-key={`details-primary-play:${playTargetId}`}
                   onClick={() => onPlay(playHref)}
                 >
                   <span className="play-cta-icon" aria-hidden="true">▶</span>
@@ -160,6 +162,7 @@ export function MediaDetailsHero({
                   <button
                     type="button"
                     className="ghost-button"
+                    data-tv-focus-key={`details-play-from-start:${playTargetId}`}
                     onClick={() => onPlayFromStart(playTargetId)}
                   >
                     Play From Start

@@ -5,6 +5,8 @@ import { UserAvatarSection } from './UserAvatarSection';
 import { UserInvitesSection } from './UserInvitesSection';
 import { UserProfileDetailsSection } from './UserProfileDetailsSection';
 import { UserSecuritySection } from './UserSecuritySection';
+import { UserPlaybackPreferencesSection } from './UserPlaybackPreferencesSection';
+import { UserTvDisplayPreferencesSection } from './UserTvDisplayPreferencesSection';
 import { UserTvPairingSection } from './UserTvPairingSection';
 
 interface UserSettingsSectionsProps {
@@ -181,6 +183,9 @@ export function UserSettingsSections({
         onPairingCodeChange={onPairingCodeChange}
         onSubmit={onApproveTvCode}
       />
+
+      <UserTvDisplayPreferencesSection />
+      <UserPlaybackPreferencesSection />
     </div>
   );
 }

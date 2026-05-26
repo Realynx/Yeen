@@ -13,9 +13,141 @@ import {
   shouldCenterFocusedMediaTile,
 } from './tvDirectionalFocus.navigation.helpers';
 
+type TvFocusDirection = NonNullable<ReturnType<typeof directionForKey>>;
+
+interface TvFocusMemoryEntry {
+  focusKey: string | null;
+  laneId: string | null;
+  laneIndex: number | null;
+}
+
+const routeFocusMemory = new Map<string, TvFocusMemoryEntry>();
+const laneFocusMemory = new Map<string, TvFocusMemoryEntry>();
+const PLAYER_DISMISS_CONTROLS_EVENT = 'yeen:tv-player-dismiss-controls';
+
 interface TvPageShellProps {
   pageKey: string;
   autoFocusFirst?: boolean;
+}
+
+function routeMemoryKey(pageKey: string): string {
+  return `${pageKey}:${window.location.pathname}${window.location.search}`;
+}
+
+function focusKeyFor(element: HTMLElement): string | null {
+  return element.closest<HTMLElement>('[data-tv-focus-key]')?.dataset.tvFocusKey ?? null;
+}
+
+function focusLaneIdFor(element: HTMLElement): string | null {
+  return element.closest<HTMLElement>('[data-tv-focus-lane-id]')?.dataset.tvFocusLaneId ?? null;
+}
+
+function laneFocusablesWithin(root: HTMLElement, laneId: string | null): HTMLElement[] {
+  const focusables = focusableElementsWithin(root);
+  if (!laneId) {
+    return focusables;
+  }
+
+  return focusables.filter((element) => focusLaneIdFor(element) === laneId);
+}
+
+function memoryEntryFor(root: HTMLElement, element: HTMLElement): TvFocusMemoryEntry {
+  const laneId = focusLaneIdFor(element);
+  const laneFocusables = laneFocusablesWithin(root, laneId);
+  const laneIndex = laneFocusables.indexOf(element);
+
+  return {
+    focusKey: focusKeyFor(element),
+    laneId,
+    laneIndex: laneIndex >= 0 ? laneIndex : null,
+  };
+}
+
+function focusTargetFromMemory(
+  root: HTMLElement,
+  memory: TvFocusMemoryEntry | undefined,
+): HTMLElement | null {
+  if (!memory) {
+    return null;
+  }
+
+  const focusables = focusableElementsWithin(root);
+  if (memory.focusKey) {
+    const keyedElement = focusables.find(
+      (element) => focusKeyFor(element) === memory.focusKey,
+    );
+    if (keyedElement) {
+      return keyedElement;
+    }
+  }
+
+  if (memory.laneId && memory.laneIndex !== null) {
+    const laneFocusables = focusables.filter(
+      (element) => focusLaneIdFor(element) === memory.laneId,
+    );
+    if (laneFocusables.length > 0) {
+      return laneFocusables[Math.min(memory.laneIndex, laneFocusables.length - 1)] ?? null;
+    }
+  }
+
+  return null;
+}
+
+function initialFocusTarget(root: HTMLElement): HTMLElement | null {
+  const focusables = focusableElementsWithin(root);
+  const markedTargets = [
+    ...root.querySelectorAll<HTMLElement>('[data-tv-initial-focus]'),
+  ];
+
+  for (const target of markedTargets) {
+    if (focusables.includes(target)) {
+      return target;
+    }
+
+    const nestedFocusable = focusables.find((element) => target.contains(element));
+    if (nestedFocusable) {
+      return nestedFocusable;
+    }
+  }
+
+  return focusables[0] ?? null;
+}
+
+function focusElement(element: HTMLElement): void {
+  element.focus({ preventScroll: true });
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function rememberedLaneTarget(
+  root: HTMLElement,
+  current: HTMLElement,
+  next: HTMLElement,
+  direction: TvFocusDirection,
+): HTMLElement | null {
+  if (direction !== 'up' && direction !== 'down') {
+    return null;
+  }
+
+  const routeKey = routeMemoryKey(root.dataset.tvPageKey ?? '');
+  const currentLaneId = focusLaneIdFor(current);
+  const nextLaneId = focusLaneIdFor(next);
+  if (!nextLaneId || nextLaneId === currentLaneId) {
+    return null;
+  }
+
+  const remembered = focusTargetFromMemory(
+    root,
+    laneFocusMemory.get(`${routeKey}:${nextLaneId}`),
+  );
+  if (!remembered || remembered === current || focusLaneIdFor(remembered) !== nextLaneId) {
+    return null;
+  }
+
+  return remembered;
+}
+
+function playerControlsAreVisible(root: HTMLElement): boolean {
+  return Boolean(root.querySelector('.video-shell.controls-visible'));
 }
 
 export function TvPageShell({
@@ -33,13 +165,17 @@ export function TvPageShell({
 
     if (autoFocusFirst) {
       const frameId = window.requestAnimationFrame(() => {
-        const firstFocusable = focusableElementsWithin(shellElement)[0];
-        if (!firstFocusable) {
+        const routeKey = routeMemoryKey(pageKey);
+        const rememberedFocus = focusTargetFromMemory(
+          shellElement,
+          routeFocusMemory.get(routeKey),
+        );
+        const nextFocus = rememberedFocus ?? initialFocusTarget(shellElement);
+        if (!nextFocus) {
           return;
         }
 
-        firstFocusable.focus({ preventScroll: true });
-        firstFocusable.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        focusElement(nextFocus);
       });
 
       return () => {
@@ -49,6 +185,34 @@ export function TvPageShell({
 
     return;
   }, [autoFocusFirst, pageKey]);
+
+  useEffect(() => {
+    const shellElement = shellRef.current;
+    if (!shellElement) {
+      return;
+    }
+    const currentShellElement = shellElement;
+
+    function handleFocusIn(event: FocusEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !currentShellElement.contains(target)) {
+        return;
+      }
+
+      const routeKey = routeMemoryKey(pageKey);
+      const memory = memoryEntryFor(currentShellElement, target);
+      routeFocusMemory.set(routeKey, memory);
+
+      if (memory.laneId) {
+        laneFocusMemory.set(`${routeKey}:${memory.laneId}`, memory);
+      }
+    }
+
+    currentShellElement.addEventListener('focusin', handleFocusIn);
+    return () => {
+      currentShellElement.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [pageKey]);
 
   useEffect(() => {
     if (!shellRef.current) {
@@ -72,6 +236,12 @@ export function TvPageShell({
           && isEditableElement(activeElement)
           && !isSelectElement(activeElement)
         ) {
+          return;
+        }
+
+        if (pageKey === 'player' && playerControlsAreVisible(shellElement)) {
+          event.preventDefault();
+          window.dispatchEvent(new CustomEvent(PLAYER_DISMISS_CONTROLS_EVENT));
           return;
         }
 
@@ -116,6 +286,11 @@ export function TvPageShell({
         nextElement = nextElementByDomOrder(activeElement, focusables, direction);
       }
 
+      if (nextElement) {
+        nextElement = rememberedLaneTarget(shellElement, activeElement, nextElement, direction)
+          ?? nextElement;
+      }
+
       if (!nextElement) {
         if (activeIsSelect) {
           event.preventDefault();
@@ -145,7 +320,11 @@ export function TvPageShell({
   }, [pageKey]);
 
   return (
-    <div ref={shellRef} className={`tv-page-shell tv-page-shell-${pageKey}`}>
+    <div
+      ref={shellRef}
+      className={`tv-page-shell tv-page-shell-${pageKey}`}
+      data-tv-page-key={pageKey}
+    >
       {children}
     </div>
   );

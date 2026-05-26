@@ -95,6 +95,7 @@ export function usePlayerVideoPanelMenus({
 
   function closeMenu() {
     setOpenMenu(null);
+    setContextMenu(null);
   }
 
   function handleContextMenu(event: ReactMouseEvent<HTMLDivElement>) {

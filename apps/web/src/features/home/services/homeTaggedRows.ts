@@ -16,6 +16,11 @@ import {
 export function buildHomeTaggedMovieRows(
   mediaItems: MediaItem[],
   randomRowSeed: number,
+  options?: {
+    rowLimit?: number;
+    itemLimit?: number;
+    minItems?: number;
+  },
 ): TaggedMovieRow[] {
   const rows = new Map<
     string,
@@ -71,6 +76,8 @@ export function buildHomeTaggedMovieRows(
 
   const usedTagRowMediaKeys = new Set<string>();
   const builtRows: TaggedMovieRow[] = [];
+  const itemLimit = options?.itemLimit ?? MAX_TAG_ROW_ITEMS;
+  const minItems = options?.minItems ?? MIN_TAG_ROW_ITEMS;
 
   for (const row of orderedRows) {
     const randomizedItems = toRandomizedItems(
@@ -88,12 +95,12 @@ export function buildHomeTaggedMovieRows(
       usedTagRowMediaKeys.add(mediaKey);
       rowItems.push(item);
 
-      if (rowItems.length >= MAX_TAG_ROW_ITEMS) {
+      if (rowItems.length >= itemLimit) {
         break;
       }
     }
 
-    if (rowItems.length < MIN_TAG_ROW_ITEMS) {
+    if (rowItems.length < minItems) {
       continue;
     }
 
@@ -102,6 +109,10 @@ export function buildHomeTaggedMovieRows(
       label: row.label,
       items: rowItems,
     });
+
+    if (options?.rowLimit && builtRows.length >= options.rowLimit) {
+      break;
+    }
   }
 
   return builtRows;

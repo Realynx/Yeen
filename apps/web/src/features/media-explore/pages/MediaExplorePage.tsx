@@ -153,7 +153,12 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     if (viewport) {
       viewport.scrollTo({ top: 0, behavior: 'auto' });
     }
-  }, [clearQueuedLoad, resetBaseExploreForTag]);
+    if (experience === 'tv') {
+      window.requestAnimationFrame(() => {
+        resultsViewportRef.current?.querySelector<HTMLElement>('.media-tile, [data-tv-focus-key="explore-results-title"]')?.focus({ preventScroll: true });
+      });
+    }
+  }, [clearQueuedLoad, experience, resetBaseExploreForTag]);
 
   useEffect(() => {
     loadingRef.current = loading;
@@ -267,6 +272,12 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
   ]);
 
   const showLoadingMoreIndicator = loadingMore || waitingForRateLimit;
+  const canLoadMore = hasMore && !loading && !loadingMore && !waitingForRateLimit && tagFilter.trim().length >= 2;
+  const handleLoadMore = useCallback(() => {
+    if (!canLoadMore) return;
+    nextLoadMoreAllowedAtRef.current = Date.now() + (catalogMode === 'anime' ? 2600 : 850);
+    setPage((previous) => previous + 1);
+  }, [canLoadMore, catalogMode, setPage]);
 
   const {
     handleModeChange,
@@ -344,6 +355,8 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
         waitingForRateLimit={waitingForRateLimit}
         tagFilter={tagFilter}
         hasMore={hasMore}
+        canLoadMore={canLoadMore}
+        onLoadMore={handleLoadMore}
         onOpenDetails={openDetails}
       />
     </main>

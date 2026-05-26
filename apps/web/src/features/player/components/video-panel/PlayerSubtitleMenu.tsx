@@ -1,5 +1,6 @@
 import type { SubtitleTrack } from '../../../shared/services/types';
 import { CaptionsIcon, CheckIcon } from '../PlayerIcons';
+import { usePlayerMenuInitialFocus } from './usePlayerMenuInitialFocus';
 
 interface PlayerSubtitleMenuProps {
   open: boolean;
@@ -26,6 +27,8 @@ export function PlayerSubtitleMenu({
   onSelectSubtitle,
   onExtractSubtitle,
 }: PlayerSubtitleMenuProps) {
+  const menuRef = usePlayerMenuInitialFocus(open);
+
   return (
     <div className="player-menu-anchor">
       <button
@@ -40,7 +43,7 @@ export function PlayerSubtitleMenu({
       </button>
 
       {open ? (
-        <div className="player-menu player-menu-unified" role="menu" aria-label="Subtitles">
+        <div ref={menuRef} className="player-menu player-menu-unified" role="menu" aria-label="Subtitles">
           <p className="player-menu-heading">Subtitles</p>
 
           <button
@@ -48,6 +51,7 @@ export function PlayerSubtitleMenu({
             role="menuitemradio"
             aria-checked={selectedSubtitleId === ''}
             className={`player-menu-item ${selectedSubtitleId === '' ? 'is-active' : ''}`}
+            data-tv-menu-initial-focus={selectedSubtitleId === '' ? 'true' : undefined}
             onClick={() => {
               onSelectSubtitle('');
               onClose();
@@ -75,6 +79,7 @@ export function PlayerSubtitleMenu({
                   role="menuitemradio"
                   aria-checked={isSelected}
                   className={`player-menu-item ${isSelected ? 'is-active' : ''}`}
+                  data-tv-menu-initial-focus={isSelected ? 'true' : undefined}
                   onClick={() => {
                     if (!ready || isExtracting) {
                       return;

@@ -3,6 +3,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   RefObject,
 } from 'react';
+import { useEffect, useRef } from 'react';
 import type {
   MediaItem,
   PlaybackAudioTrack,
@@ -167,11 +168,33 @@ export function PlayerControlsPanel({
   isFullscreen,
   onToggleFullscreen,
 }: PlayerControlsPanelProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (showControls) {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && panelRef.current?.contains(activeElement)) {
+      activeElement.blur();
+    }
+  }, [showControls]);
+
   return (
-    <div className={`player-controls-panel ${showControls ? 'is-visible' : 'is-hidden'} ${isTvMode ? 'is-tv-mode' : ''}`}>
+    <div
+      ref={panelRef}
+      className={`player-controls-panel ${showControls ? 'is-visible' : 'is-hidden'} ${isTvMode ? 'is-tv-mode' : ''}`}
+      aria-hidden={!showControls}
+      inert={showControls ? undefined : true}
+      data-player-controls-panel="true"
+    >
       <div className="player-controls-top">
         <div className="player-title-block">
           <h2>{media?.title ?? 'Preparing stream…'}</h2>
+          {isTvMode ? (
+            <p className="player-tv-remote-hint">OK play/pause · ←/→ seek · ↑/↓ controls · Back dismisses</p>
+          ) : null}
         </div>
         <div className="player-inline-badges" aria-label="Playback metadata">
           <span>{qualityStatus}</span>

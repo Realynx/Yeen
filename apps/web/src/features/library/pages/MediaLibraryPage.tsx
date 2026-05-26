@@ -9,9 +9,7 @@ import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm
 import { LibraryManageBar } from '../components/LibraryManageBar';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import { StorageUsageMeter } from '../components/StorageUsageMeter';
-import {
-  type BulkDeleteMediaResult,
-} from '../../shared/services/api';
+import { type BulkDeleteMediaResult } from '../../shared/services/api';
 import type { MediaItem, User } from '../../shared/services/types';
 import {
   LIBRARY_SEARCH_QUERY_PARAM,
@@ -21,6 +19,7 @@ import {
   toRandomDetailsCandidates,
 } from '../services/librarySearchUtils';
 import {
+  toDownloadProgressMap,
   toLibraryItemGroups,
   toProgressMap,
 } from '../services/mediaLibraryUtils';
@@ -69,26 +68,20 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     [libraryItemGroups],
   );
 
+  const libraryFilters = useMediaLibraryFilters({
+    routeSearchTerm,
+    activeSearch: activeSearchTerm,
+    libraryItems,
+    progressItems,
+  });
   const {
     query,
     setQuery,
-    typeFilter,
-    setTypeFilter,
-    tagFilter,
-    setTagFilter,
-    sortOrder,
-    setSortOrder,
-    typeCounts,
-    availableTags,
     filteredItems,
     activeSearchLabel,
     hasSearchOrTagFilter,
     resetFilters,
-  } = useMediaLibraryFilters({
-    routeSearchTerm,
-    activeSearch: activeSearchTerm,
-    libraryItems,
-  });
+  } = libraryFilters;
 
   const {
     summary: storageSummary,
@@ -155,15 +148,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     };
   }, [navigate, query, routeSearchTerm]);
 
-  function handleClearSearch() {
-    setQuery('');
-    setTagFilter('');
-    navigate('/library');
-  }
-
-  function handleResetFilters() {
-    resetFilters();
-  }
+  function handleClearSearch() { setQuery(''); resetFilters(); navigate('/library'); }
 
   const toggleManageMode = useCallback(() => {
     setManageMode((value) => {
@@ -210,16 +195,10 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   }, [filteredItems, visibleIdsRef]);
 
   const progressMap = useMemo(() => toProgressMap(progressItems), [progressItems]);
-  const downloadProgressMap = useMemo(() => {
-    const map = new Map<string, number>();
-
-    for (const entry of downloadProgressItems) {
-      const normalizedPercent = Math.min(100, Math.max(0, entry.progressPercent));
-      map.set(entry.mediaId, normalizedPercent);
-    }
-
-    return map;
-  }, [downloadProgressItems]);
+  const downloadProgressMap = useMemo(
+    () => toDownloadProgressMap(downloadProgressItems),
+    [downloadProgressItems],
+  );
 
   const visibleManageActionError = hasSeriesAssignmentConflict
     ? manageActionError
@@ -298,18 +277,9 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
       />
 
       <MediaLibraryToolbar
-        filteredCount={filteredItems.length}
-        typeFilter={typeFilter}
-        typeCounts={typeCounts}
-        tagFilter={tagFilter}
-        availableTags={availableTags}
-        sortOrder={sortOrder}
-        hasSearchOrTagFilter={hasSearchOrTagFilter}
+        filters={libraryFilters}
         isAdmin={isAdmin}
         manageMode={manageMode}
-        onTypeFilterChange={setTypeFilter}
-        onTagFilterChange={setTagFilter}
-        onSortOrderChange={setSortOrder}
         onClearSearch={handleClearSearch}
         onToggleManageMode={toggleManageMode}
       />
@@ -347,7 +317,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
         hasSearchOrTagFilter={hasSearchOrTagFilter}
         onOpenDetails={openDetails}
         onToggleSelection={toggleSelection}
-        onResetFilters={handleResetFilters}
+        onResetFilters={handleClearSearch}
         onClearFilters={handleClearSearch}
       />
 

@@ -152,6 +152,14 @@ _Avoid_: Playback State
 An **Account**'s saved audio and subtitle language choices for **Playback**.
 _Avoid_: Watch Progress
 
+**Home Feed**:
+The ordered rows shown on Home for a **Client Experience**.
+_Avoid_: Dashboard Rows, Home Page State
+
+**Home Curation**:
+The policy that builds a **Home Feed** from the **Media Library**, **Watch Progress**, and Account-specific Home choices.
+_Avoid_: Home Page Logic, Dashboard Logic
+
 **Client Experience**:
 A device-oriented UX variant for using **Core Yeen**.
 _Avoid_: Responsive Breakpoint
@@ -215,6 +223,8 @@ _Avoid_: TV Breakpoint
 - A **Subtitle Lookup Provider** can find external **Subtitle Tracks**.
 - An **Account** can have **Watch Progress** for a **Media Item**.
 - An **Account** can have **Playback Preferences** for **Playback**.
+- **Home Curation** produces a **Home Feed** for a **Client Experience**.
+- A **Home Feed** can include **Media Items** selected from **Watch Progress** and the **Media Library**.
 - **Core Yeen** supports **Desktop Experience**, **Phone Experience**, and **TV Experience**.
 - Each **Client Experience** can present the same **Core Yeen** features with different navigation and controls.
 
@@ -306,5 +316,9 @@ _Avoid_: TV Breakpoint
 - Resolved: use **Subtitle Track** with **Embedded Subtitle Track**, **External Subtitle Track**, and **Subtitle Extraction**.
 - Resolved: **Subtitle Lookup Providers** are optional **Core Yeen** integrations.
 - Resolved: separate **Watch Progress** from **Playback Preferences**.
+- Resolved: **Home Curation** owns the policy for building the **Home Feed** per **Client Experience**.
+- Resolved: **Home Curation** owns Account-specific Home choices such as hiding **Media Items** from the **Home Feed** behind adapters.
+- Resolved: **Home Feed** is media-derived; non-media install prompts and TV hints belong to **Client Experience** chrome.
+- Resolved: **Home Feed** rows use stable semantic identity so **TV Experience** focus and tests do not depend on page order.
 - Resolved: do not define **Playback Session** until Yeen tracks active per-device viewing sessions as first-class domain records.
 - Resolved: **Desktop Experience**, **Phone Experience**, and **TV Experience** are first-class **Client Experiences**, not just responsive breakpoints.

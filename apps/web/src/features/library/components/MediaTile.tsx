@@ -126,6 +126,7 @@ export function MediaTile({
     <button
       type="button"
       className={tileClassName}
+      data-tv-focus-key={`media:${media.id}`}
       onMouseDown={(event) => {
         // Prevent native text selection when shift-clicking tiles.
         if (selectable && event.shiftKey) {

@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MediaTile } from '../components/MediaTile';
+import { MediaLibraryFilterControls } from '../components/MediaLibraryFilterControls';
 import type { User } from '../../shared/services/types';
 import {
 	LIBRARY_SEARCH_QUERY_PARAM,
@@ -12,6 +13,7 @@ import {
 } from '../services/librarySearchUtils';
 import {
 	artworkUrlForMedia,
+	toDownloadProgressMap,
 	toLibraryItems,
 	toProgressMap,
 	toProgressPercent,
@@ -19,7 +21,6 @@ import {
 import { useMediaLibrary } from '../services/useMediaLibrary';
 import { useMediaLibraryFilters } from '../services/useMediaLibraryFilters';
 import { useRemoteLibrarySearch } from '../services/useRemoteLibrarySearch';
-import { SORT_OPTIONS, type MediaSortOrder } from '../services/mediaLibraryUtils';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 
@@ -57,6 +58,24 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 		setTypeFilter,
 		tagFilter,
 		setTagFilter,
+		watchStatusFilter,
+		setWatchStatusFilter,
+		subtitleAvailabilityFilter,
+		setSubtitleAvailabilityFilter,
+		qualityFilter,
+		setQualityFilter,
+		runtimeFilter,
+		setRuntimeFilter,
+		releaseYearFilter,
+		setReleaseYearFilter,
+		artworkFilter,
+		setArtworkFilter,
+		chapterFilter,
+		setChapterFilter,
+		formatFilter,
+		setFormatFilter,
+		videoCodecFilter,
+		setVideoCodecFilter,
 		sortOrder,
 		setSortOrder,
 		typeCounts,
@@ -69,6 +88,7 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 		routeSearchTerm,
 		activeSearch: activeSearch ?? null,
 		libraryItems,
+		progressItems,
 	});
 
 	const {
@@ -106,28 +126,23 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 
 	function handleClearSearch() {
 		setQuery('');
-		setTagFilter('');
+		resetFilters();
 		navigate('/library');
 	}
 
 	function handleResetFilters() {
 		resetFilters();
+		navigate('/library');
 	}
 
 	const useCompactResultsGrid = filteredItems.length > 0 && filteredItems.length < 6;
 	const useCompactRemoteGrid = remoteItems.length > 0 && remoteItems.length < 6;
 
 	const progressMap = useMemo(() => toProgressMap(progressItems), [progressItems]);
-	const downloadProgressMap = useMemo(() => {
-		const map = new Map<string, number>();
-
-		for (const entry of downloadProgressItems) {
-			const normalizedPercent = Math.min(100, Math.max(0, entry.progressPercent));
-			map.set(entry.mediaId, normalizedPercent);
-		}
-
-		return map;
-	}, [downloadProgressItems]);
+	const downloadProgressMap = useMemo(
+		() => toDownloadProgressMap(downloadProgressItems),
+		[downloadProgressItems],
+	);
 
 	return (
 		<PhonePageShell pageKey="library">
@@ -143,70 +158,35 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 				/>
 
 				<section className="library-toolbar phone-library-toolbar" aria-label="Library filters">
-					<div className="library-filters">
-						<div className="library-filter-group">
-							<p className="library-filter-label">Media Type</p>
-							<div className="library-chip-row" role="group" aria-label="Filter by media type">
-								<button
-									type="button"
-									className={typeFilter === 'all' ? 'library-chip is-active' : 'library-chip'}
-									onClick={() => setTypeFilter('all')}
-								>
-									All
-									<span className="library-chip-count">{typeCounts.all}</span>
-								</button>
-								<button
-									type="button"
-									className={typeFilter === 'movie' ? 'library-chip is-active' : 'library-chip'}
-									onClick={() => setTypeFilter('movie')}
-								>
-									Movies
-									<span className="library-chip-count">{typeCounts.movie}</span>
-								</button>
-								<button
-									type="button"
-									className={typeFilter === 'show' ? 'library-chip is-active' : 'library-chip'}
-									onClick={() => setTypeFilter('show')}
-								>
-									Shows
-									<span className="library-chip-count">{typeCounts.show}</span>
-								</button>
-							</div>
-						</div>
-
-						<label className="library-filter-group" htmlFor="library-phone-tag-select">
-							<span className="library-filter-label">Tag</span>
-							<select
-								id="library-phone-tag-select"
-								className="library-select"
-								value={tagFilter}
-								onChange={(event) => setTagFilter(event.target.value)}
-							>
-								<option value="">All Tags</option>
-								{availableTags.map((tag) => (
-									<option key={tag.label.toLowerCase()} value={tag.label}>
-										{`${tag.label} (${tag.count})`}
-									</option>
-								))}
-							</select>
-						</label>
-
-						<label className="library-filter-group" htmlFor="library-phone-order-select">
-							<span className="library-filter-label">Order</span>
-							<select
-								id="library-phone-order-select"
-								className="library-select"
-								value={sortOrder}
-								onChange={(event) => setSortOrder(event.target.value as MediaSortOrder)}
-							>
-								{SORT_OPTIONS.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</label>
-					</div>
+					<MediaLibraryFilterControls
+						idPrefix="library-phone"
+						typeFilter={typeFilter}
+						typeCounts={typeCounts}
+						tagFilter={tagFilter}
+						availableTags={availableTags}
+						watchStatusFilter={watchStatusFilter}
+						subtitleAvailabilityFilter={subtitleAvailabilityFilter}
+						qualityFilter={qualityFilter}
+						runtimeFilter={runtimeFilter}
+						releaseYearFilter={releaseYearFilter}
+						artworkFilter={artworkFilter}
+						chapterFilter={chapterFilter}
+						formatFilter={formatFilter}
+						videoCodecFilter={videoCodecFilter}
+						sortOrder={sortOrder}
+						setTypeFilter={setTypeFilter}
+						setTagFilter={setTagFilter}
+						setWatchStatusFilter={setWatchStatusFilter}
+						setSubtitleAvailabilityFilter={setSubtitleAvailabilityFilter}
+						setQualityFilter={setQualityFilter}
+						setRuntimeFilter={setRuntimeFilter}
+						setReleaseYearFilter={setReleaseYearFilter}
+						setArtworkFilter={setArtworkFilter}
+						setChapterFilter={setChapterFilter}
+						setFormatFilter={setFormatFilter}
+						setVideoCodecFilter={setVideoCodecFilter}
+						setSortOrder={setSortOrder}
+					/>
 
 					<div className="library-stat-block phone-library-stat-block" aria-live="polite">
 						<div className="phone-library-stat-summary">
@@ -271,7 +251,7 @@ export function MediaLibraryPagePhone({ token, user, onLogout }: MediaLibraryPag
 					) : (
 						<article className="library-empty">
 							<h2>No titles match this filter</h2>
-							<p>Try switching media type, tag, or order.</p>
+							<p>Try broadening type, tag, watch, quality, runtime, artwork, format, or order filters.</p>
 							<div className="library-empty-actions">
 								<button
 									type="button"

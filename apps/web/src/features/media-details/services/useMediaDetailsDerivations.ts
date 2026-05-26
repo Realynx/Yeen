@@ -122,6 +122,19 @@ export function useMediaDetailsDerivations(
     return [...groups.entries()].sort((left, right) => left[0] - right[0]);
   }, [showEpisodes]);
 
+  const nextUpEpisode = useMemo(() => {
+    if (detailType !== 'show' || showEpisodes.length === 0) return null;
+
+    const inProgress = showEpisodes.find((ep) => {
+      const entry = progressById.get(ep.id);
+      return isResumableProgress(entry);
+    });
+    if (inProgress) return inProgress;
+
+    const firstUnwatched = showEpisodes.find((ep) => !progressById.get(ep.id)?.completed);
+    return firstUnwatched ?? showEpisodes[0];
+  }, [detailType, showEpisodes, progressById]);
+
   const activeSeason = useMemo(() => {
     if (detailType !== 'show' || seasonGroups.length === 0) {
       return null;
@@ -131,8 +144,13 @@ export function useMediaDetailsDerivations(
       return selectedSeason;
     }
 
+    const nextUpSeason = nextUpEpisode?.seasonNumber ?? null;
+    if (nextUpSeason !== null && seasonGroups.some(([season]) => season === nextUpSeason)) {
+      return nextUpSeason;
+    }
+
     return seasonGroups[0][0];
-  }, [detailType, seasonGroups, selectedSeason]);
+  }, [detailType, nextUpEpisode?.seasonNumber, seasonGroups, selectedSeason]);
 
   const activeSeasonEpisodes = useMemo(() => {
     if (detailType !== 'show' || activeSeason === null) {
@@ -153,19 +171,6 @@ export function useMediaDetailsDerivations(
       watched,
     };
   }, [detailType, showEpisodes, seasonGroups.length, progressById]);
-
-  const nextUpEpisode = useMemo(() => {
-    if (detailType !== 'show' || showEpisodes.length === 0) return null;
-
-    const inProgress = showEpisodes.find((ep) => {
-      const entry = progressById.get(ep.id);
-      return isResumableProgress(entry);
-    });
-    if (inProgress) return inProgress;
-
-    const firstUnwatched = showEpisodes.find((ep) => !progressById.get(ep.id)?.completed);
-    return firstUnwatched ?? showEpisodes[0];
-  }, [detailType, showEpisodes, progressById]);
 
   return {
     current,

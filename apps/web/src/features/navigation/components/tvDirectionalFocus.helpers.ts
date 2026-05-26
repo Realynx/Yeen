@@ -8,25 +8,40 @@ const TV_FOCUSABLE_SELECTOR = [
 ].join(', ');
 
 function isElementVisible(element: HTMLElement): boolean {
-  if (
-    !element.isConnected ||
-    element.hidden ||
-    element.getAttribute('aria-hidden') === 'true'
-  ) {
+  if (!element.isConnected) {
     return false;
   }
 
-  if (element.closest('[aria-hidden="true"]')) {
+  for (
+    let current: HTMLElement | null = element;
+    current;
+    current = current.parentElement
+  ) {
+    if (
+      current.hidden ||
+      current.getAttribute('aria-hidden') === 'true' ||
+      current.hasAttribute('inert')
+    ) {
+      return false;
+    }
+
+    const currentStyle = window.getComputedStyle(current);
+    if (currentStyle.visibility === 'hidden' || currentStyle.display === 'none') {
+      return false;
+    }
+
+    const currentOpacity = Number.parseFloat(currentStyle.opacity);
+    if (Number.isFinite(currentOpacity) && currentOpacity < 0.08) {
+      return false;
+    }
+  }
+
+  if (element.closest('[aria-hidden="true"], [inert]')) {
     return false;
   }
 
   const style = window.getComputedStyle(element);
-  if (style.visibility === 'hidden' || style.display === 'none') {
-    return false;
-  }
-
-  const opacity = Number.parseFloat(style.opacity);
-  if (Number.isFinite(opacity) && opacity < 0.08) {
+  if (style.pointerEvents === 'none') {
     return false;
   }
 

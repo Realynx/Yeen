@@ -291,6 +291,46 @@ export function toFeaturedDedupKey(item: MediaItem): string {
   return `media:${item.id}`;
 }
 
+export function buildBecauseYouWatchedRow(
+  items: MediaItem[],
+  progressMap: ReadonlyMap<string, ProgressEntry>,
+  seed: number,
+): MediaItem[] {
+  const watchedKeys = new Set<string>();
+  const watchedTagScores = new Map<string, number>();
+
+  for (const item of items) {
+    const progress = progressMap.get(item.id);
+    if (!progress || (!progress.completed && progress.positionSeconds <= 0)) {
+      continue;
+    }
+
+    watchedKeys.add(toTagRowMediaKey(item));
+    for (const tag of normalizeTags(item.tags)) {
+      watchedTagScores.set(tag.toLowerCase(), (watchedTagScores.get(tag.toLowerCase()) ?? 0) + 1);
+    }
+  }
+
+  if (watchedTagScores.size === 0) {
+    return [];
+  }
+
+  const rankedTags = [...watchedTagScores.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 4)
+    .map(([tag]) => tag);
+
+  const candidates = items.filter((item) => {
+    if (item.digitalMediaType !== 'video' || watchedKeys.has(toTagRowMediaKey(item))) {
+      return false;
+    }
+
+    return normalizeTags(item.tags).some((tag) => rankedTags.includes(tag.toLowerCase()));
+  });
+
+  return toRandomizedItems(candidates, seededHash(`${seed}:because-you-watched`)).slice(0, 18);
+}
+
 export function normalizeTags(tags: readonly string[] | null | undefined): string[] {
   if (!Array.isArray(tags) || tags.length === 0) {
     return [];

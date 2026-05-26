@@ -41,6 +41,8 @@ export function PlayerControlsLeft({
       <button
         type="button"
         className={`player-icon-button player-icon-button-primary ${isPhoneMode ? 'is-phone-mode' : ''}`}
+        data-tv-initial-focus="true"
+        data-tv-focus-key="player:play-toggle"
         onClick={onTogglePlay}
         aria-label={isPlaying ? 'Pause' : 'Play'}
         title={

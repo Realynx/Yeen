@@ -24,6 +24,10 @@ import type { AuthResponse, User } from './features/shared/services/types';
 import { PublicBroadcastPage } from './features/broadcast/pages/PublicBroadcastPage';
 import { BroadcastProvider } from './features/broadcast/services/broadcast-context';
 import { AppErrorBoundary } from './features/shared/components/AppErrorBoundary';
+import {
+  applyTvDisplayPreferences,
+  readTvDisplayPreferences,
+} from './features/navigation/services/tvDisplayPreferences';
 
 function titleForPath(pathname: string): string {
   if (pathname === '/') {
@@ -156,6 +160,7 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-yeen-experience', experience);
     document.body.setAttribute('data-yeen-experience', experience);
+    applyTvDisplayPreferences(readTvDisplayPreferences());
   }, [experience]);
 
   useEffect(() => {

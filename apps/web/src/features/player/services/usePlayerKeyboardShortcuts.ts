@@ -4,6 +4,7 @@ import { SKIP_SECONDS } from './playerUtils';
 interface UsePlayerKeyboardShortcutsOptions {
   enabled?: boolean;
   isTvMode?: boolean;
+  controlsVisible?: boolean;
   applyVolume: (nextVolume: number) => void;
   revealControls: () => void;
   skipBy: (deltaSeconds: number) => void;
@@ -19,6 +20,7 @@ interface UsePlayerKeyboardShortcutsOptions {
 export function usePlayerKeyboardShortcuts({
   enabled = true,
   isTvMode = false,
+  controlsVisible = true,
   applyVolume,
   revealControls,
   skipBy,
@@ -54,14 +56,12 @@ export function usePlayerKeyboardShortcuts({
         || key === 'arrowup'
         || key === 'arrowdown';
 
-      if (isTvMode && isTvDirectionalKey) {
-        revealControls();
-        return;
-      }
-
       const interactiveElement = target?.closest(
         'button, a[href], input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])',
       ) as HTMLElement | null;
+      const isPlayerSurfaceTarget = Boolean(
+        target?.closest('[data-player-video-surface="true"]'),
+      );
 
       const isInteractiveTarget = Boolean(
         target
@@ -71,9 +71,38 @@ export function usePlayerKeyboardShortcuts({
           || tagName === 'INPUT'
           || tagName === 'TEXTAREA'
           || tagName === 'SELECT'
-          || interactiveElement
+          || (interactiveElement && !isPlayerSurfaceTarget)
         ),
       );
+
+      if (isTvMode && isTvDirectionalKey) {
+        if (!controlsVisible) {
+          event.preventDefault();
+          if (key === 'arrowright') {
+            skipBy(event.repeat ? SKIP_SECONDS * 3 : SKIP_SECONDS);
+            return;
+          }
+
+          if (key === 'arrowleft') {
+            skipBy(event.repeat ? -SKIP_SECONDS * 3 : -SKIP_SECONDS);
+            return;
+          }
+        }
+
+        revealControls();
+        return;
+      }
+
+      if (
+        isTvMode
+        && (key === 'enter' || key === ' ')
+        && (!isInteractiveTarget || !controlsVisible || isPlayerSurfaceTarget)
+      ) {
+        event.preventDefault();
+        void togglePlay();
+        revealControls();
+        return;
+      }
 
       if (
         isTvMode
@@ -179,6 +208,7 @@ export function usePlayerKeyboardShortcuts({
   }, [
     enabled,
     isTvMode,
+    controlsVisible,
     adjustPlaybackRate,
     applyVolume,
     revealControls,

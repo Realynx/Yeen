@@ -13,6 +13,7 @@ interface EpisodesSectionProps {
   activeSeason: number | null;
   activeSeasonEpisodes: MediaItem[];
   progressById: Map<string, ProgressEntry>;
+  nextUpEpisodeId?: string | null;
   onSelectSeason: (season: number) => void;
   onNavigate: (to: string) => void;
   isAdmin?: boolean;
@@ -24,6 +25,7 @@ export function EpisodesSection({
   activeSeason,
   activeSeasonEpisodes,
   progressById,
+  nextUpEpisodeId = null,
   onSelectSeason,
   onNavigate,
   isAdmin,
@@ -41,6 +43,7 @@ export function EpisodesSection({
           >
             {seasonGroups.map(([seasonNumber, episodes]) => {
               const isActive = activeSeason === seasonNumber;
+              const watchedCount = episodes.filter((episode) => progressById.get(episode.id)?.completed).length;
               return (
                 <button
                   key={`season-tab-${seasonNumber}`}
@@ -51,7 +54,7 @@ export function EpisodesSection({
                   onClick={() => onSelectSeason(seasonNumber)}
                 >
                   {seasonNumber === 0 ? 'Specials' : `Season ${seasonNumber}`}
-                  <span className="season-tab-count">{episodes.length}</span>
+                  <span className="season-tab-count">{watchedCount}/{episodes.length}</span>
                 </button>
               );
             })}
@@ -72,14 +75,17 @@ export function EpisodesSection({
             const episodePercent = progressPercent(episodeProgress);
             const watched = Boolean(episodeProgress?.completed);
             const inProgress = isResumableProgress(episodeProgress);
+            const isNextUp = episode.id === nextUpEpisodeId;
             const showProgressBar = watched || inProgress;
             const progressWidth = watched ? 100 : episodePercent;
+            const statusLabel = watched ? 'Watched' : isNextUp ? 'Next Up' : inProgress ? 'Resume' : null;
 
             return (
               <div
                 key={episode.id}
                 className={`episode-card${watched ? ' is-watched' : ''}${inProgress ? ' is-in-progress' : ''}`}
                 onClick={() => onNavigate(playerHref(episode.id, episodeProgress))}
+                data-tv-focus-key={`episode:${episode.id}`}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
@@ -101,6 +107,9 @@ export function EpisodesSection({
                   </span>
                   {watched ? (
                     <span className="episode-watched-badge">✓ Watched</span>
+                  ) : null}
+                  {statusLabel && !watched ? (
+                    <span className="episode-status-badge">{statusLabel}</span>
                   ) : null}
                   {showProgressBar ? (
                     <div className="episode-progress" aria-hidden="true">
@@ -134,6 +143,12 @@ export function EpisodesSection({
                     ) : null}
                   </div>
                   <h4 className="episode-title">{episodeDisplayTitle(episode)}</h4>
+                  {statusLabel ? (
+                    <p className="episode-status-line">
+                      {statusLabel}
+                      {inProgress && !watched ? ` at ${Math.round(episodePercent)}%` : ''}
+                    </p>
+                  ) : null}
                   {episode.description?.trim() ? (
                     <p className="episode-description">{episode.description}</p>
                   ) : null}
