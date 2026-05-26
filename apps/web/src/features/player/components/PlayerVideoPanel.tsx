@@ -1,16 +1,11 @@
 import {
   useCallback,
-  useEffect,
-  useRef,
-  useState,
   useMemo,
   type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { withAccessToken } from '../../shared/services/api';
 import {
   SUBTITLE_FONT_OPTIONS,
-  clamp,
   formatClock,
 } from '../services/playerUtils';
 import { resolveActiveChapterSkipAction } from '../services/playerChapterSkip';
@@ -18,12 +13,10 @@ import { ChevronRightIcon } from './PlayerIcons';
 import { PlayerContextMenu } from './video-panel/PlayerContextMenu';
 import { PlayerControlsPanel } from './video-panel/PlayerControlsPanel';
 import { PlayerNerdStatsPanel } from './video-panel/PlayerNerdStatsPanel';
+import { usePlayerVideoPanelMenus } from './video-panel/usePlayerVideoPanelMenus';
 import type {
-  PlayerContextMenuState,
   PlayerVideoPanelProps,
 } from './video-panel/PlayerVideoPanel.types';
-
-type MenuId = null | 'audio' | 'subs' | 'settings';
 
 export function PlayerVideoPanel({
   token,
@@ -122,99 +115,24 @@ export function PlayerVideoPanel({
   onVideoCanPlay,
   onVideoError,
 }: PlayerVideoPanelProps) {
-  const [openMenu, setOpenMenu] = useState<MenuId>(null);
-  const [contextMenu, setContextMenu] = useState<PlayerContextMenuState | null>(null);
-  const menuRootRef = useRef<HTMLDivElement>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!openMenu && !contextMenu) {
-      return;
-    }
-
-    function closeOnOutside(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      const inControlsMenu = menuRootRef.current?.contains(target) ?? false;
-      const inContextMenu = contextMenuRef.current?.contains(target) ?? false;
-
-      if (!inControlsMenu) {
-        setOpenMenu(null);
-      }
-
-      if (!inContextMenu) {
-        setContextMenu(null);
-      }
-    }
-
-    function closeOnDismissKey(event: KeyboardEvent) {
-      const isDismissKey = event.key === 'Escape' || event.key === 'Backspace';
-      if (!isDismissKey) {
-        return;
-      }
-
-      const target = event.target;
-      if (
-        event.key === 'Backspace'
-        && target instanceof HTMLElement
-        && (
-          target.tagName === 'INPUT'
-          || target.tagName === 'TEXTAREA'
-          || target.isContentEditable
-        )
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-
-      setOpenMenu(null);
-      setContextMenu(null);
-    }
-
-    document.addEventListener('mousedown', closeOnOutside);
-    document.addEventListener('keydown', closeOnDismissKey);
-
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutside);
-      document.removeEventListener('keydown', closeOnDismissKey);
-    };
-  }, [contextMenu, openMenu]);
-
-  function toggleMenu(menu: Exclude<MenuId, null>) {
-    setContextMenu(null);
-    setOpenMenu((prev) => (prev === menu ? null : menu));
-    onRevealControls();
-  }
-
-  function handleContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
-    if (event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    const shellRect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 260;
-    const menuHeight = 240;
-
-    setOpenMenu(null);
-    setContextMenu({
-      x: clamp(event.clientX - shellRect.left, 10, Math.max(10, shellRect.width - menuWidth)),
-      y: clamp(event.clientY - shellRect.top, 10, Math.max(10, shellRect.height - menuHeight)),
-    });
-    onRevealControls();
-  }
-
-  function runContextAction(action: () => void) {
-    action();
-    setContextMenu(null);
-  }
+  const {
+    openMenu,
+    contextMenu,
+    menuRootRef,
+    contextMenuRef,
+    toggleMenu,
+    closeMenu,
+    handleContextMenu,
+    runContextAction,
+  } = usePlayerVideoPanelMenus({ onRevealControls });
 
   const showControls =
-    isTvMode || isControlsVisible || !isPlaying || openMenu !== null || contextMenu !== null;
+    isControlsVisible
+    || !isPlaying
+    || isSeeking
+    || isBuffering
+    || openMenu !== null
+    || contextMenu !== null;
   const subtitleFontFamily =
     SUBTITLE_FONT_OPTIONS.find((option) => option.id === subtitleFontPreset)?.family
     ?? SUBTITLE_FONT_OPTIONS[0].family;
@@ -391,7 +309,7 @@ export function PlayerVideoPanel({
         menuRootRef={menuRootRef}
         openMenu={openMenu}
         onToggleMenu={toggleMenu}
-        onCloseMenu={() => setOpenMenu(null)}
+        onCloseMenu={closeMenu}
         selectedAudioStreamIndex={selectedAudioStreamIndex}
         audioTracks={audioTracks}
         onSelectAudioTrack={onSelectAudioTrack}

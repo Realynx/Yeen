@@ -34,11 +34,21 @@
     0 8px 18px rgba(3, 6, 12, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   cursor: pointer;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
   transition:
+    opacity 180ms ease,
     transform 150ms ease,
     filter 150ms ease,
     background 180ms ease,
     border-color 180ms ease;
+}
+
+.video-shell.controls-hidden .player-skip-segment-cta {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
 }
 
 .player-skip-segment-cta:hover,

@@ -2,9 +2,7 @@ import { createTvVariant } from '../../navigation/components/createTvVariant';
 import type { User } from '../../shared/services/types';
 import { PlayerPage } from './PlayerPage';
 
-// The player owns initial focus (video surface and controls lifecycle),
-// so we disable shell-level auto focus to avoid stealing focus on mount.
-const PlayerPageTvBase = createTvVariant(PlayerPage, 'player', { autoFocusFirst: false });
+const PlayerPageTvBase = createTvVariant(PlayerPage, 'player');
 
 interface PlayerPageTvProps {
   token: string;

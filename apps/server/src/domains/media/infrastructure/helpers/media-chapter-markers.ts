@@ -1,4 +1,7 @@
-import type { FfprobeChapter, FfprobeChapterTags } from '../media-probe.adapter';
+import type {
+  FfprobeChapter,
+  FfprobeChapterTags,
+} from '../media-probe.adapter';
 
 export interface MediaChapterMarker {
   second: number;
@@ -45,7 +48,10 @@ export function normalizeFfprobeChapterMarkers(
   let previousSecond: number | null = null;
 
   for (const marker of markers) {
-    if (previousSecond !== null && Math.abs(marker.second - previousSecond) < 0.01) {
+    if (
+      previousSecond !== null &&
+      Math.abs(marker.second - previousSecond) < 0.01
+    ) {
       continue;
     }
 
@@ -102,14 +108,20 @@ function parseTimeBaseSeconds(value: string | undefined): number | null {
   const numerator = Number.parseFloat(numeratorRaw);
   const denominator = Number.parseFloat(denominatorRaw);
 
-  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+  if (
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    denominator <= 0
+  ) {
     return null;
   }
 
   return numerator / denominator;
 }
 
-function resolveChapterTitle(tags: FfprobeChapterTags | undefined): string | null {
+function resolveChapterTitle(
+  tags: FfprobeChapterTags | undefined,
+): string | null {
   if (!tags || typeof tags !== 'object') {
     return null;
   }

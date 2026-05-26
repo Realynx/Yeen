@@ -1,14 +1,8 @@
-import {
-  BadGatewayException,
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { StreamService } from '../../../stream/application/services/stream.service';
 import {
   BroadcastOwnerSessionStatus,
   BroadcastPublicSessionStatus,
-  BroadcastStreamSegmentTrackingStatus,
   BroadcastSession,
   BroadcastViewerHeartbeatResponse,
 } from '../../domain/entities/broadcast-session.entity';
@@ -19,7 +13,6 @@ import {
   clearBroadcastSource,
   createBroadcastSession,
   emptyOwnerStatus,
-  isBroadcastSessionLiveAt,
   normalizeAccountId,
   normalizeOptionalId,
   normalizeOptionalInteger,
@@ -30,17 +23,18 @@ import {
   nextBroadcastSourceEpoch,
   resetBroadcastSourceAndPlayback,
   resolveViewerId,
-  toOwnerStatus,
-  toPublicStatus,
 } from './broadcast-service.helpers';
-import type { HlsSessionStatsResponse } from '../../../stream/application/services/stream.types';
-
-export class BroadcastSourceEpochMismatchError extends Error {
-  constructor() {
-    super('Broadcast source epoch has changed.');
-    this.name = 'BroadcastSourceEpochMismatchError';
-  }
-}
+import {
+  assertStreamSessionMatchesMedia,
+  buildOwnerStatus,
+  buildPublicStatus,
+  cleanupAndCountViewers,
+  getOrCreateEnabledSession,
+  isSessionLiveAtWithGrace,
+  resolvePublicHlsSessionId as resolvePublicHlsSessionIdHelper,
+  resolvePublicMediaId as resolvePublicMediaIdHelper,
+} from './broadcast-service.internal-helpers';
+export { BroadcastSourceEpochMismatchError } from './broadcast-source-epoch-mismatch.error';
 
 @Injectable()
 export class BroadcastService {
@@ -66,7 +60,11 @@ export class BroadcastService {
       return emptyOwnerStatus();
     }
 
-    return this.toOwnerStatus(session);
+    return buildOwnerStatus(
+      session,
+      this.viewerHeartbeats,
+      BroadcastService.VIEWER_STALE_MS,
+    );
   }
 
   async setEnabled(
@@ -102,14 +100,21 @@ export class BroadcastService {
     }
 
     await this.broadcastSessionStore.upsert(session);
-    return this.toOwnerStatus(session);
+    return buildOwnerStatus(
+      session,
+      this.viewerHeartbeats,
+      BroadcastService.VIEWER_STALE_MS,
+    );
   }
 
   async updateSource(
     ownerAccountIdInput: string,
     dto: UpdateBroadcastSourceDto,
   ): Promise<BroadcastOwnerSessionStatus> {
-    const session = await this.getOrCreateEnabledSession(ownerAccountIdInput);
+    const session = await getOrCreateEnabledSession(
+      this.broadcastSessionStore,
+      ownerAccountIdInput,
+    );
     const nowIso = new Date().toISOString();
     const nowMs = Date.now();
 
@@ -119,10 +124,14 @@ export class BroadcastService {
     if (!mediaId || !hlsSessionId) {
       clearBroadcastSource(session, nowIso);
       await this.broadcastSessionStore.upsert(session);
-      return this.toOwnerStatus(session);
+      return buildOwnerStatus(
+        session,
+        this.viewerHeartbeats,
+        BroadcastService.VIEWER_STALE_MS,
+      );
     }
 
-    await this.assertStreamSessionMatchesMedia(hlsSessionId, mediaId);
+    await assertStreamSessionMatchesMedia(this.streamService, hlsSessionId, mediaId);
 
     const sourceChanged =
       session.mediaId !== mediaId || session.hlsSessionId !== hlsSessionId;
@@ -168,7 +177,11 @@ export class BroadcastService {
     session.updatedAt = nowIso;
 
     await this.broadcastSessionStore.upsert(session);
-    return this.toOwnerStatus(session);
+    return buildOwnerStatus(
+      session,
+      this.viewerHeartbeats,
+      BroadcastService.VIEWER_STALE_MS,
+    );
   }
 
   async updatePlayback(
@@ -183,7 +196,11 @@ export class BroadcastService {
     }
 
     if (!session.enabled) {
-      return this.toOwnerStatus(session);
+      return buildOwnerStatus(
+        session,
+        this.viewerHeartbeats,
+        BroadcastService.VIEWER_STALE_MS,
+      );
     }
 
     const nowMs = Date.now();
@@ -215,7 +232,11 @@ export class BroadcastService {
       storedSyncTimestampMs !== null &&
       nextSyncTimestampMs < storedSyncTimestampMs
     ) {
-      return this.toOwnerStatus(session);
+      return buildOwnerStatus(
+        session,
+        this.viewerHeartbeats,
+        BroadcastService.VIEWER_STALE_MS,
+      );
     }
 
     const nowIso = new Date(nowMs).toISOString();
@@ -255,7 +276,11 @@ export class BroadcastService {
     session.updatedAt = nowIso;
 
     await this.broadcastSessionStore.upsert(session);
-    return this.toOwnerStatus(session);
+    return buildOwnerStatus(
+      session,
+      this.viewerHeartbeats,
+      BroadcastService.VIEWER_STALE_MS,
+    );
   }
 
   async getPublicStatus(
@@ -269,7 +294,14 @@ export class BroadcastService {
       throw new NotFoundException('Broadcast was not found.');
     }
 
-    return this.toPublicStatus(session);
+    return buildPublicStatus(
+      this.streamService,
+      session,
+      this.viewerHeartbeats,
+      BroadcastService.VIEWER_STALE_MS,
+      BroadcastService.LIVE_STATE_GRACE_MS,
+      BroadcastService.LIVE_STATE_PLAYING_GRACE_MS,
+    );
   }
 
   async registerViewerHeartbeat(
@@ -303,13 +335,23 @@ export class BroadcastService {
     heartbeatMap.set(viewerId, nowMs);
     this.viewerHeartbeats.set(shareToken, heartbeatMap);
 
-    const viewerCount = this.cleanupAndCountViewers(shareToken, nowMs);
+    const viewerCount = cleanupAndCountViewers(
+      this.viewerHeartbeats,
+      shareToken,
+      BroadcastService.VIEWER_STALE_MS,
+      nowMs,
+    );
 
     return {
       viewerId,
       viewerCount,
       enabled: true,
-      isLive: this.isSessionLive(session),
+      isLive: isSessionLiveAtWithGrace(
+        session,
+        nowMs,
+        BroadcastService.LIVE_STATE_GRACE_MS,
+        BroadcastService.LIVE_STATE_PLAYING_GRACE_MS,
+      ),
     };
   }
 
@@ -318,34 +360,25 @@ export class BroadcastService {
     sourceEpochInput?: string,
   ): Promise<string> {
     const shareToken = normalizeShareToken(shareTokenInput);
-    const expectedSourceEpoch = this.parseExpectedSourceEpoch(sourceEpochInput);
     const session =
       await this.broadcastSessionStore.getByShareToken(shareToken);
+    const nowMs = Date.now();
+    const activeSession =
+      session
+      && isSessionLiveAtWithGrace(
+        session,
+        nowMs,
+        BroadcastService.LIVE_STATE_GRACE_MS,
+        BroadcastService.LIVE_STATE_PLAYING_GRACE_MS,
+      )
+        ? session
+        : null;
 
-    if (!session || !this.isSessionLive(session) || !session.hlsSessionId) {
-      throw new NotFoundException('Broadcast stream is not active.');
-    }
-
-    if (
-      expectedSourceEpoch !== null
-      && session.sourceEpoch !== expectedSourceEpoch
-    ) {
-      throw new BroadcastSourceEpochMismatchError();
-    }
-
-    try {
-      await this.streamService.getHlsSessionStats(session.hlsSessionId);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw new NotFoundException('Broadcast stream is unavailable.');
-      }
-
-      throw new BadGatewayException(
-        'Broadcast stream is temporarily unavailable.',
-      );
-    }
-
-    return session.hlsSessionId;
+    return resolvePublicHlsSessionIdHelper(
+      this.streamService,
+      activeSession,
+      sourceEpochInput,
+    );
   }
 
   async resolvePublicMediaId(shareTokenInput: string): Promise<string> {
@@ -353,238 +386,12 @@ export class BroadcastService {
     const session =
       await this.broadcastSessionStore.getByShareToken(shareToken);
 
-    if (!session || !this.isSessionLive(session) || !session.mediaId) {
-      throw new NotFoundException('Broadcast stream is not active.');
-    }
-
-    return session.mediaId;
-  }
-
-  private async getOrCreateEnabledSession(
-    ownerAccountIdInput: string,
-  ): Promise<BroadcastSession> {
-    const ownerAccountId = normalizeAccountId(ownerAccountIdInput);
-    const existing =
-      await this.broadcastSessionStore.getByOwner(ownerAccountId);
-    const nowIso = new Date().toISOString();
-
-    if (existing) {
-      const nextSession = { ...existing };
-
-      if (!nextSession.enabled) {
-        nextSession.enabled = true;
-        nextSession.updatedAt = nowIso;
-        resetBroadcastSourceAndPlayback(nextSession, nowIso, Date.now());
-      }
-
-      return nextSession;
-    }
-
-    return createBroadcastSession(ownerAccountId, nowIso, true);
-  }
-
-  private async assertStreamSessionMatchesMedia(
-    hlsSessionId: string,
-    mediaId: string,
-  ): Promise<void> {
-    try {
-      const stats = await this.streamService.getHlsSessionStats(hlsSessionId);
-      if (stats.mediaId !== mediaId) {
-        throw new BadRequestException(
-          'HLS session does not belong to the requested media item.',
-        );
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new BadRequestException('HLS session is not valid for broadcast.');
-    }
-  }
-
-  private toOwnerStatus(
-    session: BroadcastSession,
-  ): BroadcastOwnerSessionStatus {
-    const viewerCount = session.enabled
-      ? this.cleanupAndCountViewers(session.shareToken)
-      : 0;
-
-    return toOwnerStatus(session, viewerCount);
-  }
-
-  private toPublicStatus(
-    session: BroadcastSession,
-  ): Promise<BroadcastPublicSessionStatus> {
-    const nowMs = Date.now();
-    const viewerCount = session.enabled
-      ? this.cleanupAndCountViewers(session.shareToken, nowMs)
-      : 0;
-    const isLive = this.isSessionLiveAt(session, nowMs);
-    return this.resolveSegmentTrackingStatus(session, isLive)
-      .then((segmentTracking) => {
-        return toPublicStatus(
-          session,
-          viewerCount,
-          isLive,
-          nowMs,
-          segmentTracking,
-        );
-      });
-  }
-
-  private async resolveSegmentTrackingStatus(
-    session: BroadcastSession,
-    isLive: boolean,
-  ): Promise<BroadcastStreamSegmentTrackingStatus | null> {
-    if (!isLive || !session.hlsSessionId) {
-      return null;
-    }
-
-    try {
-      const stats = await this.streamService.getHlsSessionStats(
-        session.hlsSessionId,
-      );
-      return this.toSegmentTrackingStatus(session, stats);
-    } catch {
-      // Status polling should remain resilient when stream metrics are transiently unavailable.
-      return null;
-    }
-  }
-
-  private toSegmentTrackingStatus(
-    session: BroadcastSession,
-    stats: HlsSessionStatsResponse,
-  ): BroadcastStreamSegmentTrackingStatus | null {
-    const segmentSeconds = this.normalizePositiveNumber(stats.segmentSeconds);
-    const readyThroughSeconds = this.normalizeNonNegativeNumber(
-      stats.readyThroughSeconds,
-    );
-    const contiguousReadySegments = this.normalizeNonNegativeInteger(
-      stats.contiguousReadySegments,
-    );
-    const highestReadySegment = this.normalizeNonNegativeInteger(
-      stats.highestReadySegment,
-    );
-    const nextSegmentIndex = this.normalizeNonNegativeInteger(
-      stats.nextSegmentIndex,
-    );
-
-    if (
-      segmentSeconds === null
-      && readyThroughSeconds === null
-      && contiguousReadySegments === null
-      && highestReadySegment === null
-      && nextSegmentIndex === null
-    ) {
-      return null;
-    }
-
-    const normalizedPlaybackPosition = Math.max(
-      0,
-      session.playbackPositionSeconds,
-    );
-    const playbackSegmentIndex =
-      segmentSeconds === null
-        ? null
-        : Math.max(0, Math.floor(normalizedPlaybackPosition / segmentSeconds));
-    const readySegmentIndex =
-      contiguousReadySegments !== null
-        ? contiguousReadySegments > 0
-          ? contiguousReadySegments - 1
-          : null
-        : highestReadySegment;
-
-    return {
-      segmentSeconds,
-      playbackSegmentIndex,
-      readySegmentIndex,
-      readyThroughSeconds,
-      contiguousReadySegments,
-      highestReadySegment,
-      nextSegmentIndex,
-    };
-  }
-
-  private normalizePositiveNumber(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-      return null;
-    }
-
-    return value;
-  }
-
-  private normalizeNonNegativeNumber(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      return null;
-    }
-
-    return value;
-  }
-
-  private normalizeNonNegativeInteger(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      return null;
-    }
-
-    return Math.floor(value);
-  }
-
-  private isSessionLive(session: BroadcastSession): boolean {
-    return this.isSessionLiveAt(session, Date.now());
-  }
-
-  private isSessionLiveAt(session: BroadcastSession, nowMs: number): boolean {
-    const liveStateGraceMs =
-      session.activePlayer && session.playbackIsPlaying
-        ? BroadcastService.LIVE_STATE_PLAYING_GRACE_MS
-        : BroadcastService.LIVE_STATE_GRACE_MS;
-
-    return isBroadcastSessionLiveAt(
+    return resolvePublicMediaIdHelper(
       session,
-      nowMs,
-      liveStateGraceMs,
+      Date.now(),
+      BroadcastService.LIVE_STATE_GRACE_MS,
+      BroadcastService.LIVE_STATE_PLAYING_GRACE_MS,
     );
   }
 
-  private parseExpectedSourceEpoch(value?: string): number | null {
-    if (value === undefined) {
-      return null;
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed || !/^\d+$/.test(trimmed)) {
-      throw new BadRequestException('Invalid source epoch.');
-    }
-
-    const parsed = Number.parseInt(trimmed, 10);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      throw new BadRequestException('Invalid source epoch.');
-    }
-
-    return parsed;
-  }
-
-  private cleanupAndCountViewers(
-    shareToken: string,
-    nowMs: number = Date.now(),
-  ): number {
-    const heartbeatMap = this.viewerHeartbeats.get(shareToken);
-    if (!heartbeatMap) {
-      return 0;
-    }
-
-    for (const [viewerId, lastSeenMs] of heartbeatMap.entries()) {
-      if (nowMs - lastSeenMs > BroadcastService.VIEWER_STALE_MS) {
-        heartbeatMap.delete(viewerId);
-      }
-    }
-
-    if (heartbeatMap.size === 0) {
-      this.viewerHeartbeats.delete(shareToken);
-      return 0;
-    }
-
-    return heartbeatMap.size;
-  }
 }

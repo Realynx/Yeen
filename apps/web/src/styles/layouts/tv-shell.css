@@ -398,7 +398,27 @@
 }
 
 :root[data-yeen-experience='tv'] .player-page.tv-player-page {
-  padding-inline: clamp(0.92rem, 2.6vw, 2rem);
+  min-height: 100dvh;
+  padding: 0;
+  gap: 0;
+}
+
+:root[data-yeen-experience='tv'] .player-page.tv-player-page .player-layout {
+  min-height: 100dvh;
+}
+
+:root[data-yeen-experience='tv'] .player-page.tv-player-page .video-shell {
+  min-height: 100dvh;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-yeen-experience='tv'] .player-page.tv-player-page .video-shell video {
+  min-height: 100dvh;
+  height: 100%;
+  border-radius: 0;
 }
 
 :root[data-yeen-experience='tv'] .player-controls-panel.is-tv-mode {

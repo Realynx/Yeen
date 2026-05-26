@@ -169,7 +169,7 @@ export function PlayerControlsRight({
         onPreferredResolutionChange={onPreferredResolutionChange}
       />
 
-      {canCast ? (
+      {canCast && !isTvMode ? (
         <button
           type="button"
           className={`player-icon-button ${isCasting ? 'is-active' : ''} ${!isCasting && !castDeviceAvailable ? 'is-idle' : ''}`}
@@ -211,15 +211,17 @@ export function PlayerControlsRight({
         </button>
       ) : null}
 
-      <button
-        type="button"
-        className={`player-icon-button ${isFullscreen ? 'is-active' : ''}`}
-        onClick={onToggleFullscreen}
-        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        title={isPhoneMode || isTvMode ? 'Fullscreen' : 'Fullscreen (F)'}
-      >
-        {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
-      </button>
+      {!isTvMode ? (
+        <button
+          type="button"
+          className={`player-icon-button ${isFullscreen ? 'is-active' : ''}`}
+          onClick={onToggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isPhoneMode ? 'Fullscreen' : 'Fullscreen (F)'}
+        >
+          {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+        </button>
+      ) : null}
     </div>
   );
 }

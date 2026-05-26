@@ -115,7 +115,11 @@ export class TvPairingsStore extends JsonFileStore<TvPairingRecord[]> {
     }
 
     const existing = this.state[index];
-    if (existing.consumedAt || !existing.claimedAt || !existing.claimedByAccountId) {
+    if (
+      existing.consumedAt ||
+      !existing.claimedAt ||
+      !existing.claimedByAccountId
+    ) {
       return undefined;
     }
 
@@ -133,8 +137,7 @@ export class TvPairingsStore extends JsonFileStore<TvPairingRecord[]> {
   async removeStaleRecords(referenceTimeMs = Date.now()): Promise<void> {
     await this.ensureLoaded();
 
-    const cutoff =
-      referenceTimeMs - TvPairingsStore.STALE_RECORD_RETENTION_MS;
+    const cutoff = referenceTimeMs - TvPairingsStore.STALE_RECORD_RETENTION_MS;
     const previousLength = this.state.length;
 
     this.state = this.state.filter((record) => {

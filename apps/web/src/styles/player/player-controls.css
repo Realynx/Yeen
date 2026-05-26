@@ -19,10 +19,10 @@
   opacity: 0;
 }
 
-.player-controls-panel button,
-.player-controls-panel select,
-.player-controls-panel input,
-.player-controls-panel .player-menu {
+.player-controls-panel.is-visible button,
+.player-controls-panel.is-visible select,
+.player-controls-panel.is-visible input,
+.player-controls-panel.is-visible .player-menu {
   pointer-events: auto;
 }
 

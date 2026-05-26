@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { upsertProgress } from '../../shared/services/api';
-import type {
-  SubtitleTrack,
-} from '../../shared/services/types';
+import type { SubtitleTrack } from '../../shared/services/types';
 import type { PlaybackSource } from './usePlayerData';
 import type { SubtitleFontPreset } from './playerUtils';
 import { usePlayerCasting } from './usePlayerCasting';
@@ -164,7 +162,6 @@ export function usePlayerPlaybackRuntime({
   withAutoAdvance,
 }: UsePlayerPlaybackRuntimeOptions): PlayerPlaybackRuntime {
   const canUsePictureInPicture = useMemo(() => Boolean(document.pictureInPictureEnabled), []);
-
   const {
     canCast,
     castDeviceAvailable,
@@ -256,7 +253,6 @@ export function usePlayerPlaybackRuntime({
     setPlayerError,
     setIsPictureInPicture,
   });
-
   usePlayerKeyboardShortcuts({
     enabled: !hideTopNav,
     isTvMode,
@@ -271,7 +267,6 @@ export function usePlayerPlaybackRuntime({
     adjustPlaybackRate,
     volume,
   });
-
   usePlayerPageEffects({
     clearControlsTimer,
     isPlaying,
