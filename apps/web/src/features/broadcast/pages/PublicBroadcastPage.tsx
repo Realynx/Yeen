@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { TvPageShell } from '../../navigation/components/TvPageShell';
 import { useClientExperience } from '../../navigation/services/clientExperience';
 import type { BroadcastStatusSnapshot } from '../services/publicBroadcastPlaybackSync';
 import { usePublicBroadcastPlaybackController } from './usePublicBroadcastPlaybackController';
@@ -6,7 +7,6 @@ import { usePublicBroadcastPlaybackRecovery } from './usePublicBroadcastPlayback
 import { usePublicBroadcastSessionPolling } from './usePublicBroadcastSessionPolling';
 import { usePublicBroadcastStartPlayback } from './usePublicBroadcastStartPlayback';
 import { usePublicBroadcastSubtitles } from './usePublicBroadcastSubtitles';
-import { usePublicBroadcastTvBackNavigation } from './usePublicBroadcastTvBackNavigation';
 import './public-broadcast-page.css';
 
 interface PublicBroadcastPageProps {
@@ -98,8 +98,6 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
     setError,
   });
 
-  usePublicBroadcastTvBackNavigation(isTvExperience);
-
   const viewerLabel = useMemo(() => {
     const viewerCount = status?.viewerCount ?? 0;
     if (viewerCount === 1) {
@@ -109,17 +107,13 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
     return `${viewerCount} viewers`;
   }, [status?.viewerCount]);
 
-  if (!resolvedShareToken) {
-    return (
-      <main className="broadcast-public-page">
-        <section className="broadcast-public-shell">
-          <p className="error-text">Broadcast token is missing.</p>
-        </section>
-      </main>
-    );
-  }
-
-  return (
+  const page = !resolvedShareToken ? (
+    <main className="broadcast-public-page">
+      <section className="broadcast-public-shell">
+        <p className="error-text">Broadcast token is missing.</p>
+      </section>
+    </main>
+  ) : (
     <main className="broadcast-public-page">
       <section className="broadcast-public-shell">
         <header className="broadcast-public-header">
@@ -154,7 +148,12 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
         ) : null}
 
         {isLiveState ? (
-          <section className="broadcast-live-player" aria-live="polite">
+          <section
+            className="broadcast-live-player"
+            aria-live="polite"
+            data-tv-focus-zone="hero"
+            data-tv-focus-lane-id="broadcast-player"
+          >
             <video
               ref={videoRef}
               className="broadcast-public-video"
@@ -197,4 +196,14 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
       </section>
     </main>
   );
+
+  if (isTvExperience) {
+    return (
+      <TvPageShell pageKey="broadcast" autoFocusFirst={false}>
+        {page}
+      </TvPageShell>
+    );
+  }
+
+  return page;
 }

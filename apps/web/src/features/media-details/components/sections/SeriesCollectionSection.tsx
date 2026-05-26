@@ -24,12 +24,12 @@ export function SeriesCollectionSection({
   onEditMovie,
 }: SeriesCollectionSectionProps) {
   return (
-    <section>
+    <section data-tv-focus-zone="shelf">
       <h3 className="section-title">In This Collection</h3>
       <p className="section-subtitle">
         Related movies grouped by title and franchise.
       </p>
-      <div className="series-grid">
+      <div className="series-grid" data-tv-focus-lane-id="series-grid">
         {relatedMovies.map((movie) => {
           const movieImage = previewImageUrl(movie);
           const movieProgress = progressById.get(movie.id);

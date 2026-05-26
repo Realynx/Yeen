@@ -106,7 +106,7 @@ export function MediaDetailsHero({
     : undefined;
 
   return (
-    <section className={heroClassName} style={sectionStyle}>
+    <section className={heroClassName} style={sectionStyle} data-tv-focus-zone="hero">
       <div className="details-poster-shell" aria-hidden="true">
         {iconImageUrl ? (
           <img src={iconImageUrl} alt={current.title} className="details-poster" loading="eager" />
@@ -142,7 +142,10 @@ export function MediaDetailsHero({
         ) : null}
 
         {showActionRow ? (
-          <div className="hero-actions hero-actions-row">
+          <div
+            className="hero-actions hero-actions-row"
+            data-tv-focus-lane-id="details-hero-actions"
+          >
             {canPlay ? (
               <>
                 <button

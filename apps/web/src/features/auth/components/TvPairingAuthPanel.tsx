@@ -44,6 +44,7 @@ export function TvPairingAuthPanel({
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const displayedSecondsRemaining = pairing ? secondsRemaining : 0;
 
   const startPairing = useCallback(async () => {
     setLoadingPairing(true);
@@ -139,11 +140,9 @@ export function TvPairingAuthPanel({
 
   useEffect(() => {
     if (!pairing) {
-      setSecondsRemaining(0);
       return;
     }
 
-    setSecondsRemaining(secondsUntil(pairing.expiresAt));
     const intervalId = window.setInterval(() => {
       setSecondsRemaining(secondsUntil(pairing.expiresAt));
     }, 1_000);
@@ -295,7 +294,7 @@ export function TvPairingAuthPanel({
         )}
 
         <div className="tv-pairing-meta">
-          <p className="tv-pairing-countdown">Code expires in {formatCountdown(secondsRemaining)}</p>
+          <p className="tv-pairing-countdown">Code expires in {formatCountdown(displayedSecondsRemaining)}</p>
           {statusMessage ? <p className="scan-success">{statusMessage}</p> : null}
           {error ? <p className="error-text">{error}</p> : null}
         </div>
