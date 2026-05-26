@@ -1,14 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { FocusEvent, ReactNode } from 'react';
 
 interface MediaRowProps {
   children: ReactNode;
+  focusLaneId?: string;
 }
 
-export function MediaRow({ children }: MediaRowProps) {
+export function MediaRow({ children, focusLaneId }: MediaRowProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const handleScrollerFocusCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
+    if (document.documentElement.getAttribute('data-yeen-experience') !== 'tv') {
+      return;
+    }
+
+    const scroller = scrollerRef.current;
+    if (!scroller) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const tile = target.closest('.media-tile');
+    if (!(tile instanceof HTMLElement) || !scroller.contains(tile)) {
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    tile.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+  }, []);
 
   const updateScrollState = useCallback(() => {
     const el = scrollerRef.current;
@@ -58,6 +87,7 @@ export function MediaRow({ children }: MediaRowProps) {
       <button
         type="button"
         className="media-row-arrow media-row-arrow-left"
+        data-tv-focus-priority="low"
         aria-label="Scroll left"
         onClick={() => scrollByPage(-1)}
         disabled={!canScrollLeft}
@@ -68,13 +98,20 @@ export function MediaRow({ children }: MediaRowProps) {
         </svg>
       </button>
 
-      <div className="media-row" ref={scrollerRef}>
+      <div
+        className="media-row"
+        ref={scrollerRef}
+        onFocusCapture={handleScrollerFocusCapture}
+        data-tv-focus-zone="shelf"
+        data-tv-focus-lane-id={focusLaneId}
+      >
         {children}
       </div>
 
       <button
         type="button"
         className="media-row-arrow media-row-arrow-right"
+        data-tv-focus-priority="low"
         aria-label="Scroll right"
         onClick={() => scrollByPage(1)}
         disabled={!canScrollRight}

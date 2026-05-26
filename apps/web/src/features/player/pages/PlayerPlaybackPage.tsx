@@ -25,6 +25,7 @@ interface PlayerPlaybackPageProps {
   onLogout: () => void;
   hideTopNav?: boolean;
   headerContent?: ReactNode;
+  isTvMode?: boolean;
 }
 
 export function PlayerPlaybackPage({
@@ -33,6 +34,7 @@ export function PlayerPlaybackPage({
   onLogout,
   hideTopNav = false,
   headerContent = null,
+  isTvMode = false,
 }: PlayerPlaybackPageProps) {
   const { mediaId = '' } = useParams();
   const [searchParams] = useSearchParams();
@@ -237,6 +239,7 @@ export function PlayerPlaybackPage({
     token,
     mediaId,
     hideTopNav,
+    isTvMode,
     playerTitle,
     source,
     switchingToHls,
@@ -289,7 +292,7 @@ export function PlayerPlaybackPage({
   const {
     activeTheaterMode, playerPageClassName, panelProps, episodeNavigationProps, detailsProps,
   } = usePlayerPlaybackViewState({
-    token, hideTopNav, theaterMode, media, source, redactedStreamUrl,
+    token, hideTopNav, isTvMode, theaterMode, media, source, redactedStreamUrl,
     trackState: { audioTracks, selectedAudioStreamIndex, subtitleTracks, selectedSubtitleId, extractingSubtitleTrackId },
     playbackState: {
       activeSubtitle, isControlsVisible, isPlaying, isSeeking, isBuffering, isFullscreen,

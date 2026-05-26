@@ -19,6 +19,7 @@ import {
 } from '../services/exploreGrid';
 import { useExploreFilterActions } from '../services/useExploreFilterActions';
 import { useExploreCatalogState } from '../services/useExploreCatalogState';
+import { useClientExperience } from '../../navigation/services/clientExperience';
 
 interface MediaExplorePageProps {
   token: string;
@@ -29,6 +30,7 @@ interface MediaExplorePageProps {
 const REMOTE_PAGE_SIZE = 20;
 
 export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProps) {
+  const experience = useClientExperience();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
@@ -299,6 +301,9 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
   const filteredItems = useMemo(() => getFilteredExploreItems(remoteItems, typeFilter), [remoteItems, typeFilter]);
 
   const useCompactResultsGrid = shouldUseCompactExploreGrid(filteredItems);
+  const isTvExperience = experience === 'tv';
+  const exploreGridMinTileWidthPx = isTvExperience ? 156 : 180;
+  const exploreGridGapPx = isTvExperience ? 11 : 13;
 
   const virtualizedRange = useMemo(() => {
     return getExploreVirtualizedRange({
@@ -307,8 +312,18 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
       scrollTop,
       viewportHeight,
       viewportWidth,
+      minTileWidthPx: exploreGridMinTileWidthPx,
+      gridGapPx: exploreGridGapPx,
     });
-  }, [filteredItems, scrollTop, useCompactResultsGrid, viewportHeight, viewportWidth]);
+  }, [
+    exploreGridGapPx,
+    exploreGridMinTileWidthPx,
+    filteredItems,
+    scrollTop,
+    useCompactResultsGrid,
+    viewportHeight,
+    viewportWidth,
+  ]);
 
   const showLoadingMoreIndicator = loadingMore || waitingForRateLimit;
 

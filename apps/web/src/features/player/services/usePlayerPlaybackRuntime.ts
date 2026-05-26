@@ -18,6 +18,7 @@ interface UsePlayerPlaybackRuntimeOptions {
   token: string;
   mediaId: string;
   hideTopNav: boolean;
+  isTvMode: boolean;
   playerTitle: string;
   source: PlaybackSource | null;
   switchingToHls: boolean;
@@ -113,6 +114,7 @@ export function usePlayerPlaybackRuntime({
   token,
   mediaId,
   hideTopNav,
+  isTvMode,
   playerTitle,
   source,
   switchingToHls,
@@ -177,7 +179,7 @@ export function usePlayerPlaybackRuntime({
   });
 
   const { clearControlsTimer, scheduleControlsAutoHide, revealControls } =
-    usePlayerControlsTimer({ isPlaying, isSeeking, setIsControlsVisible });
+    usePlayerControlsTimer({ isPlaying, isSeeking, isTvMode, setIsControlsVisible });
 
   const syncProgress = useCallback(
     async (completed = false, keepalive = false) => {
@@ -257,6 +259,7 @@ export function usePlayerPlaybackRuntime({
 
   usePlayerKeyboardShortcuts({
     enabled: !hideTopNav,
+    isTvMode,
     applyVolume,
     revealControls,
     skipBy,

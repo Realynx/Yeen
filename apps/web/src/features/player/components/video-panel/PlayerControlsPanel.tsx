@@ -38,6 +38,7 @@ interface PlayerControlsPanelProps {
   onSeekPointerUp: (event: ReactMouseEvent<HTMLInputElement>) => void;
   onSeekTouchEnd: () => void;
   isPhoneMode: boolean;
+  isTvMode: boolean;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onSkipBy: (deltaSeconds: number) => void;
@@ -112,6 +113,7 @@ export function PlayerControlsPanel({
   onSeekPointerUp,
   onSeekTouchEnd,
   isPhoneMode,
+  isTvMode,
   isPlaying,
   onTogglePlay,
   onSkipBy,
@@ -166,7 +168,7 @@ export function PlayerControlsPanel({
   onToggleFullscreen,
 }: PlayerControlsPanelProps) {
   return (
-    <div className={`player-controls-panel ${showControls ? 'is-visible' : 'is-hidden'}`}>
+    <div className={`player-controls-panel ${showControls ? 'is-visible' : 'is-hidden'} ${isTvMode ? 'is-tv-mode' : ''}`}>
       <div className="player-controls-top">
         <div className="player-title-block">
           <h2>{media?.title ?? 'Preparing stream…'}</h2>
@@ -225,6 +227,7 @@ export function PlayerControlsPanel({
             onSelectSubtitle={onSelectSubtitle}
             onExtractSubtitle={onExtractSubtitle}
             isPhoneMode={isPhoneMode}
+            isTvMode={isTvMode}
             playbackRate={playbackRate}
             subtitleFontPreset={subtitleFontPreset}
             videoBitrateQuotaKbps={videoBitrateQuotaKbps}

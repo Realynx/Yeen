@@ -16,6 +16,7 @@ import { TvPairingAuthPanel } from './features/auth/components/TvPairingAuthPane
 import { TvInstallPanel } from './features/auth/components/TvInstallPanel';
 import { TOKEN_STORAGE_KEY, me } from './features/shared/services/api';
 import { useClientExperience } from './features/navigation/services/clientExperience';
+import type { ClientExperience } from './features/navigation/services/clientExperience';
 import type { AuthResponse, User } from './features/shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from './features/auth/services/roles';
 import { PublicBroadcastPage } from './features/broadcast/pages/PublicBroadcastPage';
@@ -23,11 +24,14 @@ import { BroadcastProvider } from './features/broadcast/services/broadcast-conte
 import { HomePage } from './features/home/pages/HomePage';
 import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePage';
 import { HomePagePhone } from './features/home/pages/HomePagePhone';
+import { HomePageTv } from './features/home/pages/HomePageTv';
 import { MediaExplorePagePhone } from './features/media-explore/pages/MediaExplorePagePhone';
 import { MediaLibraryPage } from './features/library/pages/MediaLibraryPage';
 import { MediaLibraryPagePhone } from './features/library/pages/MediaLibraryPagePhone';
+import { MediaLibraryPageTv } from './features/library/pages/MediaLibraryPageTv';
 import { MediaDetailsPage } from './features/media-details/pages/MediaDetailsPage';
 import { MediaDetailsPagePhone } from './features/media-details/pages/MediaDetailsPagePhone';
+import { MediaDetailsPageTv } from './features/media-details/pages/MediaDetailsPageTv';
 import { SettingsPage } from './features/settings/pages/SettingsPage';
 import { SettingsPagePhone } from './features/settings/pages/SettingsPagePhone';
 import { SystemSettingsPage } from './features/settings/pages/SystemSettingsPage';
@@ -38,11 +42,13 @@ import { DownloadControlPage } from './features/settings/pages/DownloadControlPa
 import { DownloadControlPagePhone } from './features/settings/pages/DownloadControlPagePhone';
 import { PlayerPage } from './features/player/pages/PlayerPage';
 import { PlayerPagePhone } from './features/player/pages/PlayerPagePhone';
+import { PlayerPageTv } from './features/player/pages/PlayerPageTv';
 
 interface ExperienceRouteDefinition {
   path: string;
   desktop: ReactElement;
   phone: ReactElement;
+  tv?: ReactElement;
 }
 
 interface GuardedExperienceRouteDefinition extends ExperienceRouteDefinition {
@@ -51,10 +57,18 @@ interface GuardedExperienceRouteDefinition extends ExperienceRouteDefinition {
 }
 
 function routeElementForExperience(
-  isPhoneExperience: boolean,
+  experience: ClientExperience,
   route: ExperienceRouteDefinition,
 ): ReactElement {
-  return isPhoneExperience ? route.phone : route.desktop;
+  if (experience === 'tv') {
+    return route.tv ?? route.desktop;
+  }
+
+  if (experience === 'phone') {
+    return route.phone;
+  }
+
+  return route.desktop;
 }
 
 function titleForPath(pathname: string): string {
@@ -164,13 +178,18 @@ function App() {
   const isTvExperience = experience === 'tv';
   const isNativePlatform = Capacitor.isNativePlatform();
   const shouldShowTvInstallPanel = isTvExperience && !isNativePlatform;
-  const shouldShowNativeTvPairing = isNativePlatform;
+  const shouldShowNativeTvPairing = isNativePlatform && isTvExperience;
   const [token, setToken] = useState<string>(() => {
     return localStorage.getItem(TOKEN_STORAGE_KEY) ?? '';
   });
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
   const [usePasswordLoginOnTv, setUsePasswordLoginOnTv] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-yeen-experience', experience);
+    document.body.setAttribute('data-yeen-experience', experience);
+  }, [experience]);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,6 +316,7 @@ function App() {
       path: '/',
       desktop: <HomePage {...commonPageProps} />,
       phone: <HomePagePhone {...commonPageProps} />,
+      tv: <HomePageTv {...commonPageProps} />,
     },
     {
       path: '/settings',
@@ -317,6 +337,7 @@ function App() {
       path: '/library',
       desktop: <MediaLibraryPage {...commonPageProps} />,
       phone: <MediaLibraryPagePhone {...commonPageProps} />,
+      tv: <MediaLibraryPageTv {...commonPageProps} />,
     },
     {
       path: '/explore',
@@ -327,11 +348,13 @@ function App() {
       path: '/details/:mediaId',
       desktop: <MediaDetailsPage {...commonPageProps} />,
       phone: <MediaDetailsPagePhone {...commonPageProps} />,
+      tv: <MediaDetailsPageTv {...commonPageProps} />,
     },
     {
       path: '/player/:mediaId',
       desktop: <PlayerPage {...commonPageProps} />,
       phone: <PlayerPagePhone {...commonPageProps} />,
+      tv: <PlayerPageTv {...commonPageProps} />,
     },
   ];
 
@@ -374,7 +397,7 @@ function App() {
             <Route
               key={route.path}
               path={route.path}
-              element={routeElementForExperience(isPhoneExperience, route)}
+              element={routeElementForExperience(experience, route)}
             />
           ))}
 
@@ -383,7 +406,7 @@ function App() {
               key={route.path}
               path={route.path}
               element={route.allowed
-                ? routeElementForExperience(isPhoneExperience, route)
+                ? routeElementForExperience(experience, route)
                 : <Navigate to={route.redirectTo} replace />}
             />
           ))}

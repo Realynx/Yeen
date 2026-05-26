@@ -55,6 +55,7 @@ export function PlayerVideoPanel({
   subtitleFontPreset,
   theaterMode,
   isPhoneMode = false,
+  isTvMode = false,
   currentTime,
   totalDuration,
   safeDuration,
@@ -197,7 +198,7 @@ export function PlayerVideoPanel({
   }
 
   const showControls =
-    isControlsVisible || !isPlaying || openMenu !== null || contextMenu !== null;
+    isTvMode || isControlsVisible || !isPlaying || openMenu !== null || contextMenu !== null;
   const subtitleFontFamily =
     SUBTITLE_FONT_OPTIONS.find((option) => option.id === subtitleFontPreset)?.family
     ?? SUBTITLE_FONT_OPTIONS[0].family;
@@ -227,10 +228,10 @@ export function PlayerVideoPanel({
   return (
     <div
       ref={videoShellRef}
-      className={`video-shell ${showControls ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'is-fullscreen' : ''}`}
+      className={`video-shell ${showControls ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'is-fullscreen' : ''} ${isTvMode ? 'is-tv-mode' : ''}`}
       onMouseMove={onRevealControls}
       onMouseLeave={() => {
-        if (isPlaying && !isSeeking && !openMenu && !contextMenu) {
+        if (!isTvMode && isPlaying && !isSeeking && !openMenu && !contextMenu) {
           onHideControls();
         }
       }}
@@ -363,6 +364,7 @@ export function PlayerVideoPanel({
         onSeekPointerUp={onSeekPointerUp}
         onSeekTouchEnd={onSeekTouchEnd}
         isPhoneMode={isPhoneMode}
+        isTvMode={isTvMode}
         isPlaying={isPlaying}
         onTogglePlay={onTogglePlay}
         onSkipBy={onSkipBy}

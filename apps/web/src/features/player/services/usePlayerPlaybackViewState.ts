@@ -36,6 +36,7 @@ interface DetailsContext {
 interface UsePlayerPlaybackViewStateArgs {
   token: string;
   hideTopNav: boolean;
+  isTvMode: boolean;
   theaterMode: boolean;
   media: PanelProps['media'];
   source: PanelProps['source'];
@@ -67,6 +68,7 @@ interface PlayerPlaybackViewState {
 export function usePlayerPlaybackViewState({
   token,
   hideTopNav,
+  isTvMode,
   theaterMode,
   media,
   source,
@@ -87,7 +89,12 @@ export function usePlayerPlaybackViewState({
   detailsContext,
 }: UsePlayerPlaybackViewStateArgs): PlayerPlaybackViewState {
   const activeTheaterMode = hideTopNav ? false : theaterMode;
-  const playerPageClassName = hideTopNav ? 'player-page phone-player-page' : 'player-page';
+  const playerPageClassName = [
+    hideTopNav ? 'player-page phone-player-page' : 'player-page',
+    isTvMode ? 'tv-player-page' : '',
+  ]
+    .filter((className) => className.length > 0)
+    .join(' ');
   const {
     setSelectedSubtitleId,
     setSubtitleVisible,
@@ -127,6 +134,7 @@ export function usePlayerPlaybackViewState({
     source,
     redactedStreamUrl,
     activeTheaterMode,
+    isTvMode,
     trackState,
     playbackState,
     capabilities,

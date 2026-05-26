@@ -23,6 +23,8 @@ export interface ExploreVirtualizationArgs {
   viewportWidth: number;
   viewportHeight: number;
   scrollTop: number;
+  minTileWidthPx?: number;
+  gridGapPx?: number;
 }
 
 export function getExploreTypeCounts(items: MediaItem[]): ExploreTypeCounts {
@@ -65,6 +67,8 @@ export function getExploreVirtualizedRange({
   viewportWidth,
   viewportHeight,
   scrollTop,
+  minTileWidthPx,
+  gridGapPx,
 }: ExploreVirtualizationArgs): ExploreVirtualizedRange {
   if (filteredItems.length === 0 || useCompactResultsGrid) {
     return {
@@ -74,18 +78,20 @@ export function getExploreVirtualizedRange({
     };
   }
 
-  const usableWidth = Math.max(viewportWidth, GRID_MIN_TILE_WIDTH_PX);
+  const resolvedMinTileWidthPx = Math.max(120, Math.round(minTileWidthPx ?? GRID_MIN_TILE_WIDTH_PX));
+  const resolvedGridGapPx = Math.max(0, Math.round(gridGapPx ?? GRID_GAP_PX));
+  const usableWidth = Math.max(viewportWidth, resolvedMinTileWidthPx);
   const columnCount = Math.max(
     1,
-    Math.floor((usableWidth + GRID_GAP_PX) / (GRID_MIN_TILE_WIDTH_PX + GRID_GAP_PX)),
+    Math.floor((usableWidth + resolvedGridGapPx) / (resolvedMinTileWidthPx + resolvedGridGapPx)),
   );
   const totalRows = Math.ceil(filteredItems.length / columnCount);
-  const gapsWidth = Math.max(0, (columnCount - 1) * GRID_GAP_PX);
+  const gapsWidth = Math.max(0, (columnCount - 1) * resolvedGridGapPx);
   const tileWidth = Math.max(
-    GRID_MIN_TILE_WIDTH_PX,
+    resolvedMinTileWidthPx,
     (usableWidth - gapsWidth) / columnCount,
   );
-  const rowHeight = Math.max(220, Math.round((tileWidth * 3) / 2) + GRID_GAP_PX);
+  const rowHeight = Math.max(220, Math.round((tileWidth * 3) / 2) + resolvedGridGapPx);
 
   if (viewportHeight <= 0) {
     return {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
+import { Capacitor } from '@capacitor/core';
 
 export type ClientExperience = 'desktop' | 'phone' | 'tv';
 
@@ -11,6 +12,8 @@ export interface PageVariants<TProps> {
 
 const QUERY_PARAM_NAME = 'ui';
 const STORAGE_KEY = 'yeen:ui-experience';
+const FORCE_NATIVE_ANDROID_TV_EXPERIENCE =
+  (import.meta.env.VITE_FORCE_NATIVE_ANDROID_TV_EXPERIENCE as string | undefined)?.trim() !== '0';
 const TV_USER_AGENT_PATTERN =
   /(aft[a-z0-9]+|android tv|google tv|googletv|fire tv|firetv|smart-tv|smarttv|hbbtv|viera|web0s|webos|tizen|netcast|roku|appletv|bravia|xbox|playstation)/i;
 
@@ -42,6 +45,14 @@ function detectClientExperience(target: Window): ClientExperience {
   const override = readExperienceOverride(target);
   if (override) {
     return override;
+  }
+
+  if (
+    FORCE_NATIVE_ANDROID_TV_EXPERIENCE &&
+    Capacitor.isNativePlatform() &&
+    Capacitor.getPlatform() === 'android'
+  ) {
+    return 'tv';
   }
 
   const userAgent = target.navigator.userAgent.toLowerCase();

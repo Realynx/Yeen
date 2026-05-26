@@ -10,6 +10,7 @@ interface PlayerPageProps {
   onLogout: () => void;
   hideTopNav?: boolean;
   headerContent?: ReactNode;
+  isTvMode?: boolean;
 }
 
 export function PlayerPage({
@@ -18,6 +19,7 @@ export function PlayerPage({
   onLogout,
   hideTopNav = false,
   headerContent = null,
+  isTvMode = false,
 }: PlayerPageProps) {
   const { mediaId = '' } = useParams();
   const [searchParams] = useSearchParams();
@@ -47,6 +49,7 @@ export function PlayerPage({
       onLogout={onLogout}
       hideTopNav={hideTopNav}
       headerContent={headerContent}
+      isTvMode={isTvMode}
     />
   );
 }

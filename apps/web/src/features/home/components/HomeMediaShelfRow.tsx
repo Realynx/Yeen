@@ -21,9 +21,9 @@ export function HomeMediaShelfRow({
   onOpen,
 }: HomeMediaShelfRowProps) {
   return (
-    <section className={className} id={id}>
+    <section className={className} id={id} data-tv-focus-zone="shelf">
       <h2 className="section-title">{title}</h2>
-      <MediaRow>
+      <MediaRow focusLaneId={`shelf-${id}`}>
         {items.map((item) => (
           <MediaTile
             key={item.id}

@@ -17,6 +17,10 @@
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:run": "npm run build && npx cap run android",
+    "android:tv:list": "node ./scripts/run-google-tv-emulator.mjs --list",
+    "android:tv:apk": "node ./scripts/run-google-tv-emulator.mjs --mode apk",
+    "android:tv:live": "node ./scripts/run-google-tv-emulator.mjs --mode live --host 10.0.2.2 --port 5173",
+    "dev:tv": "vite --host 0.0.0.0 --port 5173",
     "android:build:debug": "npm run android:configure-sdk && npm run build && npx cap sync android && cd android && gradlew assembleDebug",
     "android:build:release": "npm run android:configure-sdk && npm run build && npx cap build android --androidreleasetype APK"
   },

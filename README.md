@@ -122,6 +122,47 @@ npm run android:build:debug
 npm run android:build:release
 ```
 
+Google TV emulator workflow (development):
+
+1. Start a Google TV emulator from Android Studio Device Manager.
+2. List connected targets and confirm a TV emulator is detected:
+
+```bash
+npm run android:tv:list
+```
+
+3. Install and launch the latest debug APK on the emulator:
+
+```bash
+npm run android:tv:apk
+```
+
+4. For live iteration without rebuilding APK each change:
+
+Terminal 1 (web dev server):
+
+```bash
+npm run dev:web:tv
+```
+
+Terminal 2 (deploy Capacitor app in live-reload mode):
+
+```bash
+npm run android:tv:live
+```
+
+Optional target override (if multiple emulators/devices are connected):
+
+```bash
+npm --prefix apps/web run android:tv:apk -- --serial emulator-5554
+npm --prefix apps/web run android:tv:live -- --serial emulator-5554
+```
+
+Notes for live-reload mode:
+
+- Default host is `10.0.2.2` with port `5173`, which maps emulator -> host machine.
+- `android:tv:live` uses `--no-sync` for faster loops. Re-run `npm run android:sync` after native/plugin changes.
+
 Notes:
 
 - android:configure-sdk auto-detects Android SDK and writes
