@@ -78,10 +78,11 @@ npm run dev
 
 ## Notes
 
-- Storage is file-backed JSON for MVP speed:
+- Storage is file-backed for MVP speed:
   - apps/server/data/accounts.json
-  - apps/server/data/media-index.json
   - apps/server/data/watch-progress.json
+- Media metadata is stored in SQLite by default:
+  - apps/server/data/media-metadata.sqlite
 - HLS and extracted subtitles are written to apps/server/data/
 - OpenSubtitles lookup requires OPENSUBTITLES_API_KEY.
 
@@ -180,10 +181,12 @@ Notes:
 
 - npm run line-budget reports files above 400 lines (soft warning mode).
 - npm run line-budget:hard fails if over-budget files are not in `.line-budget-allowlist.json`.
-- Scope includes source and test files under:
+- Default scope includes source files under:
   - apps/server/src
-  - apps/server/test
   - apps/web/src
+  - packages/shared-contracts/src
+- Set `LINE_BUDGET_INCLUDE_TESTS=1` to include test files under:
+  - apps/server/test
   - apps/web/test
 
 build:zip excludes node_modules and does not copy local apps/server/data state.

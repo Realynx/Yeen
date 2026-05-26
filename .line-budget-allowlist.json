@@ -1,56 +1,8 @@
 [
   {
-    "path": "apps/server/src/media/media.service.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 2 media service decomposition in progress"
-  },
-  {
-    "path": "apps/server/src/stream/stream.service.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 2 stream service decomposition in progress"
-  },
-  {
-    "path": "apps/server/src/media/media-scanner.service.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 2 scanner decomposition in progress"
-  },
-  {
-    "path": "apps/server/src/auth/auth.service.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 2 auth service decomposition in progress"
-  },
-  {
-    "path": "apps/web/src/pages/PlayerPage.tsx",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 3 player page decomposition in progress"
-  },
-  {
     "path": "apps/web/src/App.tsx",
     "owner": "core-refactor",
     "expiresOn": "2026-09-30",
     "reason": "Phase 3 app shell routing split in progress"
-  },
-  {
-    "path": "apps/web/src/components/settings/TorrentControlPanel.tsx",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 3 torrent control panel decomposition in progress"
-  },
-  {
-    "path": "apps/web/src/lib/api.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 3 API client modularization in progress"
-  },
-  {
-    "path": "apps/web/src/lib/types.ts",
-    "owner": "core-refactor",
-    "expiresOn": "2026-09-30",
-    "reason": "Phase 1 shared-contract migration in progress"
   }
 ]

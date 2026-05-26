@@ -1,0 +1,363 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.github
+.github\skills
+.github\skills\deep-bug-identification-patching-test-cleanup
+.github\skills\deep-bug-identification-patching-test-cleanup\SKILL.md
+.github\skills\deep-refactor-solid-dry
+.github\skills\deep-refactor-solid-dry\SKILL.md
+.github\skills\repo-cleanup-solid-dry
+.github\skills\repo-cleanup-solid-dry\SKILL.md
+.github\workflows
+.gitignore
+.line-budget-allowlist.json
+.vs
+.vs\ProjectSettings.json
+.vs\slnx.sqlite
+.vs\Yeen.slnx
+.vs\Yeen.slnx\FileContentIndex
+.vs\Yeen.slnx\FileContentIndex\19237543-3122-441e-9692-3dafb2f196af.vsidx
+.vs\Yeen.slnx\v18
+apps
+apps\server
+apps\server\.env.example
+apps\server\.prettierrc
+apps\server\eslint.config.mjs
+apps\server\nest-cli.json
+apps\server\package-lock.json
+apps\server\package.json
+apps\server\README.md
+apps\server\src
+apps\server\src\app.controller.ts
+apps\server\src\app.module.ts
+apps\server\src\domains
+apps\server\src\invite-page.controller.ts
+apps\server\src\main.ts
+apps\server\test
+apps\server\test\app.controller.spec.ts
+apps\server\test\app.e2e-spec.ts
+apps\server\test\broadcast.e2e-spec.ts
+apps\server\test\broadcast.e2e.helpers.ts
+apps\server\test\jest-e2e.json
+apps\server\tsconfig.build.json
+apps\server\tsconfig.json
+apps\web
+apps\web\.env.example
+apps\web\.env.production
+apps\web\.gitignore
+apps\web\.stylelintignore
+apps\web\.stylelintrc.json
+apps\web\android
+apps\web\android\.gitignore
+apps\web\android\app
+apps\web\android\build.gradle
+apps\web\android\capacitor.settings.gradle
+apps\web\android\gradle
+apps\web\android\gradle.properties
+apps\web\android\gradlew
+apps\web\android\gradlew.bat
+apps\web\android\settings.gradle
+apps\web\android\variables.gradle
+apps\web\capacitor.config.json
+apps\web\eslint.config.js
+apps\web\index.html
+apps\web\package-lock.json
+apps\web\package.json
+apps\web\playwright-storage-auth.json
+apps\web\playwright-storage-token.json
+apps\web\postcss.config.cjs
+apps\web\public
+apps\web\public\apple-touch-icon.png
+apps\web\public\favicon.svg
+apps\web\public\icons.svg
+apps\web\public\pwa-192x192.png
+apps\web\public\pwa-512x512.png
+apps\web\public\pwa-maskable-512x512.png
+apps\web\README.md
+apps\web\scripts
+apps\web\scripts\debug-home-flash.mjs
+apps\web\scripts\google-tv-emulator.helpers.mjs
+apps\web\scripts\run-google-tv-emulator.mjs
+apps\web\src
+apps\web\src\App.css
+apps\web\src\App.tsx
+apps\web\src\appRouteCatalog.tsx
+apps\web\src\assets
+apps\web\src\features
+apps\web\src\index.css
+apps\web\src\main.tsx
+apps\web\src\styles
+apps\web\src\vite-env.d.ts
+apps\web\tailwind.config.cjs
+apps\web\tmp-playwright-test.cjs
+apps\web\tsconfig.app.json
+apps\web\tsconfig.json
+apps\web\tsconfig.node.json
+apps\web\vite.config.ts
+apps\web\vitest.config.ts
+Backend
+Backend\.vs
+Backend\.vs\Yeen
+Backend\.vs\Yeen\DesignTimeBuild
+Backend\.vs\Yeen\FileContentIndex
+Backend\.vs\Yeen\v18
+Backend\MediaMetadataService
+Backend\Yeen
+Backend\YeenDatabase
+Backend\YeenLogging
+deployment
+deployment\cloudflared
+deployment\cloudflared\config.yml
+deployment\systemd
+deployment\systemd\yeen.service
+docs
+docs\codebase
+docs\codebase\.codebase-scan.txt
+package-lock.json
+package.json
+packages
+packages\shared-contracts
+packages\shared-contracts\package.json
+packages\shared-contracts\README.md
+packages\shared-contracts\src
+packages\shared-contracts\src\common
+packages\shared-contracts\src\domains
+packages\shared-contracts\src\index.ts
+packages\shared-contracts\tsconfig.json
+README.md
+scripts
+scripts\check-line-budget.mjs
+scripts\check-relative-imports.mjs
+scripts\configure-android-local-properties.mjs
+scripts\create-zip.mjs
+scripts\group-server-root-domain-files.mjs
+scripts\group-server-stream-support.mjs
+scripts\group-web-ui-batch.mjs
+scripts\line-budget-cycle.mjs
+scripts\normalize-shim-imports.mjs
+scripts\organize-grouped-source.mjs
+scripts\prepare-deploy.mjs
+scripts\publish-tv-apk.mjs
+scripts\remove-shims.mjs
+test-results
+test-results\.last-run.json
+
+=== STACK DETECTION (manifest files) ===
+
+--- package-lock.json ---
+{
+  "name": "yeen",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "yeen",
+      "version": "1.0.0",
+      "devDependencies": {
+        "archiver": "^8.0.0",
+        "concurrently": "^9.2.1",
+        "kill-port": "^2.0.1"
+      }
+    },
+    "node_modules/abort-controller": {
+      "version": "3.0.0",
+      "resolved": "https://registry.npmjs.org/abort-controller/-/abort-controller-3.0.0.tgz",
+      "integrity": "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "event-target-shim": "^5.0.0"
+      },
+      "engines": {
+        "node": ">=6.5"
+      }
+    },
+    "node_modules/ansi-regex": {
+      "version": "5.0.1",
+      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
+      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=8"
+      }
+    },
+    "node_modules/ansi-styles": {
+      "version": "4.3.0",
+      "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
+      "integrity": "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "color-convert": "^2.0.1"
+      },
+      "engines": {
+        "node": ">=8"
+      },
+      "funding": {
+        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
+      }
+    },
+    "node_modules/archiver": {
+      "version": "8.0.0",
+      "resolved": "https://registry.npmjs.org/archiver/-/archiver-8.0.0.tgz",
+      "integrity": "sha512-fV1orZfsnPn9BaSByR/qE67rJCLJEy2Ox5bq7nJh+jquWaNh6Sfec75kJ2T6PtdGUbPQlrVoSVCEOa5SdiTQ1g==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "async": "^3.2.4",
+        "buffer-crc32": "^1.0.0",
+        "is-stream": "^4.0.0",
+        "lazystream": "^1.0.0",
+        "normalize-path": "^3.0.0",
+        "readable-stream": "^4.0.0",
+        "readdir-glob": "^3.0.0",
+        "tar-stream": "^3.0.0",
+        "zip-stream": "^7.0.2"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/async": {
+      "version": "3.2.6",
+      "resolved": "https://registry.npmjs.org/async/-/async-3.2.6.tgz",
+      "integrity": "sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==",
+      "dev": true,
+
+[TRUNCATED] Showing first 80 of 947 lines.
+--- package.json ---
+{
+  "name": "yeen",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "kill-port 4000 && npm --prefix apps/server run start:dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "build": "npm --prefix apps/server run build && npm --prefix apps/web run build",
+    "android:configure-sdk": "node ./scripts/configure-android-local-properties.mjs",
+    "android:add": "npm --prefix apps/web run android:add",
+    "android:sync": "npm --prefix apps/web run android:sync",
+    "android:open": "npm --prefix apps/web run android:open",
+    "android:run": "npm --prefix apps/web run android:run",
+    "android:tv:list": "npm --prefix apps/web run android:tv:list",
+    "android:tv:apk": "npm --prefix apps/web run android:tv:apk",
+    "android:tv:live": "npm --prefix apps/web run android:tv:live",
+    "dev:web:tv": "npm --prefix apps/web run dev:tv",
+    "android:package:publish": "node ./scripts/publish-tv-apk.mjs",
+    "android:package:publish:release": "node ./scripts/publish-tv-apk.mjs --release",
+    "android:build:debug": "npm --prefix apps/web run android:build:debug && npm run android:package:publish",
+    "android:build:release": "npm --prefix apps/web run android:build:release && npm run android:package:publish:release",
+    "build:deploy": "npm run build && node ./scripts/prepare-deploy.mjs",
+    "build:zip": "npm run build:deploy && node ./scripts/create-zip.mjs",
+    "lint": "npm --prefix apps/server run lint && npm --prefix apps/web run lint",
+    "line-budget": "node ./scripts/check-line-budget.mjs",
+    "line-budget:hard": "node ./scripts/check-line-budget.mjs --hard"
+  },
+  "devDependencies": {
+    "archiver": "^8.0.0",
+    "concurrently": "^9.2.1",
+    "kill-port": "^2.0.1"
+  },
+  "description": "Focused media server with NestJS + React"
+}
+
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+No linting or formatting config files found in project root.
+
+=== ENVIRONMENT VARIABLE TEMPLATES ===
+No .env.example or .env.template found. Identify required environment variables by searching the code and config for environment variable reads.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+None found.
+
+=== GIT RECENT COMMITS (last 20) ===
+e3fdf63 feat: TV app
+556e38f feat: TV app
+ea192ec feat: TV app
+42325fe feat: TV app
+c641aba feat: Skip intros
+1f60bed feat: Skip intros
+b9c8187 feat: SOLID cleanup
+40c5e9a feat: broadcasting
+93f81f8 feat: SOLID cleanup
+bb2a919 feat: SOLID cleanup
+949f271 feat: more clean up
+a3bbe79 feat: more clean up
+1918638 feat: clean up css
+8c2b114 feat: OPTAMIZE
+63955e2 feat: Optamize
+a7c6ef0 feat: Finished up phone mode
+463570b feat: a whole damn lot
+7bb6452 feat: typescript version init commit
+5bc20ef Rename chunk size constant
+ea2c3d8 Fix YeenDatabase.Models.MediaTables namespace
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+  10 apps/web/src/App.tsx
+   8 apps/web/src/features/player/services/usePlayerData.ts
+   7 apps/server/src/domains/auth/application/services/auth.service.ts
+   7 apps/web/src/features/player/components/PlayerVideoPanel.tsx
+   7 apps/web/package.json
+   7 apps/server/src/domains/media/application/services/media.service.ts
+   6 apps/web/src/features/settings/components/UserSettingsTab.tsx
+   6 apps/server/src/app.module.ts
+   6 apps/web/package-lock.json
+   6 apps/web/src/features/shared/services/types.ts
+   6 apps/server/src/domains/media/infrastructure/resolvers/media-preview.resolver.ts
+   6 apps/server/src/domains/stream/application/services/stream.service.ts
+   5 apps/server/src/domains/auth/auth.module.ts
+   5 apps/server/src/domains/media/infrastructure/stores/media-store-serialization.ts
+   5 apps/web/src/features/broadcast/pages/PublicBroadcastPage.tsx
+   5 apps/web/src/features/player/pages/PlayerPlaybackPage.tsx
+   5 apps/web/src/features/settings/components/AdminAccountsPanel.tsx
+   5 apps/web/src/features/settings/components/SystemSettingsTab.tsx
+   5 README.md
+   5 apps/web/src/features/player/pages/PlayerPage.tsx
+
+=== MONOREPO SIGNALS ===
+Sub-package directory found: packages/
+Sub-package directory found: apps/
+
+=== CODE METRICS ===
+Total files scanned: 724
+Total lines of code: 106425
+
+Files by language:
+  TypeScript: 407
+  Other: 167
+  TypeScript/React: 146
+  Java: 3
+  JavaScript: 1
+
+Top 10 largest files:
+.vs\Yeen.slnx\FileContentIndex\19237543-3122-441e-9692-3dafb2f196af.vsidx: 2156.0KB
+.vs\slnx.sqlite: 768.0KB
+apps\server\package-lock.json: 398.5KB
+apps\web\package-lock.json: 372.7KB
+apps\web\public\pwa-maskable-512x512.png: 56.0KB
+apps\web\android\gradle\wrapper\gradle-wrapper.jar: 42.7KB
+package-lock.json: 32.8KB
+apps\web\android\app\src\main\res\drawable\tv_banner.png: 31.7KB
+apps\web\android\app\src\main\res\mipmap-hdpi\ic_launcher.png: 31.7KB
+apps\web\android\app\src\main\res\mipmap-hdpi\ic_launcher_foreground.png: 31.7KB
+
+=== CI/CD PIPELINES ===
+No CI/CD pipelines detected.
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+No security configs detected.
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===
