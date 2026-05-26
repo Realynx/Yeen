@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { User } from '../../shared/services/types';
 import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
 import { useBroadcast } from '../../broadcast/services/broadcast-context';
+import { useDialogLayer } from '../hooks/useDialogLayer';
 import './profile-menu.css';
 
 interface ProfileMenuProps {
@@ -15,8 +16,19 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   const broadcast = useBroadcast();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const isAdmin = isAdminRole(user.role);
   const hasTorrentAccess = canAccessTorrentTools(user.role);
+
+  useDialogLayer({
+    open,
+    containerRef: dropdownRef,
+    onRequestClose: () => {
+      setOpen(false);
+    },
+    initialFocusSelector: '.profile-dropdown-item',
+    lockBodyScroll: false,
+  });
 
   const initials = useMemo(() => {
     const parts = user.name
@@ -110,7 +122,7 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
       </button>
 
       {open ? (
-        <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+        <div ref={dropdownRef} className="profile-dropdown" role="menu" aria-label="Profile menu">
           <div className="profile-dropdown-header">
             <strong>{user.name}</strong>
             <span>{user.email}</span>

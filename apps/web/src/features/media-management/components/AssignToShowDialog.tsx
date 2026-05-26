@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   bulkDeleteMediaPermanently,
@@ -22,6 +22,7 @@ import { submitAssignment } from './assign-to-show/submitAssignment';
 import type { AssignToShowDialogProps, EpisodeOrder } from './assign-to-show/types';
 import { useAssignmentPreview } from './assign-to-show/useAssignmentPreview';
 import { useRuleDrafts } from './assign-to-show/useRuleDrafts';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 export function AssignToShowDialog({
   token,
@@ -66,6 +67,7 @@ export function AssignToShowDialog({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [assignProgress, setAssignProgress] = useState(createIdleProgressState);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const {
     keywordRules,
@@ -105,6 +107,17 @@ export function AssignToShowDialog({
 
   const busy = saving || deletingId !== null;
 
+  useDialogLayer({
+    open: true,
+    containerRef: dialogRef,
+    onRequestClose: () => {
+      if (!busy) {
+        onClose();
+      }
+    },
+    initialFocusSelector: 'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+  });
+
   useEffect(() => {
     // Keep dialog-local working selection in sync when parent selection changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -112,19 +125,6 @@ export function AssignToShowDialog({
     setPendingDeleteId(null);
     setDeletingId(null);
   }, [selectedItems]);
-
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !busy) {
-        onClose();
-      }
-    }
-
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [busy, onClose]);
 
   const suggestions = useMetadataSuggestions({
     token,
@@ -278,6 +278,7 @@ export function AssignToShowDialog({
       onClick={() => !busy && onClose()}
     >
       <div
+        ref={dialogRef}
         className="metadata-modal metadata-modal-wide metadata-modal-assign"
         role="dialog"
         aria-modal="true"

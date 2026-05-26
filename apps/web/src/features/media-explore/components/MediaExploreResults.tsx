@@ -40,7 +40,7 @@ export function MediaExploreResults({
   onOpenDetails,
 }: MediaExploreResultsProps) {
   return (
-    <section className="library-section">
+    <section className="library-section" data-tv-focus-zone="shelf">
       <div className="section-header">
         <h1 className="section-title">{sectionTitle}</h1>
         <p className="section-subtitle">{sectionSubtitle}</p>
@@ -50,7 +50,11 @@ export function MediaExploreResults({
       {loading ? <p className="muted library-feedback">Loading remote media results...</p> : null}
 
       {!loading && !error && filteredItems.length > 0 ? (
-        <div className="library-results-viewport" ref={resultsViewportRef}>
+        <div
+          className="library-results-viewport"
+          ref={resultsViewportRef}
+          data-tv-focus-lane-id="explore-results-grid"
+        >
           {virtualizedRange.topSpacerHeight > 0 ? (
             <div
               className="library-virtual-spacer"

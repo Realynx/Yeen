@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   bulkDeleteMediaPermanently,
   toApiErrorMessage,
   type BulkDeleteMediaResult,
 } from '../../shared/services/api';
 import type { MediaItem } from '../../shared/services/types';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 interface DeleteMediaDialogProps {
   token: string;
@@ -25,6 +26,7 @@ export function DeleteMediaDialog({
   const [confirmText, setConfirmText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const ids = useMemo(() => selectedItems.map((item) => item.id), [selectedItems]);
   const totalCount = selectedItems.length;
@@ -36,16 +38,16 @@ export function DeleteMediaDialog({
     !submitting &&
     confirmText.trim().toUpperCase() === confirmationPhrase;
 
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !submitting) {
+  useDialogLayer({
+    open: true,
+    containerRef: dialogRef,
+    onRequestClose: () => {
+      if (!submitting) {
         onClose();
       }
-    }
-
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, submitting]);
+    },
+    initialFocusSelector: 'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+  });
 
   async function handleDelete() {
     if (!canDelete || totalCount === 0) {
@@ -72,6 +74,7 @@ export function DeleteMediaDialog({
       onClick={() => !submitting && onClose()}
     >
       <div
+        ref={dialogRef}
         className="metadata-modal"
         role="dialog"
         aria-modal="true"

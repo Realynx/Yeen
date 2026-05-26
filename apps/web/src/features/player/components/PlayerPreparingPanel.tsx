@@ -157,8 +157,8 @@ export function PlayerPreparingPanel({
       {headerContent}
 
       {!hideTopNav ? (
-        <header className="top-nav">
-          <div className="top-nav-left">
+        <header className="top-nav" data-tv-focus-zone="top-nav">
+          <div className="top-nav-left" data-tv-focus-lane-id="top-nav-links">
             <button
               type="button"
               className="nav-back-button"
@@ -172,9 +172,11 @@ export function PlayerPreparingPanel({
             </p>
           </div>
 
-          <BroadcastNavBadge />
+          <div data-tv-focus-lane-id="top-nav-broadcast">
+            <BroadcastNavBadge />
+          </div>
 
-          <div className="top-nav-right">
+          <div className="top-nav-right" data-tv-focus-lane-id="top-nav-actions">
             <LibrarySearchForm
               query={query}
               onQueryChange={setQuery}

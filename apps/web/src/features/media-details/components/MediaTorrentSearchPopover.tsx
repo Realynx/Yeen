@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useRef } from 'react';
 import type {
   NyaaSortDirection,
   NyaaSortField,
@@ -11,6 +11,7 @@ import {
 } from '../services/torrentSearchTypes';
 import type { IptorrentsFlowState } from '../services/useIptorrentsFlow';
 import type { NyaaFlowState } from '../services/useNyaaFlow';
+import { useDialogLayer } from '../../navigation/hooks/useDialogLayer';
 
 export interface MediaTorrentSearchPopoverProps {
   open: boolean;
@@ -83,22 +84,14 @@ export function MediaTorrentSearchPopover({
   onRetryIptSearch,
   onRetryNyaaSearch,
 }: MediaTorrentSearchPopoverProps) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose, open]);
+  useDialogLayer({
+    open,
+    containerRef: dialogRef,
+    onRequestClose: onClose,
+    initialFocusSelector: 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  });
 
   if (!open) {
     return null;
@@ -116,6 +109,7 @@ export function MediaTorrentSearchPopover({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         className="metadata-modal metadata-modal-wide ipt-popover-modal"
         role="dialog"
         aria-modal="true"

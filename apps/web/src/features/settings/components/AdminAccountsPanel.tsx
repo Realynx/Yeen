@@ -175,23 +175,6 @@ export function AdminAccountsPanel({
     setResetPasswordDraft('');
     setEditorNotice(null);
   }, [selectedAccount]);
-
-  useEffect(() => {
-    if (!selectedAccountId) {
-      return;
-    }
-
-    function handleWindowKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setSelectedAccountId(null);
-      }
-    }
-
-    window.addEventListener('keydown', handleWindowKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleWindowKeyDown);
-    };
-  }, [selectedAccountId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function openAccountEditor(account: AdminManagedAccount) {
@@ -318,7 +301,7 @@ export function AdminAccountsPanel({
     : 'No activity recorded yet';
 
   return (
-    <section className="settings-content-grid admin-accounts-layout">
+    <section className="settings-content-grid admin-accounts-layout" data-tv-focus-zone="shelf">
       <AdminAccountsSummaryCard
         accountsCount={accounts.length}
         adminCount={adminCount}

@@ -26,6 +26,7 @@ import { MediaExplorePage } from './features/media-explore/pages/MediaExplorePag
 import { HomePagePhone } from './features/home/pages/HomePagePhone';
 import { HomePageTv } from './features/home/pages/HomePageTv';
 import { MediaExplorePagePhone } from './features/media-explore/pages/MediaExplorePagePhone';
+import { MediaExplorePageTv } from './features/media-explore/pages/MediaExplorePageTv';
 import { MediaLibraryPage } from './features/library/pages/MediaLibraryPage';
 import { MediaLibraryPagePhone } from './features/library/pages/MediaLibraryPagePhone';
 import { MediaLibraryPageTv } from './features/library/pages/MediaLibraryPageTv';
@@ -34,13 +35,17 @@ import { MediaDetailsPagePhone } from './features/media-details/pages/MediaDetai
 import { MediaDetailsPageTv } from './features/media-details/pages/MediaDetailsPageTv';
 import { SettingsPage } from './features/settings/pages/SettingsPage';
 import { SettingsPagePhone } from './features/settings/pages/SettingsPagePhone';
+import { SettingsPageTv } from './features/settings/pages/SettingsPageTv';
 import { SystemSettingsPage } from './features/settings/pages/SystemSettingsPage';
 import { SystemSettingsPagePhone } from './features/settings/pages/SystemSettingsPagePhone';
+import { SystemSettingsPageTv } from './features/settings/pages/SystemSettingsPageTv';
 import { AccountAccessPage } from './features/settings/pages/AccountAccessPage';
 import { AccountAccessPagePhone } from './features/settings/pages/AccountAccessPagePhone';
+import { AccountAccessPageTv } from './features/settings/pages/AccountAccessPageTv';
 import { DownloadControlPage } from './features/settings/pages/DownloadControlPage';
 import { DownloadControlPagePhone } from './features/settings/pages/DownloadControlPagePhone';
-import { PlayerPage } from './features/player/pages/PlayerPage';
+import { DownloadControlPageTv } from './features/settings/pages/DownloadControlPageTv';
+import { PlayerPage } from './features/player/pages/PlayerPage.tsx';
 import { PlayerPagePhone } from './features/player/pages/PlayerPagePhone';
 import { PlayerPageTv } from './features/player/pages/PlayerPageTv';
 
@@ -332,6 +337,12 @@ function App() {
           onUserUpdated={setUser}
         />
       ),
+      tv: (
+        <SettingsPageTv
+          {...commonPageProps}
+          onUserUpdated={setUser}
+        />
+      ),
     },
     {
       path: '/library',
@@ -343,6 +354,7 @@ function App() {
       path: '/explore',
       desktop: <MediaExplorePage {...commonPageProps} />,
       phone: <MediaExplorePagePhone {...commonPageProps} />,
+      tv: <MediaExplorePageTv {...commonPageProps} />,
     },
     {
       path: '/details/:mediaId',
@@ -365,6 +377,7 @@ function App() {
       redirectTo: '/settings',
       desktop: <SystemSettingsPage {...commonPageProps} />,
       phone: <SystemSettingsPagePhone {...commonPageProps} />,
+      tv: <SystemSettingsPageTv {...commonPageProps} />,
     },
     {
       path: '/admin/accounts',
@@ -372,6 +385,7 @@ function App() {
       redirectTo: '/settings',
       desktop: <AccountAccessPage {...commonPageProps} />,
       phone: <AccountAccessPagePhone {...commonPageProps} />,
+      tv: <AccountAccessPageTv {...commonPageProps} />,
     },
     {
       path: '/admin/downloads',
@@ -379,6 +393,7 @@ function App() {
       redirectTo: '/',
       desktop: <DownloadControlPage {...commonPageProps} />,
       phone: <DownloadControlPagePhone {...commonPageProps} />,
+      tv: <DownloadControlPageTv {...commonPageProps} />,
     },
   ];
 

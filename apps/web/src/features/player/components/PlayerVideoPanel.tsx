@@ -150,21 +150,37 @@ export function PlayerVideoPanel({
       }
     }
 
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== 'Escape') {
+    function closeOnDismissKey(event: KeyboardEvent) {
+      const isDismissKey = event.key === 'Escape' || event.key === 'Backspace';
+      if (!isDismissKey) {
         return;
       }
+
+      const target = event.target;
+      if (
+        event.key === 'Backspace'
+        && target instanceof HTMLElement
+        && (
+          target.tagName === 'INPUT'
+          || target.tagName === 'TEXTAREA'
+          || target.isContentEditable
+        )
+      ) {
+        return;
+      }
+
+      event.preventDefault();
 
       setOpenMenu(null);
       setContextMenu(null);
     }
 
     document.addEventListener('mousedown', closeOnOutside);
-    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('keydown', closeOnDismissKey);
 
     return () => {
       document.removeEventListener('mousedown', closeOnOutside);
-      document.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('keydown', closeOnDismissKey);
     };
   }, [contextMenu, openMenu]);
 

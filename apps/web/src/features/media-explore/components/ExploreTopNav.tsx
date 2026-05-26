@@ -25,8 +25,8 @@ export function ExploreTopNav({
   onLogout,
 }: ExploreTopNavProps) {
   return (
-    <header className="top-nav">
-      <div className="top-nav-left">
+    <header className="top-nav" data-tv-focus-zone="top-nav">
+      <div className="top-nav-left" data-tv-focus-lane-id="top-nav-links">
         <p className="brand-mark">YEEN</p>
         <nav className="browse-links" aria-label="Browse">
           <NavLink
@@ -57,9 +57,11 @@ export function ExploreTopNav({
         </nav>
       </div>
 
-      <BroadcastNavBadge />
+      <div data-tv-focus-lane-id="top-nav-broadcast">
+        <BroadcastNavBadge />
+      </div>
 
-      <div className="top-nav-right">
+      <div className="top-nav-right" data-tv-focus-lane-id="top-nav-actions">
         <LibrarySearchForm
           query={query}
           onQueryChange={onQueryChange}
