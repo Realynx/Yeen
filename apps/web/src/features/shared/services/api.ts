@@ -1,6 +1,7 @@
 export * from './api-auth';
 export * from './api-broadcast';
 export * from './api-core';
+export * from './api-dashboard';
 export * from './api-media-maintenance';
 export * from './api-media-search';
 export * from './api-metadata-edits';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listMedia } from '../../shared/services/api';
+import { getEpisodeNavigation, listMedia } from '../../shared/services/api';
 import type { MediaItem } from '../../shared/services/types';
 import {
   episodeFrameImageUrl,
@@ -14,6 +14,8 @@ export interface ShowEpisodesState {
   nextEpisode: MediaItem | null;
   previousEpisodeImage: string | null;
   nextEpisodeImage: string | null;
+  autoAdvanceSeconds: number | null;
+  cancelAutoAdvance: () => void;
   /**
    * Wraps a video-ended handler so that when the current item is a show
    * episode, the next episode is navigated to at most once per target id.
@@ -28,11 +30,29 @@ export function useShowEpisodes(
 ): ShowEpisodesState {
   const navigate = useNavigate();
   const [showEpisodes, setShowEpisodes] = useState<MediaItem[]>([]);
+  const [apiPreviousEpisode, setApiPreviousEpisode] = useState<MediaItem | null>(null);
+  const [apiNextEpisode, setApiNextEpisode] = useState<MediaItem | null>(null);
+  const [autoAdvanceSeconds, setAutoAdvanceSeconds] = useState<number | null>(null);
   const autoAdvanceLockRef = useRef<string | null>(null);
+  const autoAdvanceIntervalRef = useRef<number | null>(null);
+  const autoAdvanceTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const cancelAutoAdvance = useCallback(() => {
+    if (autoAdvanceIntervalRef.current !== null) {
+      window.clearInterval(autoAdvanceIntervalRef.current);
+      autoAdvanceIntervalRef.current = null;
+    }
+
+    if (autoAdvanceTimeoutRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
+
     autoAdvanceLockRef.current = null;
-  }, [mediaId]);
+    setAutoAdvanceSeconds(null);
+  }, []);
+
+  useEffect(() => cancelAutoAdvance, [cancelAutoAdvance, mediaId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,11 +60,16 @@ export function useShowEpisodes(
     async function loadShowEpisodes() {
       if (!media || media.type !== 'show') {
         setShowEpisodes([]);
+        setApiPreviousEpisode(null);
+        setApiNextEpisode(null);
         return;
       }
 
       try {
-        const items = await listMedia(token);
+        const [items, navigation] = await Promise.all([
+          listMedia(token),
+          getEpisodeNavigation(token, mediaId).catch(() => null),
+        ]);
         if (cancelled) {
           return;
         }
@@ -54,9 +79,13 @@ export function useShowEpisodes(
           .filter((item) => item.type === 'show' && normalizeShowKey(item) === showKey)
           .sort(compareEpisodeOrder);
         setShowEpisodes(siblingEpisodes);
+        setApiPreviousEpisode(navigation?.previousEpisode ?? null);
+        setApiNextEpisode(navigation?.nextEpisode ?? null);
       } catch {
         if (!cancelled) {
           setShowEpisodes([]);
+          setApiPreviousEpisode(null);
+          setApiNextEpisode(null);
         }
       }
     }
@@ -66,7 +95,7 @@ export function useShowEpisodes(
     return () => {
       cancelled = true;
     };
-  }, [media, token]);
+  }, [media, mediaId, token]);
 
   const currentEpisodeIndex = useMemo(() => {
     if (!media || media.type !== 'show') {
@@ -77,11 +106,13 @@ export function useShowEpisodes(
   }, [media, showEpisodes]);
 
   const previousEpisode =
-    currentEpisodeIndex > 0 ? showEpisodes[currentEpisodeIndex - 1] : null;
+    apiPreviousEpisode ??
+    (currentEpisodeIndex > 0 ? showEpisodes[currentEpisodeIndex - 1] : null);
   const nextEpisode =
-    currentEpisodeIndex >= 0 && currentEpisodeIndex < showEpisodes.length - 1
+    apiNextEpisode ??
+    (currentEpisodeIndex >= 0 && currentEpisodeIndex < showEpisodes.length - 1
       ? showEpisodes[currentEpisodeIndex + 1]
-      : null;
+      : null);
 
   const previousEpisodeImage = previousEpisode ? episodeFrameImageUrl(previousEpisode) : null;
   const nextEpisodeImage = nextEpisode ? episodeFrameImageUrl(nextEpisode) : null;
@@ -100,10 +131,25 @@ export function useShowEpisodes(
         }
 
         autoAdvanceLockRef.current = nextEpisode.id;
-        navigate(`/player/${nextEpisode.id}`);
+        setAutoAdvanceSeconds(10);
+
+        autoAdvanceIntervalRef.current = window.setInterval(() => {
+          setAutoAdvanceSeconds((current) => {
+            if (current === null) {
+              return null;
+            }
+
+            return Math.max(0, current - 1);
+          });
+        }, 1000);
+
+        autoAdvanceTimeoutRef.current = window.setTimeout(() => {
+          cancelAutoAdvance();
+          navigate(`/player/${nextEpisode.id}`);
+        }, 10000);
       };
     },
-    [navigate, nextEpisode],
+    [cancelAutoAdvance, navigate, nextEpisode],
   );
 
   return {
@@ -112,6 +158,8 @@ export function useShowEpisodes(
     nextEpisode,
     previousEpisodeImage,
     nextEpisodeImage,
+    autoAdvanceSeconds,
+    cancelAutoAdvance,
     withAutoAdvance,
   };
 }

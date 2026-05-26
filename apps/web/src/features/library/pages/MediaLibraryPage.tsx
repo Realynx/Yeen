@@ -140,6 +140,21 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
     navigate(toLibrarySearchPath(query));
   }
 
+  useEffect(() => {
+    const normalizedQuery = normalizeLibrarySearchTerm(query);
+    if (normalizedQuery === routeSearchTerm) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      navigate(toLibrarySearchPath(normalizedQuery), { replace: true });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [navigate, query, routeSearchTerm]);
+
   function handleClearSearch() {
     setQuery('');
     setTagFilter('');

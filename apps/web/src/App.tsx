@@ -23,6 +23,7 @@ import { useClientExperience } from './features/navigation/services/clientExperi
 import type { AuthResponse, User } from './features/shared/services/types';
 import { PublicBroadcastPage } from './features/broadcast/pages/PublicBroadcastPage';
 import { BroadcastProvider } from './features/broadcast/services/broadcast-context';
+import { AppErrorBoundary } from './features/shared/components/AppErrorBoundary';
 
 function titleForPath(pathname: string): string {
   if (pathname === '/') {
@@ -83,6 +84,19 @@ function inviteTokenFromPath(pathname: string): string | null {
 
 function watchTokenFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/watch\/([^/]+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+function resetTokenFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/reset-password\/([^/]+)$/i);
   if (!match) {
     return null;
   }
@@ -230,6 +244,16 @@ function App() {
       );
     }
 
+    const resetToken = resetTokenFromPath(window.location.pathname);
+    if (resetToken) {
+      return (
+        <AuthPanel
+          onAuthenticated={handleAuthenticated}
+          initialResetToken={resetToken}
+        />
+      );
+    }
+
     if (shouldShowNativeTvPairing && !usePasswordLoginOnTv) {
       return (
         <TvPairingAuthPanel
@@ -284,7 +308,11 @@ function App() {
             <Route
               key={route.path}
               path={route.path}
-              element={routeElementForExperience(experience, route)}
+              element={
+                <AppErrorBoundary>
+                  {routeElementForExperience(experience, route)}
+                </AppErrorBoundary>
+              }
             />
           ))}
 
@@ -292,9 +320,15 @@ function App() {
             <Route
               key={route.path}
               path={route.path}
-              element={route.allowed
-                ? routeElementForExperience(experience, route)
-                : <Navigate to={route.redirectTo} replace />}
+              element={
+                route.allowed
+                  ? (
+                    <AppErrorBoundary>
+                      {routeElementForExperience(experience, route)}
+                    </AppErrorBoundary>
+                  )
+                  : <Navigate to={route.redirectTo} replace />
+              }
             />
           ))}
 

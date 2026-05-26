@@ -271,3 +271,42 @@ textarea {
   color: #ffc0ba;
 }
 
+.auth-page .success-text,
+.error-boundary-page .success-text {
+  color: #b8f7c5;
+}
+
+.auth-reset-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.7rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(184, 247, 197, 0.32);
+  border-radius: var(--radius-sm);
+  color: #dfffe6;
+  background: rgba(58, 180, 91, 0.16);
+  text-decoration: none;
+}
+
+.auth-reset-link:hover,
+.auth-reset-link:focus-visible {
+  border-color: rgba(184, 247, 197, 0.58);
+  background: rgba(58, 180, 91, 0.24);
+}
+
+.error-boundary-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.error-boundary-panel {
+  width: min(560px, 100%);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  background: rgba(20, 20, 24, 0.92);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}

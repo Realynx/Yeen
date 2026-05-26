@@ -33,6 +33,27 @@ export async function login(input: { email: string; password: string }) {
   });
 }
 
+export async function requestPasswordReset(input: { email: string }) {
+  return request<{
+    message: string;
+    resetPath: string | null;
+    expiresAt: string | null;
+  }>('/auth/password-reset/request', {
+    method: 'POST',
+    body: jsonBody(input),
+  });
+}
+
+export async function confirmPasswordReset(input: {
+  token: string;
+  newPassword: string;
+}) {
+  return request<{ message: string }>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: jsonBody(input),
+  });
+}
+
 export async function requestTvPairingCode(
   input: TvPairingStartRequest = {},
 ) {

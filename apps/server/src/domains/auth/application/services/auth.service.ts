@@ -29,10 +29,7 @@ import { AccountRecord } from '../../domain/entities/account-record.entity';
 import { AuthUser } from '../../domain/entities/auth-user.entity';
 import { InviteTokensStore } from '../../infrastructure/stores/invite-tokens.store';
 import { AuthAdminAccountService } from './auth-admin-account.service';
-import {
-  AuthAvatarService,
-  UploadedAvatarImage,
-} from './auth-avatar.service';
+import { AuthAvatarService, UploadedAvatarImage } from './auth-avatar.service';
 import { AuthTvPairingService } from './auth-tv-pairing.service';
 import { toSafeAccount } from '../helpers/auth-account-helpers';
 

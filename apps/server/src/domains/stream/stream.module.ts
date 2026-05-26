@@ -8,6 +8,7 @@ import { RangeStreamService } from './application/services/range-stream.service'
 import { StreamController } from './presentation/controllers/stream.controller';
 import { StreamService } from './application/services/stream.service';
 import { HlsManifestService } from './application/services/hls/hls-manifest.service';
+import { HlsSessionCleanupService } from './application/services/hls/hls-session-cleanup.service';
 import { HlsSegmentTranscoder } from './application/services/hls/hls-segment-transcoder.service';
 import { TorrentDataAvailabilityService } from './application/services/hls/torrent-data-availability.service';
 
@@ -18,6 +19,7 @@ import { TorrentDataAvailabilityService } from './application/services/hls/torre
     HlsSessionStore,
     RangeStreamService,
     HlsManifestService,
+    HlsSessionCleanupService,
     HlsSegmentTranscoder,
     TorrentDataAvailabilityService,
     StreamService,

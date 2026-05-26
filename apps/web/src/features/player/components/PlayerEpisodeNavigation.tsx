@@ -9,6 +9,8 @@ interface PlayerEpisodeNavigationProps {
   nextEpisode: MediaItem | null;
   previousEpisodeImage: string | null;
   nextEpisodeImage: string | null;
+  autoAdvanceSeconds: number | null;
+  onCancelAutoAdvance: () => void;
   onNavigateToEpisode: (episodeId: string) => void;
 }
 
@@ -26,6 +28,8 @@ export function PlayerEpisodeNavigation({
   nextEpisode,
   previousEpisodeImage,
   nextEpisodeImage,
+  autoAdvanceSeconds,
+  onCancelAutoAdvance,
   onNavigateToEpisode,
 }: PlayerEpisodeNavigationProps) {
   if (!isShowMedia || (!previousEpisode && !nextEpisode)) {
@@ -61,6 +65,21 @@ export function PlayerEpisodeNavigation({
           <span className="player-episode-link-code">{episodeCode(nextEpisode)}</span>
           <strong className="player-episode-link-title">{episodeDisplayTitle(nextEpisode)}</strong>
         </button>
+      ) : null}
+
+      {nextEpisode && autoAdvanceSeconds !== null ? (
+        <div className="player-auto-next-card" role="status" aria-live="polite">
+          <span className="player-auto-next-kicker">Autoplay next</span>
+          <strong>{episodeDisplayTitle(nextEpisode)}</strong>
+          <span>Starting in {autoAdvanceSeconds}s</span>
+          <button
+            type="button"
+            className="ghost-button small"
+            onClick={onCancelAutoAdvance}
+          >
+            Cancel
+          </button>
+        </div>
       ) : null}
     </section>
   );
