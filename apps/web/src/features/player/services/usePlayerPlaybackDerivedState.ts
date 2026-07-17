@@ -43,11 +43,19 @@ export function usePlayerPlaybackDerivedState({
   }, [searchParams]);
 
   const totalDuration = useMemo(() => {
+    // `duration` mirrors the <video> element's duration, which hls.js can shrink
+    // to a truncated buffered edge when a sub-frame segment hole trips an early
+    // end-of-stream. The source-probe `durationSeconds` is what the HLS manifest
+    // is actually built from, so it is the authoritative runtime — never report a
+    // total shorter than it, otherwise the scrubber and end-of-video detection
+    // would treat a cut-short runtime as the whole movie.
+    const probeDurationSeconds = Math.max(media?.durationSeconds ?? 0, 0);
+
     if (duration > 0) {
-      return duration;
+      return Math.max(duration, probeDurationSeconds);
     }
 
-    return Math.max(media?.durationSeconds ?? 0, 0);
+    return probeDurationSeconds;
   }, [duration, media?.durationSeconds]);
 
   const safeDuration = Math.max(totalDuration, 1);

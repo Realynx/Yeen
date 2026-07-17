@@ -7,8 +7,24 @@ import type {
 import type { PlaybackSource } from './usePlayerData';
 import { clamp, describeMediaError } from './playerUtils';
 
+// With on-demand HLS transcoding, independently produced MPEG-TS segments do not
+// always tile the timeline perfectly (CFR frame-rounding + per-segment AAC
+// priming leave sub-frame buffer holes). hls.js can resolve such a hole by
+// jumping and emitting a premature `ended` event while real content remains.
+// Treat an `ended` event as a genuine end only when playback is actually close
+// to the media duration; otherwise nudge across the hole and keep playing.
+const SPURIOUS_END_REMAINING_SECONDS = 3;
+const SPURIOUS_END_NUDGE_SECONDS = 0.1;
+const MAX_SPURIOUS_END_RECOVERIES = 3;
+
 interface UsePlayerVideoPanelHandlersOptions {
   mediaId: string;
+  /**
+   * Authoritative runtime in seconds (source-probe duration the HLS manifest is
+   * built from). Used to detect premature `ended` events because the <video>
+   * element's own `duration` is unreliable at end-of-stream.
+   */
+  totalDuration: number;
   revealControls: () => void;
   seekTo: (seconds: number) => void;
   seekValue: number;
@@ -41,7 +57,7 @@ interface PlayerVideoPanelHandlers {
   handleToggleTheaterMode: () => void;
   handleVideoPlay: () => void;
   handleVideoPause: () => void;
-  handleVideoEnded: () => void;
+  handleVideoEnded: () => boolean;
   handleVideoWaiting: () => void;
   handleVideoReady: () => void;
   handleVideoError: () => void;
@@ -49,6 +65,7 @@ interface PlayerVideoPanelHandlers {
 
 export function usePlayerVideoPanelHandlers({
   mediaId,
+  totalDuration,
   revealControls,
   seekTo,
   seekValue,
@@ -69,9 +86,11 @@ export function usePlayerVideoPanelHandlers({
   videoRef,
 }: UsePlayerVideoPanelHandlersOptions): PlayerVideoPanelHandlers {
   const attemptedHlsRestartRef = useRef(false);
+  const spuriousEndRecoveryRef = useRef({ attempts: 0, lastPositionSeconds: -1 });
 
   useEffect(() => {
     attemptedHlsRestartRef.current = false;
+    spuriousEndRecoveryRef.current = { attempts: 0, lastPositionSeconds: -1 };
   }, [mediaId]);
 
   const hideControls = useCallback(() => {
@@ -122,11 +141,65 @@ export function usePlayerVideoPanelHandlers({
     void syncProgress(false);
   }, [revealControls, setIsBuffering, setIsPlaying, syncProgress]);
 
-  const handleVideoEnded = useCallback(() => {
+  const handleVideoEnded = useCallback((): boolean => {
+    const video = videoRef.current;
+
+    // Reject premature ends: if a meaningful amount of the video is still ahead,
+    // this `ended` event came from a buffer hole rather than the real end of the
+    // content. Nudge across the gap and resume instead of marking the item
+    // complete / triggering auto-advance and losing the remainder.
+    //
+    // We deliberately measure "remaining" against the authoritative runtime
+    // rather than `video.duration`. When the browser fires `ended` it snaps
+    // `currentTime` to `duration`, and hls.js can additionally shrink `duration`
+    // down to a truncated buffered edge on an early end-of-stream — so
+    // `video.duration - video.currentTime` collapses to ~0 and would never
+    // detect a premature end. `totalDuration` is the source-probe runtime the
+    // manifest is built from and does not shrink, so it stays a valid reference.
+    const authoritativeDurationSeconds = Math.max(
+      totalDuration,
+      Number.isFinite(video?.duration) ? video?.duration ?? 0 : 0,
+    );
+
+    if (video && authoritativeDurationSeconds > 0) {
+      const remainingSeconds = authoritativeDurationSeconds - video.currentTime;
+
+      if (remainingSeconds > SPURIOUS_END_REMAINING_SECONDS) {
+        const recovery = spuriousEndRecoveryRef.current;
+        const sameSpot =
+          Math.abs(video.currentTime - recovery.lastPositionSeconds) < 1;
+        recovery.attempts = sameSpot ? recovery.attempts + 1 : 1;
+        recovery.lastPositionSeconds = video.currentTime;
+
+        // Stop nudging once we keep landing in the same spot, but never fall
+        // through to "completed" — staying paused mid-video is strictly better
+        // than skipping the rest of it.
+        if (recovery.attempts <= MAX_SPURIOUS_END_RECOVERIES) {
+          try {
+            video.currentTime = Math.min(
+              authoritativeDurationSeconds,
+              video.currentTime + SPURIOUS_END_NUDGE_SECONDS,
+            );
+          } catch {
+            // Ignore seek failures; the play() below may still recover.
+          }
+
+          void video.play().catch(() => {
+            // Resume can be rejected (e.g. autoplay policy); the user can
+            // resume manually. We still avoid the false completion.
+          });
+        }
+
+        return false;
+      }
+    }
+
+    spuriousEndRecoveryRef.current = { attempts: 0, lastPositionSeconds: -1 };
     setIsPlaying(false);
     setIsControlsVisible(true);
     void syncProgress(true);
-  }, [setIsControlsVisible, setIsPlaying, syncProgress]);
+    return true;
+  }, [setIsControlsVisible, setIsPlaying, syncProgress, totalDuration, videoRef]);
 
   const handleVideoWaiting = useCallback(() => {
     setIsBuffering(true);

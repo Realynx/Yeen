@@ -70,7 +70,7 @@ interface UsePlayerPlaybackRuntimeOptions {
     audioBitrateKbps?: number | null;
     maxOutputHeight?: number | null;
   }) => Promise<boolean>;
-  withAutoAdvance: (handler: () => void) => () => void;
+  withAutoAdvance: (handler: () => boolean) => () => void;
 }
 
 export interface PlayerPlaybackRuntime {
@@ -336,6 +336,7 @@ export function usePlayerPlaybackRuntime({
     handleVideoError,
   } = usePlayerVideoPanelHandlers({
     mediaId,
+    totalDuration,
     revealControls,
     seekTo,
     seekValue,

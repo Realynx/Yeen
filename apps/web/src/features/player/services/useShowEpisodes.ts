@@ -19,8 +19,10 @@ export interface ShowEpisodesState {
   /**
    * Wraps a video-ended handler so that when the current item is a show
    * episode, the next episode is navigated to at most once per target id.
+   * The wrapped handler reports whether the video truly ended; a premature
+   * end (handler returns `false`) is ignored so auto-advance never fires early.
    */
-  withAutoAdvance: (onEnded: () => void) => () => void;
+  withAutoAdvance: (onEnded: () => boolean) => () => void;
 }
 
 export function useShowEpisodes(
@@ -118,9 +120,14 @@ export function useShowEpisodes(
   const nextEpisodeImage = nextEpisode ? episodeFrameImageUrl(nextEpisode) : null;
 
   const withAutoAdvance = useCallback(
-    (onEnded: () => void) => {
+    (onEnded: () => boolean) => {
       return () => {
-        onEnded();
+        const reachedRealEnd = onEnded();
+
+        // A premature/spurious end must not advance to the next episode.
+        if (!reachedRealEnd) {
+          return;
+        }
 
         if (!nextEpisode) {
           return;

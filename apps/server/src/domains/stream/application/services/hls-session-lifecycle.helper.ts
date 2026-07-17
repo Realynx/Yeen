@@ -110,7 +110,17 @@ export async function createSessionValue(
     );
   }
 
-  if (!Number.isFinite(media.durationSeconds) || media.durationSeconds <= 0) {
+  // Build the playlist from the real source file's duration, not the stored
+  // `durationSeconds` — which for torrent/remote-catalog items can be an estimate
+  // (file-size guess or official catalog runtime) tens of minutes off the actual
+  // file. Trusting that estimate truncates the manifest and cuts playback short.
+  const totalDurationSeconds =
+    await mediaService.reconcileSourceDurationSeconds(
+      mediaId,
+      resolvedSourceFilePath,
+    );
+
+  if (!Number.isFinite(totalDurationSeconds) || totalDurationSeconds <= 0) {
     throw new InternalServerErrorException(
       'Media has no known duration; cannot build HLS playlist.',
     );
@@ -145,7 +155,6 @@ export async function createSessionValue(
       ? '0:a:0?'
       : `0:${selectedAudioStreamIndex}?`;
 
-  const totalDurationSeconds = media.durationSeconds;
   const totalSegments = totalSegmentCount(totalDurationSeconds, segmentSeconds);
 
   return {
