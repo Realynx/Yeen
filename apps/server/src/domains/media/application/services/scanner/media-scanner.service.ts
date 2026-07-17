@@ -113,6 +113,22 @@ export class MediaScannerService {
     }
   }
 
+  /**
+   * Probe only the playable duration of a source file. Used to verify the HLS
+   * manifest length against the real file at playback time, since an item's
+   * stored `durationSeconds` may be a torrent file-size estimate or a remote
+   * catalog runtime rather than the true probed file duration.
+   */
+  async probeDurationSeconds(filePath: string): Promise<number> {
+    const settings = await this.systemSettingsService.getSettings();
+    const parsed = await this.mediaProbeAdapter.probeFile(
+      filePath,
+      settings.ffprobePath || 'ffprobe',
+    );
+    const fileStats: Stats = await stat(filePath);
+    return resolveDurationSeconds(parsed, fileStats.size);
+  }
+
   async probeFile(
     filePath: string,
     libraryRoot: string,

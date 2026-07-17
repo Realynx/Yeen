@@ -22,6 +22,14 @@ const HLS_CONFIG: Partial<HlsConfig> = {
   fragLoadingTimeOut: 60000,
   maxBufferLength: 30,
   maxMaxBufferLength: 60,
+  // On-demand transcoded segments are produced independently, so adjacent
+  // segments can leave sub-frame buffer holes (CFR rounding + per-segment AAC
+  // priming). Give hls.js more room to bridge and nudge across those holes so
+  // they don't stall playback or trigger a premature end-of-stream.
+  maxBufferHole: 0.5,
+  nudgeOffset: 0.2,
+  nudgeMaxRetry: 6,
+  highBufferWatchdogPeriod: 2,
 };
 
 export function createHlsInstance(): Hls {

@@ -30,6 +30,7 @@ import { MediaRecycleDeletionsService } from './recycle-deletions/media-recycle-
 import { MediaPermanentDeleteService } from './recycle-deletions/media-permanent-delete.service';
 import { MediaEpisodeCatalogService } from './episode-catalog/media-episode-catalog.service';
 import { MediaPlaybackService } from './media-playback.service';
+import { MediaScannerService } from './scanner/media-scanner.service';
 import {
   exportMetadataValue,
   importMetadataFromJsonValue,
@@ -122,6 +123,7 @@ export class MediaService {
     private readonly tmdbMetadataService: TmdbMetadataService,
     private readonly jikanMetadataService: JikanMetadataService,
     private readonly mediaTorrentIndexingService: MediaTorrentIndexingService,
+    private readonly mediaScannerService: MediaScannerService,
   ) {
     this.metadataOps = {
       getById: (mediaId) => this.getById(mediaId),
@@ -200,6 +202,63 @@ export class MediaService {
     }
 
     return item;
+  }
+
+  /**
+   * Resolve the authoritative playback runtime for a media item by probing the
+   * real source file, correcting the stored `durationSeconds` when it was a
+   * too-short estimate (a torrent file-size guess or a remote catalog runtime).
+   *
+   * The HLS manifest is built from this value, so a stored runtime shorter than
+   * the file truncates the transcode and cuts playback off early. We only ever
+   * grow the value from a probe — never shrink it — because probing an
+   * in-progress torrent file can under-report; an under-report falls back to the
+   * existing estimate rather than truncating playback further.
+   */
+  async reconcileSourceDurationSeconds(
+    mediaId: string,
+    sourceFilePath: string,
+  ): Promise<number> {
+    const item = await this.mediaStore.findById(mediaId);
+    const storedDuration =
+      item && Number.isFinite(item.durationSeconds) && item.durationSeconds > 0
+        ? item.durationSeconds
+        : 0;
+
+    let probedDuration = 0;
+    try {
+      probedDuration =
+        await this.mediaScannerService.probeDurationSeconds(sourceFilePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(
+        `Source duration probe failed for ${mediaId} (${sourceFilePath}); using stored runtime. (${message})`,
+      );
+    }
+
+    if (!Number.isFinite(probedDuration) || probedDuration <= 0) {
+      return storedDuration;
+    }
+
+    const DURATION_CORRECTION_EPSILON_SECONDS = 1;
+    if (
+      item &&
+      probedDuration > storedDuration + DURATION_CORRECTION_EPSILON_SECONDS
+    ) {
+      const corrected: MediaItem = {
+        ...item,
+        durationSeconds: Math.round(probedDuration),
+      };
+      corrected.dedupeKey =
+        this.mediaMetadataPatchApplicationService.buildDedupeKey(corrected);
+      await this.mediaStore.upsert(corrected);
+      this.logger.log(
+        `Corrected runtime for ${mediaId} from ${storedDuration}s to ${corrected.durationSeconds}s using source probe.`,
+      );
+      return corrected.durationSeconds;
+    }
+
+    return Math.max(storedDuration, probedDuration);
   }
 
   async getSeriesEpisodeTracker(
