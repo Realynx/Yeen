@@ -264,10 +264,17 @@ async function tryHardwarePipelineFallback(
 ): Promise<boolean> {
   const cpuFallbackArgs = input.session.cpuFallbackVideoArgs;
   const softwareNvencArgs = input.session.softwareNvencFallbackVideoArgs;
+  // Any deterministic ffmpeg failure on the NVIDIA pipeline is a reason to
+  // retreat down the ladder. Matching stderr text kept missing real failures:
+  // when the GPU cannot NVDEC the source codec, ffmpeg quietly decodes in
+  // software and the filtergraph then dies at its *input* with "Impossible to
+  // convert between the formats ...", naming neither CUDA nor NVENC. That
+  // wording also drifts between ffmpeg builds (auto_scale_0 vs auto_scaler_0).
+  // Transient input problems still belong to the retry path, not here.
   if (
     input.session.videoEncoder !== 'nvidia' ||
     !cpuFallbackArgs ||
-    !isHardwarePipelineFailure(message)
+    isRecoverableTranscodeInputErrorValue(message)
   ) {
     return false;
   }
@@ -301,6 +308,13 @@ async function tryHardwarePipelineFallback(
       scheduleSegmentCachePrune(input, segmentIndex);
       return true;
     } catch (fallbackError) {
+      // Backpressure is a "come back in a moment", not a verdict on this media.
+      // Reporting it as a permanent failure tears the player down for good,
+      // which is what happened whenever a second AV1 session arrived while the
+      // first still held the single software-pipeline slot.
+      if (fallbackError instanceof SegmentTranscodeQueueOverloadedError) {
+        handleQueueOverload(input, fallbackError, segmentIndex);
+      }
       input.logger.warn(
         `Software-conversion NVENC fallback failed for session ${input.session.sessionId} segment ${segmentIndex}; retrying with CPU encoding. ${errorMessage(fallbackError)}`,
       );
@@ -333,45 +347,14 @@ async function tryHardwarePipelineFallback(
     scheduleSegmentCachePrune(input, segmentIndex);
     return true;
   } catch (cpuError) {
+    if (cpuError instanceof SegmentTranscodeQueueOverloadedError) {
+      handleQueueOverload(input, cpuError, segmentIndex);
+    }
     input.logger.error(
       `CPU fallback failed for session ${input.session.sessionId} segment ${segmentIndex}: ${errorMessage(cpuError)}`,
     );
     return false;
   }
-}
-
-// A broken CUDA pipeline reports itself from whichever layer noticed first, and
-// each layer words it differently: the CUDA device, the NVDEC decoder feeding
-// the filter graph, or NVENC. The decode layer matters most in practice —
-// NVENC probes fine on every NVIDIA card, so a session happily starts on the
-// CUDA pipeline and only discovers mid-segment that the GPU cannot decode the
-// source. AV1 hits this on anything older than Ada, which made AV1 titles fail
-// permanently while the same GPU transcoded H.264 without complaint.
-const HARDWARE_PIPELINE_FAILURE_PATTERNS = [
-  // Encoder and filter layer.
-  'nvenc',
-  'scale_cuda',
-  'hwframe',
-  'hwdownload',
-  // CUDA device layer.
-  'cuda error',
-  'cuda_error',
-  'cannot load libcuda',
-  'no cuda-capable device',
-  'device creation failed',
-  // NVDEC decode layer.
-  'hwaccel',
-  'no device available for decoder',
-  'hardware device setup failed',
-  'cuvid',
-  'nvdec',
-];
-
-function isHardwarePipelineFailure(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return HARDWARE_PIPELINE_FAILURE_PATTERNS.some((pattern) =>
-    normalized.includes(pattern),
-  );
 }
 
 function handleQueueOverload(
