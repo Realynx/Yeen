@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SystemSettingsTab } from '../components/SystemSettingsTab';
 import { listMedia } from '../../shared/services/api';
@@ -15,6 +14,7 @@ import { useMediaLocations } from '../services/useMediaLocations';
 import { useSystemSettings } from '../services/useSystemSettings';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
+import { SettingsAppShell } from '../components/SettingsAppShell';
 
 interface SystemSettingsPagePhoneProps {
 	token: string;
@@ -128,12 +128,19 @@ export function SystemSettingsPagePhone({
 					randomDisabled={randomDetailsCandidates.length === 0}
 				/>
 
-				<SystemSettingsTab
-					token={token}
-					systemSettingsState={systemSettingsState}
-					mediaLocationsState={mediaLocationsState}
-					phoneFloatingQuickJumpBar
-				/>
+				<SettingsAppShell
+					user={user}
+					experience="phone"
+					title="System"
+					description="Configure media, runtime, playback, and maintenance."
+				>
+					<SystemSettingsTab
+						token={token}
+						systemSettingsState={systemSettingsState}
+						mediaLocationsState={mediaLocationsState}
+						phoneFloatingQuickJumpBar
+					/>
+				</SettingsAppShell>
 			</main>
 		</PhonePageShell>
 	);

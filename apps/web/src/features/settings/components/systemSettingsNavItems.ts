@@ -5,8 +5,6 @@ export const SYSTEM_SETTINGS_SECTION_IDS = [
   'system-runtime',
   'system-transcoding',
   'system-metadata-defaults',
-  'system-torrent-client',
-  'system-torrent-trackers',
   'system-metadata-commits',
   'system-maintenance',
 ] as const;
@@ -56,18 +54,6 @@ export function createSystemSettingsNavEntries(
       label: 'Metadata Defaults',
       shortLabel: 'Metadata',
       icon: 'metadata',
-    },
-    {
-      id: 'system-torrent-client',
-      label: 'qBittorrent Client',
-      shortLabel: 'qBit',
-      icon: 'torrent',
-    },
-    {
-      id: 'system-torrent-trackers',
-      label: 'Tracker Providers',
-      shortLabel: 'Trackers',
-      icon: 'torrent',
     },
     {
       id: 'system-metadata-commits',

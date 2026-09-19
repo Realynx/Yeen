@@ -1,5 +1,4 @@
-import { createElement } from 'react';
-import type { ComponentType, JSX } from 'react';
+import { createElement, type ComponentType, type JSX } from 'react';
 import { TvPageShell } from './TvPageShell';
 
 interface TvVariantOptions {

@@ -7,11 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { MediaService } from '../../../media/application/services/media.service';
 import { ProgressService } from '../../../progress/application/services/progress.service';
-import {
-  TorrentService,
-  type TorrentListItem,
-} from '../../../torrent/application/services/torrent.service';
-import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
+import { AdminActivitySourceRegistry } from '../../../core/application/extensions/admin-activity-source';
 import { AccountRecord } from '../../domain/entities/account-record.entity';
 import { AccountsStore } from '../../infrastructure/stores/accounts.store';
 import { CreateAdminAccountDto } from '../dto/create-admin-account.dto';
@@ -21,11 +17,7 @@ import { UpdateAccountMaxBitrateDto } from '../dto/update-account-max-bitrate.dt
 import { UpdateAccountRoleDto } from '../dto/update-account-role.dto';
 import { UpdateAdminAccountProfileDto } from '../dto/update-admin-account-profile.dto';
 import { toSafeAccount } from '../helpers/auth-account-helpers';
-import {
-  isActiveDownloadValue,
-  toMediaActivityItemValue,
-  toProgressPercentValue,
-} from './auth-admin-account-activity.helpers';
+import { toMediaActivityItemValue } from './auth-admin-account-activity.helpers';
 import type {
   AdminAccountActivityItem,
   AdminAccountsActivityResponse,
@@ -39,8 +31,7 @@ export class AuthAdminAccountService {
     private readonly accountsStore: AccountsStore,
     private readonly progressService: ProgressService,
     private readonly mediaService: MediaService,
-    private readonly torrentService: TorrentService,
-    private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
+    private readonly externalActivitySources: AdminActivitySourceRegistry,
   ) {}
 
   async listAccountsForAdmin() {
@@ -65,11 +56,9 @@ export class AuthAdminAccountService {
   }
 
   async listAccountsActivityForAdmin(): Promise<AdminAccountsActivityResponse> {
-    const [accounts, torrentSnapshot] = await Promise.all([
+    const [accounts, externalActivity] = await Promise.all([
       this.accountsStore.list(),
-      this.torrentService
-        .listTorrents()
-        .catch(() => ({ items: [] as TorrentListItem[] })),
+      this.externalActivitySources.listActiveItems(),
     ]);
 
     const progressByAccountEntries = await Promise.all(
@@ -80,17 +69,6 @@ export class AuthAdminAccountService {
     );
     const progressByAccount = new Map(progressByAccountEntries);
 
-    const activeTorrents = torrentSnapshot.items.filter((item) =>
-      isActiveDownloadValue(item),
-    );
-    const indexedTorrentEntries = await Promise.all(
-      activeTorrents.map(async (item) => {
-        const indexed = await this.torrentMediaIndexStore.get(item.hash);
-        return [item.hash, indexed] as const;
-      }),
-    );
-    const indexedByHash = new Map(indexedTorrentEntries);
-
     const mediaIds = new Set<string>();
     for (const entries of progressByAccount.values()) {
       for (const entry of entries) {
@@ -98,28 +76,23 @@ export class AuthAdminAccountService {
       }
     }
 
-    for (const entry of indexedByHash.values()) {
-      if (entry?.mediaId) {
-        mediaIds.add(entry.mediaId);
-      }
+    for (const entry of externalActivity) {
+      if (entry.mediaId) mediaIds.add(entry.mediaId);
     }
 
     const mediaTitles = await this.resolveMediaTitles(Array.from(mediaIds));
 
-    const downloads: AdminDownloadActivityItem[] = activeTorrents
+    const downloads: AdminDownloadActivityItem[] = externalActivity
       .map((item) => {
-        const indexed = indexedByHash.get(item.hash) ?? null;
-        const mediaId = indexed?.mediaId ?? null;
-        const fallbackTitle = item.name.trim() || 'Unknown torrent';
-        const title =
-          (mediaId ? mediaTitles.get(mediaId) : null) ?? fallbackTitle;
+        const mediaId = item.mediaId;
+        const title = (mediaId ? mediaTitles.get(mediaId) : null) ?? item.title;
 
         return {
-          hash: item.hash,
+          hash: item.externalId,
           mediaId,
           title,
           state: item.state,
-          progressPercent: toProgressPercentValue(item.progress),
+          progressPercent: item.progressPercent,
         };
       })
       .sort((left, right) => right.progressPercent - left.progressPercent);

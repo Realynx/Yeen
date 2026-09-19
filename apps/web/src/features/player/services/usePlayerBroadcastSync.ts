@@ -44,7 +44,7 @@ interface BroadcastSourceSnapshot {
   maxOutputHeight: number | null;
 }
 
-const BROADCAST_PLAYBACK_SYNC_INTERVAL_MS = 2000;
+const BROADCAST_PLAYBACK_SYNC_INTERVAL_MS = 500;
 const BROADCAST_INACTIVE_SYNC_COOLDOWN_MS = 1200;
 
 const EMPTY_BROADCAST_SOURCE_SNAPSHOT: BroadcastSourceSnapshot = {

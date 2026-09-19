@@ -12,6 +12,13 @@ export interface ManifestWriterInput {
   totalDurationSeconds: number;
 }
 
+export interface MasterManifestWriterInput {
+  manifestPath: string;
+  videoManifestFileName: string;
+  audioManifestFileName: string;
+  bandwidthBitsPerSecond: number;
+}
+
 /**
  * Writes the VOD playlist for an HLS session and rewrites manifests to embed
  * an access token on every segment line.
@@ -22,6 +29,21 @@ export interface ManifestWriterInput {
  */
 @Injectable()
 export class HlsManifestService {
+  async writeMasterManifest(input: MasterManifestWriterInput): Promise<void> {
+    const bandwidth = Math.max(1, Math.round(input.bandwidthBitsPerSecond));
+    const lines = [
+      '#EXTM3U',
+      '#EXT-X-VERSION:3',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Primary",DEFAULT=YES,AUTOSELECT=YES,URI="' +
+        input.audioManifestFileName +
+        '"',
+      `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},AUDIO="audio"`,
+      input.videoManifestFileName,
+      '',
+    ];
+    await writeFile(input.manifestPath, lines.join('\n'), 'utf8');
+  }
+
   async writeVodManifest(input: ManifestWriterInput): Promise<number> {
     const { manifestPath, segmentSeconds, totalDurationSeconds } = input;
     const totalSegments = totalSegmentCount(
@@ -71,6 +93,12 @@ export class HlsManifestService {
     }
 
     if (trimmed.startsWith('#EXT-X-MAP:')) {
+      return line.replace(/URI="([^"]+)"/, (_, uri: string) => {
+        return `URI="${this.appendAccessToken(uri, accessToken)}"`;
+      });
+    }
+
+    if (trimmed.startsWith('#EXT-X-MEDIA:')) {
       return line.replace(/URI="([^"]+)"/, (_, uri: string) => {
         return `URI="${this.appendAccessToken(uri, accessToken)}"`;
       });

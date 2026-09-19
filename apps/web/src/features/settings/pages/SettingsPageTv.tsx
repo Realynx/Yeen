@@ -1,4 +1,10 @@
-import { createTvVariant } from '../../navigation/components/createTvVariant';
-import { SettingsPage } from './SettingsPage';
+import { TvPageShell } from '../../navigation/components/TvPageShell';
+import { SettingsPage, type SettingsPageProps } from './SettingsPage';
 
-export const SettingsPageTv = createTvVariant(SettingsPage, 'settings');
+export function SettingsPageTv(props: SettingsPageProps) {
+  return (
+    <TvPageShell pageKey="settings">
+      <SettingsPage {...props} experience="tv" />
+    </TvPageShell>
+  );
+}

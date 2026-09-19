@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   listMedia,
-  listMediaTorrentDownloadProgress,
   listProgress,
   toApiErrorMessage,
 } from '../../shared/services/api';
 import type {
   MediaItem,
-  MediaTorrentDownloadProgressEntry,
   ProgressEntry,
 } from '../../shared/services/types';
 
 interface UseMediaLibraryResult {
   mediaItems: MediaItem[];
   progressItems: ProgressEntry[];
-  downloadProgressItems: MediaTorrentDownloadProgressEntry[];
   loading: boolean;
   error: string | null;
   activeSearch: string | undefined;
@@ -30,9 +27,6 @@ export function useMediaLibrary(
   const normalizedInitialSearch = initialSearch?.trim() || undefined;
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressEntry[]>([]);
-  const [downloadProgressItems, setDownloadProgressItems] = useState<
-    MediaTorrentDownloadProgressEntry[]
-  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSearch, setActiveSearch] = useState<string | undefined>(undefined);
@@ -47,18 +41,11 @@ export function useMediaLibrary(
       try {
         const media = await listMedia(token, search);
 
-        const [progress, downloadProgress] = await Promise.all([
-          listProgress(token),
-          listMediaTorrentDownloadProgress(
-            token,
-            media.map((item) => item.id),
-          ).catch(() => ({ items: [] })),
-        ]);
+        const progress = await listProgress(token);
 
         return {
           media,
           progress,
-          downloadProgress: downloadProgress.items,
         };
       } catch (fetchError) {
         if (isInitial) {
@@ -83,7 +70,6 @@ export function useMediaLibrary(
       if (result) {
         setMediaItems(result.media);
         setProgressItems(result.progress);
-        setDownloadProgressItems(result.downloadProgress);
         setActiveSearch(searchValue);
       }
     },
@@ -95,15 +81,16 @@ export function useMediaLibrary(
     if (result) {
       setMediaItems(result.media);
       setProgressItems(result.progress);
-      setDownloadProgressItems(result.downloadProgress);
       setError(null);
     }
   }, [activeSearch, fetchAll]);
 
   // Initial load and URL-driven search updates
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(normalizedInitialSearch);
+    const timeoutId = window.setTimeout(() => {
+      void load(normalizedInitialSearch);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [load, normalizedInitialSearch]);
 
   // Background polling every 8 seconds
@@ -115,7 +102,6 @@ export function useMediaLibrary(
       if (!cancelled && result) {
         setMediaItems(result.media);
         setProgressItems(result.progress);
-        setDownloadProgressItems(result.downloadProgress);
       }
     }
 
@@ -132,7 +118,6 @@ export function useMediaLibrary(
   return {
     mediaItems,
     progressItems,
-    downloadProgressItems,
     loading,
     error,
     activeSearch,

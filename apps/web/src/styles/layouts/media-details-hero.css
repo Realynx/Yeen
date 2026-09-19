@@ -181,32 +181,6 @@
   color: #f3f7ff;
 }
 
-.hero-actions-row .hero-torrent-quick {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.36rem;
-}
-
-.hero-actions-row .hero-torrent-quick:disabled {
-  opacity: 0.7;
-  cursor: wait;
-}
-
-.hero-torrent-quick-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  font-size: 0.78rem;
-  line-height: 1;
-}
-
-.hero-torrent-feedback {
-  margin: 0.5rem 0 0;
-  font-size: 0.84rem;
-  max-width: 72ch;
-}
-
 .details-remote-note {
   margin-top: 0.75rem;
   max-width: 72ch;
@@ -425,6 +399,19 @@
   background: rgba(9, 14, 22, 0.66);
   border-radius: 999px;
   padding: 0.2rem 0.54rem;
+}
+
+button.series-tracker-missing-row {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.series-tracker-missing-row.is-link:hover,
+.series-tracker-missing-row.is-link:focus-visible {
+  border-color: hsl(var(--primary) / 0.7);
+  background: hsl(var(--primary) / 0.14);
+  outline: none;
 }
 
 .series-tracker-missing-row.is-season-aggregate {

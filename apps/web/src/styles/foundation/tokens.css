@@ -1,0 +1,82 @@
+/*
+ * Semantic UI tokens for source-owned ShadCN components.
+ *
+ * Values intentionally mirror Yeen's existing `--bg-*`, `--text-*`,
+ * `--shell-*`, and brand tokens while the legacy stylesheet is migrated.
+ * Theme selection remains owned by `data-yeen-theme`.
+ */
+:root {
+  color-scheme: dark;
+  --background: 225 25% 3%;
+  --foreground: 216 100% 98%;
+  --card: 220 33% 8%;
+  --card-foreground: 216 100% 98%;
+  --popover: 222 35% 8%;
+  --popover-foreground: 216 100% 98%;
+  --primary: 29 100% 56%;
+  --primary-foreground: 24 48% 8%;
+  --secondary: 220 30% 16%;
+  --secondary-foreground: 216 52% 94%;
+  --muted: 220 25% 13%;
+  --muted-foreground: 218 25% 68%;
+  --accent: 206 100% 59%;
+  --accent-foreground: 220 50% 8%;
+  --destructive: 357 93% 47%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 23% 19%;
+  --input: 218 23% 23%;
+  --ring: 29 100% 64%;
+  --success: 149 65% 49%;
+  --success-foreground: 151 60% 7%;
+  --radius: 0.875rem;
+}
+
+:root[data-yeen-theme='netflix'] {
+  --background: 0 0% 8%;
+  --foreground: 60 17% 95%;
+  --card: 0 0% 9%;
+  --card-foreground: 60 17% 95%;
+  --popover: 0 0% 9%;
+  --popover-foreground: 60 17% 95%;
+  --primary: 357 93% 47%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 17%;
+  --secondary-foreground: 0 0% 94%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 357 93% 47%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 357 93% 47%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 21%;
+  --input: 0 0% 24%;
+  --ring: 0 0% 100%;
+  --success: 141 62% 55%;
+  --success-foreground: 140 55% 8%;
+  --radius: 0.625rem;
+}
+
+:root[data-yeen-theme='obsidian-purple'] {
+  --background: 270 17% 2%;
+  --foreground: 270 43% 97%;
+  --card: 262 20% 8%;
+  --card-foreground: 270 43% 97%;
+  --popover: 262 20% 8%;
+  --popover-foreground: 270 43% 97%;
+  --primary: 258 90% 66%;
+  --primary-foreground: 260 48% 8%;
+  --secondary: 260 20% 17%;
+  --secondary-foreground: 260 50% 95%;
+  --muted: 260 17% 13%;
+  --muted-foreground: 263 15% 76%;
+  --accent: 269 97% 75%;
+  --accent-foreground: 260 48% 8%;
+  --destructive: 357 77% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 262 17% 22%;
+  --input: 262 17% 25%;
+  --ring: 269 97% 85%;
+  --success: 151 58% 62%;
+  --success-foreground: 151 55% 8%;
+  --radius: 0.875rem;
+}

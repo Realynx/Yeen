@@ -5,6 +5,7 @@ import {
   JikanMetadataService,
   type JikanRemoteCandidate,
 } from '../remote-metadata/jikan-metadata.service';
+import { AniListCatalogService } from '../remote-metadata/anilist-catalog.service';
 import {
   TmdbMetadataService,
   type TmdbRemoteCandidate,
@@ -32,7 +33,6 @@ import {
   collectTmdbRemoteCandidatesValue,
   collectJikanRemoteCandidatesValue,
   collectTmdbRemoteTagCandidatesValue,
-  collectJikanRemoteTagCandidatesValue,
 } from './media-remote-catalog-search.helpers';
 import { normalizeExactTitleValue } from './media-remote-catalog-exact-title.helpers';
 import {
@@ -42,12 +42,24 @@ import {
 
 type RemoteMediaCandidate = TmdbRemoteCandidate | JikanRemoteCandidate;
 
+function resolveProviderLimitValue(
+  hasTags: boolean,
+  tagExploreMode: boolean,
+  requestLimit: number,
+  requiredItemCount: number,
+): number {
+  if (!hasTags) return Math.min(320, Math.max(requiredItemCount, 28));
+  if (tagExploreMode) return requestLimit;
+  return Math.min(480, Math.max(requiredItemCount * 2, 48));
+}
+
 @Injectable()
 export class MediaRemoteCatalogService {
   constructor(
     private readonly mediaStore: MediaStore,
     private readonly tmdbMetadataService: TmdbMetadataService,
     private readonly jikanMetadataService: JikanMetadataService,
+    private readonly aniListCatalogService: AniListCatalogService,
   ) {}
 
   async searchMetadataCandidates(input: {
@@ -176,63 +188,24 @@ export class MediaRemoteCatalogService {
     const localItems = await this.mediaStore.all();
     const localTitleIndex = buildLocalTitleIndexValue(localItems);
     const requiredItemCount = resultOffset + requestLimit;
-    const providerLimit =
-      requestedTags.length > 0
-        ? isTagExploreMode
-          ? requestLimit
-          : Math.min(480, Math.max(requiredItemCount * 2, 48))
-        : Math.min(320, Math.max(requiredItemCount, 28));
+    const providerLimit = resolveProviderLimitValue(
+      requestedTags.length > 0,
+      isTagExploreMode,
+      requestLimit,
+      requiredItemCount,
+    );
     const browseTags = requestedTags.slice(0, 3);
     const shouldRunProbeSearch = !isTagExploreMode;
 
-    const [
-      tmdbCandidates,
-      jikanCandidates,
-      tmdbTagCandidates,
-      jikanTagCandidates,
-    ] = await Promise.all([
-      providers.includes('tmdb') && shouldRunProbeSearch
-        ? collectTmdbRemoteCandidatesValue(
-            searchProbes,
-            providerLimit,
-            useCache,
-            this.tmdbMetadataService,
-          )
-        : Promise.resolve<TmdbRemoteCandidate[]>([]),
-      providers.includes('jikan') && shouldRunProbeSearch
-        ? collectJikanRemoteCandidatesValue(
-            searchProbes,
-            providerLimit,
-            useCache,
-            this.jikanMetadataService,
-          )
-        : Promise.resolve<JikanRemoteCandidate[]>([]),
-      providers.includes('tmdb') && browseTags.length > 0
-        ? collectTmdbRemoteTagCandidatesValue(
-            browseTags,
-            providerLimit,
-            useCache,
-            requestPage,
-            this.tmdbMetadataService,
-          )
-        : Promise.resolve<TmdbRemoteCandidate[]>([]),
-      providers.includes('jikan') && browseTags.length > 0
-        ? collectJikanRemoteTagCandidatesValue(
-            browseTags,
-            providerLimit,
-            useCache,
-            requestPage,
-            this.jikanMetadataService,
-          )
-        : Promise.resolve<JikanRemoteCandidate[]>([]),
-    ]);
-
-    const combined = [
-      ...tmdbCandidates,
-      ...jikanCandidates,
-      ...tmdbTagCandidates,
-      ...jikanTagCandidates,
-    ];
+    const combined = await this.collectCatalogCandidates({
+      providers,
+      shouldRunProbeSearch,
+      searchProbes,
+      browseTags,
+      providerLimit,
+      useCache,
+      requestPage,
+    });
 
     const sortedCandidates = processCandidatesForCatalogValue(
       combined,
@@ -267,6 +240,61 @@ export class MediaRemoteCatalogService {
     };
   }
 
+  private async collectCatalogCandidates(input: {
+    providers: RemoteMediaProvider[];
+    shouldRunProbeSearch: boolean;
+    searchProbes: string[];
+    browseTags: string[];
+    providerLimit: number;
+    useCache: boolean;
+    requestPage: number;
+  }): Promise<RemoteMediaCandidate[]> {
+    const tmdbEnabled = input.providers.includes('tmdb');
+    const jikanEnabled = input.providers.includes('jikan');
+    const hasTags = input.browseTags.length > 0;
+    const empty = (): Promise<RemoteMediaCandidate[]> => Promise.resolve([]);
+    const batches = await Promise.all([
+      tmdbEnabled && input.shouldRunProbeSearch
+        ? collectTmdbRemoteCandidatesValue(
+            input.searchProbes,
+            input.providerLimit,
+            input.useCache,
+            this.tmdbMetadataService,
+          )
+        : empty(),
+      jikanEnabled && input.shouldRunProbeSearch
+        ? collectJikanRemoteCandidatesValue(
+            input.searchProbes,
+            input.providerLimit,
+            input.useCache,
+            this.jikanMetadataService,
+          )
+        : empty(),
+      tmdbEnabled && hasTags
+        ? collectTmdbRemoteTagCandidatesValue(
+            input.browseTags,
+            input.providerLimit,
+            input.useCache,
+            input.requestPage,
+            this.tmdbMetadataService,
+          )
+        : empty(),
+      jikanEnabled && hasTags
+        ? Promise.all(
+            input.browseTags.map((tag) =>
+              this.aniListCatalogService.searchCandidatesByTag({
+                tag,
+                limit: input.providerLimit,
+                useCache: input.useCache,
+                page: input.requestPage,
+              }),
+            ),
+          ).then((pages) => pages.flat())
+        : empty(),
+    ]);
+    return batches.flat();
+  }
+
   async getRemoteMediaById(remoteId: string): Promise<MediaItem> {
     const parsed = parseRemoteMediaIdValue(remoteId);
     if (!parsed) {
@@ -281,9 +309,11 @@ export class MediaRemoteCatalogService {
         mediaType: parsed.mediaType,
       });
     } else {
-      candidate = await this.jikanMetadataService.getRemoteDetails(
-        parsed.providerId,
-      );
+      candidate =
+        (await this.aniListCatalogService.getRemoteDetails(
+          parsed.providerId,
+        )) ??
+        (await this.jikanMetadataService.getRemoteDetails(parsed.providerId));
 
       if (candidate && candidate.mediaType !== parsed.mediaType) {
         candidate = {
@@ -301,7 +331,10 @@ export class MediaRemoteCatalogService {
   }
 
   private toRemoteMediaItem(candidate: RemoteMediaCandidate): MediaItem {
-    const sourceLabel = remoteSourceLabelValue(candidate.provider);
+    const sourceLabel =
+      'catalogSourceLabel' in candidate && candidate.catalogSourceLabel
+        ? candidate.catalogSourceLabel
+        : remoteSourceLabelValue(candidate.provider);
     return toRemoteMediaItemValue(candidate, sourceLabel);
   }
 }

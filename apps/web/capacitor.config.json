@@ -3,7 +3,11 @@
   "appName": "Yeen",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  },
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "cleartext": true
   }
 }

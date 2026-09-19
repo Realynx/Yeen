@@ -60,6 +60,85 @@ export function MetadataDefaultsCategory({
           </small>
         </label>
 
+        <div className="settings-field settings-field-wide">
+          <span className="settings-field-label">TheAudioDB Music Metadata</span>
+          <label className="settings-checkbox-row">
+            <input
+              type="checkbox"
+              checked={systemSettings.theAudioDbEnabled}
+              onChange={(event) => updateSetting('theAudioDbEnabled', event.target.checked)}
+            />
+            <span>Enable remote music search and Discover</span>
+          </label>
+          <small className="settings-field-hint">
+            Uses TheAudioDB&apos;s default free API access unless a custom premium key is configured.
+          </small>
+        </div>
+
+        <label className="settings-field">
+          <span className="settings-field-label">Discover Chart Country</span>
+          <input
+            type="text"
+            maxLength={2}
+            value={systemSettings.theAudioDbChartCountry}
+            onChange={(event) => updateSetting(
+              'theAudioDbChartCountry',
+              event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2),
+            )}
+            placeholder="US"
+            autoComplete="country"
+          />
+          <small className="settings-field-hint">Two-letter country code used for chart results.</small>
+        </label>
+
+        <label className="settings-field settings-field-wide">
+          <span className="settings-field-label">Custom TheAudioDB Premium API Key</span>
+          <input
+            type="password"
+            value={systemSettings.theAudioDbCustomApiKey ?? ''}
+            onChange={(event) => {
+              updateSetting(
+                'theAudioDbCustomApiKey',
+                event.target.value || undefined,
+              );
+              if (event.target.value) {
+                updateSetting('clearTheAudioDbCustomApiKey', false);
+              }
+            }}
+            placeholder={systemSettings.theAudioDbHasCustomApiKey
+              ? 'A custom key is configured'
+              : 'Optional premium API key'}
+            autoComplete="new-password"
+            disabled={systemSettings.clearTheAudioDbCustomApiKey === true}
+          />
+          <small className="settings-field-hint">
+            {systemSettings.theAudioDbHasCustomApiKey
+              ? 'A custom key is stored securely. It is never returned to this browser; leave this blank to keep it.'
+              : 'Leave blank to use the built-in free key.'}
+          </small>
+        </label>
+
+        {systemSettings.theAudioDbHasCustomApiKey ? (
+          <div className="settings-field settings-field-wide">
+            <label className="settings-checkbox-row">
+              <input
+                type="checkbox"
+                checked={systemSettings.clearTheAudioDbCustomApiKey === true}
+                onChange={(event) => {
+                  updateSetting('clearTheAudioDbCustomApiKey', event.target.checked);
+                  if (event.target.checked) {
+                    updateSetting('theAudioDbCustomApiKey', undefined);
+                  }
+                }}
+              />
+              <span>Clear the saved custom key and return to the default free key</span>
+            </label>
+            <small className="settings-field-hint">
+              The saved key is removed only after you select this option and save settings.
+            </small>
+          </div>
+        ) : null}
+
         <label className="settings-field settings-field-wide">
           <span className="settings-field-label">OpenSubtitles API Key</span>
           <input

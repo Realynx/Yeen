@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { RefObject } from 'react';
-import { getHlsSessionStats, getTorrentStatus } from '../../shared/services/api';
-import type { HlsSessionStats, TorrentItem } from '../../shared/services/types';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type RefObject,
+} from 'react';
+import { getHlsSessionStats } from '../../shared/services/api';
+import type { HlsSessionStats } from '../../shared/services/types';
 import type { PlaybackSource } from './usePlayerData';
 
-const TORRENT_PROGRESS_POLL_INTERVAL_MS = 3_000;
 const HLS_STATS_POLL_INTERVAL_MS = 2_000;
-const ACTIVE_DOWNLOAD_STATES = new Set(['downloading', 'forceddl', 'stalleddl', 'metadl']);
-
-interface TorrentSnapshot {
-  hash: string;
-  torrent: TorrentItem | null;
-}
 
 interface HlsStatsSnapshot {
   sessionId: string;
@@ -39,12 +37,10 @@ export interface PlayerVideoTelemetry {
 interface UsePlayerDiagnosticsArgs {
   token: string;
   source: PlaybackSource | null;
-  streamTorrentHash: string | null;
   videoRef: RefObject<HTMLVideoElement | null>;
 }
 
 interface UsePlayerDiagnosticsState {
-  downloadingTorrent: TorrentItem | null;
   showNerdStats: boolean;
   hlsSessionStats: HlsSessionStats | null;
   hlsSessionStatsError: string | null;
@@ -73,22 +69,12 @@ function findBufferedEndSeconds(video: HTMLVideoElement): number {
   return bestEnd;
 }
 
-function isActiveDownloadingTorrentState(state: string | null | undefined): boolean {
-  if (!state) {
-    return false;
-  }
-
-  return ACTIVE_DOWNLOAD_STATES.has(state.trim().toLowerCase());
-}
-
 export function usePlayerDiagnostics({
   token,
   source,
-  streamTorrentHash,
   videoRef,
 }: UsePlayerDiagnosticsArgs): UsePlayerDiagnosticsState {
   const [showNerdStats, setShowNerdStats] = useState(false);
-  const [torrentSnapshot, setTorrentSnapshot] = useState<TorrentSnapshot | null>(null);
   const [hlsStatsSnapshot, setHlsStatsSnapshot] = useState<HlsStatsSnapshot | null>(null);
   const [videoTelemetrySnapshot, setVideoTelemetrySnapshot] =
     useState<VideoTelemetrySnapshot | null>(null);
@@ -96,55 +82,6 @@ export function usePlayerDiagnostics({
   const toggleNerdStats = useCallback(() => {
     setShowNerdStats((current) => !current);
   }, []);
-
-  useEffect(() => {
-    if (!streamTorrentHash) {
-      return;
-    }
-
-    const activeTorrentHash = streamTorrentHash;
-    let cancelled = false;
-    let inFlight = false;
-
-    async function pollStatus() {
-      if (cancelled || inFlight) {
-        return;
-      }
-
-      inFlight = true;
-      try {
-        const status = await getTorrentStatus(token, activeTorrentHash);
-        if (cancelled) {
-          return;
-        }
-
-        const torrent = status.torrent;
-        setTorrentSnapshot({
-          hash: activeTorrentHash,
-          torrent:
-            torrent && isActiveDownloadingTorrentState(torrent.state)
-              ? torrent
-              : null,
-        });
-      } catch {
-        if (!cancelled) {
-          setTorrentSnapshot({ hash: activeTorrentHash, torrent: null });
-        }
-      } finally {
-        inFlight = false;
-      }
-    }
-
-    void pollStatus();
-    const intervalId = window.setInterval(() => {
-      void pollStatus();
-    }, TORRENT_PROGRESS_POLL_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [streamTorrentHash, token]);
 
   const activeHlsSessionId =
     showNerdStats && source?.hls && source.hlsSessionId ? source.hlsSessionId : null;
@@ -252,14 +189,6 @@ export function usePlayerDiagnostics({
     };
   }, [activeSourceUrl, videoRef]);
 
-  const downloadingTorrent = useMemo(() => {
-    if (!streamTorrentHash || !torrentSnapshot || torrentSnapshot.hash !== streamTorrentHash) {
-      return null;
-    }
-
-    return torrentSnapshot.torrent;
-  }, [streamTorrentHash, torrentSnapshot]);
-
   const hlsSessionStats = useMemo(() => {
     if (!activeHlsSessionId || !hlsStatsSnapshot || hlsStatsSnapshot.sessionId !== activeHlsSessionId) {
       return null;
@@ -293,7 +222,6 @@ export function usePlayerDiagnostics({
   }, [activeSourceUrl, videoTelemetrySnapshot]);
 
   return {
-    downloadingTorrent,
     showNerdStats,
     hlsSessionStats,
     hlsSessionStatsError,

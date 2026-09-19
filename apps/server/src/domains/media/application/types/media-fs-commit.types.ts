@@ -50,6 +50,7 @@ export interface CommitResult {
     nfoWritten: boolean;
     error?: string;
   }>;
+  integrationWarnings?: string[];
 }
 
 export interface RollbackResult {

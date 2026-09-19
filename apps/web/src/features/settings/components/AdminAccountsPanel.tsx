@@ -1,15 +1,14 @@
 import {
-  useEffect,
   useMemo,
   useState,
   type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import type { AdminAccountsState } from '../services/useAdminAccounts';
 import type { AdminManagedAccount } from '../../shared/services/types';
 import { AdminAccountsActivityCard } from './AdminAccountsActivityCard';
 import { AdminAccountsManageCard } from './AdminAccountsManageCard';
 import { AdminAccountsSummaryCard } from './AdminAccountsSummaryCard';
+import { AdminAccountCreateDialog } from './AdminAccountCreateDialog';
 import {
   normalizeBitrateInput,
   normalizeInvitesInput,
@@ -20,6 +19,19 @@ interface AdminAccountsPanelProps {
   adminAccountsState: AdminAccountsState;
 }
 
+function accountEditValidation(
+  account: AdminManagedAccount | null,
+  isLastAdmin: boolean,
+  role: 'admin' | 'sailer' | 'user',
+  name: string,
+  email: string,
+): string | null {
+  if (!account) return 'Select an account to edit.';
+  if (!name || !email) return 'Name and email are required.';
+  if (isLastAdmin && role !== 'admin') return 'At least one admin account is required.';
+  return null;
+}
+
 export function AdminAccountsPanel({
   adminAccountsState,
 }: AdminAccountsPanelProps) {
@@ -28,9 +40,14 @@ export function AdminAccountsPanel({
     activityOverview,
     loadingAccounts,
     loadingActivity,
+    creatingAccount,
     updatingAccountId,
     accountsMessage,
     accountsError,
+    activityError,
+    refreshAccounts,
+    refreshActivity,
+    createAccount,
     setAccountInvites,
     setAccountMaxBitrate,
     setAccountRole,
@@ -43,6 +60,7 @@ export function AdminAccountsPanel({
     'all' | 'admin' | 'sailer' | 'user'
   >('all');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'sailer' | 'user'>('user');
@@ -50,19 +68,6 @@ export function AdminAccountsPanel({
   const [editMaxBitrate, setEditMaxBitrate] = useState('');
   const [resetPasswordDraft, setResetPasswordDraft] = useState('');
   const [editorNotice, setEditorNotice] = useState<string | null>(null);
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!selectedAccountId) {
-      return;
-    }
-
-    const exists = accounts.some((account) => account.id === selectedAccountId);
-    if (!exists) {
-      setSelectedAccountId(null);
-    }
-  }, [accounts, selectedAccountId]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const adminCount = useMemo(
     () => accounts.filter((account) => account.role === 'admin').length,
@@ -73,26 +78,7 @@ export function AdminAccountsPanel({
     [accounts],
   );
   const userCount = accounts.length - adminCount - sailerCount;
-  const totalInvites = useMemo(
-    () =>
-      accounts.reduce((sum, account) => {
-        if (account.role === 'admin') {
-          return sum;
-        }
-
-        return sum + Math.max(0, account.invitesRemaining ?? 0);
-      }, 0),
-    [accounts],
-  );
-  const customBitrateCount = useMemo(
-    () =>
-      accounts.filter((account) => typeof account.maxBitrateKbps === 'number')
-        .length,
-    [accounts],
-  );
   const activitySummary = activityOverview?.summary ?? null;
-  const activeAccountCount = activitySummary?.activeAccounts ?? 0;
-  const activeWatcherCount = activitySummary?.activeWatchers ?? 0;
   const activeDownloadCount = activitySummary?.activeDownloads ?? 0;
   const recentlyActiveCount = activitySummary?.recentlyActiveAccounts ?? 0;
 
@@ -157,73 +143,50 @@ export function AdminAccountsPanel({
   const selectedIsLastAdmin =
     selectedAccount?.role === 'admin' && adminCount <= 1;
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!selectedAccount) {
-      return;
-    }
-
-    setEditName(selectedAccount.name);
-    setEditEmail(selectedAccount.email);
-    setEditRole(selectedAccount.role);
-    setEditInvites(String(Math.max(0, selectedAccount.invitesRemaining ?? 0)));
+  function openAccountEditor(account: AdminManagedAccount) {
+    setSelectedAccountId(account.id);
+    setEditName(account.name);
+    setEditEmail(account.email);
+    setEditRole(account.role);
+    setEditInvites(String(Math.max(0, account.invitesRemaining ?? 0)));
     setEditMaxBitrate(
-      typeof selectedAccount.maxBitrateKbps === 'number'
-        ? String(selectedAccount.maxBitrateKbps)
+      typeof account.maxBitrateKbps === 'number'
+        ? String(account.maxBitrateKbps)
         : '',
     );
     setResetPasswordDraft('');
     setEditorNotice(null);
-  }, [selectedAccount]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  function openAccountEditor(account: AdminManagedAccount) {
-    setSelectedAccountId(account.id);
   }
 
   function closeAccountEditor() {
     setSelectedAccountId(null);
   }
 
-  function handleAccountRowKeyDown(
-    event: ReactKeyboardEvent<HTMLLIElement>,
-    account: AdminManagedAccount,
-  ) {
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return;
-    }
-
-    event.preventDefault();
-    openAccountEditor(account);
-  }
-
   async function handleSaveAccountEdits(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedAccount) {
-      return;
-    }
-
     const normalizedName = editName.trim();
     const normalizedEmail = editEmail.trim().toLowerCase();
-
-    if (!normalizedName || !normalizedEmail) {
-      setEditorNotice('Name and email are required.');
+    const validationError = accountEditValidation(
+      selectedAccount,
+      selectedIsLastAdmin,
+      editRole,
+      normalizedName,
+      normalizedEmail,
+    );
+    if (validationError) {
+      setEditorNotice(validationError);
       return;
     }
+    const account = selectedAccount as AdminManagedAccount;
 
-    if (selectedIsLastAdmin && editRole !== 'admin') {
-      setEditorNotice('At least one admin account is required.');
-      return;
-    }
-
-    const currentEmail = selectedAccount.email.trim().toLowerCase();
-    const currentName = selectedAccount.name.trim();
-    const currentRole = selectedAccount.role;
-    const currentInvites = Math.max(0, selectedAccount.invitesRemaining ?? 0);
+    const currentEmail = account.email.trim().toLowerCase();
+    const currentName = account.name.trim();
+    const currentRole = account.role;
+    const currentInvites = Math.max(0, account.invitesRemaining ?? 0);
     const currentMaxBitrate =
-      typeof selectedAccount.maxBitrateKbps === 'number'
-        ? Math.max(250, Math.min(50000, selectedAccount.maxBitrateKbps))
+      typeof account.maxBitrateKbps === 'number'
+        ? Math.max(250, Math.min(50000, account.maxBitrateKbps))
         : null;
 
     const nextInvites = normalizeInvitesInput(editInvites);
@@ -231,7 +194,7 @@ export function AdminAccountsPanel({
     let savedAny = false;
 
     if (normalizedName !== currentName || normalizedEmail !== currentEmail) {
-      const saved = await updateAccountProfile(selectedAccount.id, {
+      const saved = await updateAccountProfile(account.id, {
         email: normalizedEmail,
         name: normalizedName,
       });
@@ -243,7 +206,7 @@ export function AdminAccountsPanel({
     }
 
     if (editRole !== currentRole) {
-      const saved = await setAccountRole(selectedAccount.id, editRole);
+      const saved = await setAccountRole(account.id, editRole);
       if (!saved) {
         return;
       }
@@ -252,7 +215,7 @@ export function AdminAccountsPanel({
     }
 
     if (editRole !== 'admin' && nextInvites !== currentInvites) {
-      const saved = await setAccountInvites(selectedAccount.id, nextInvites);
+      const saved = await setAccountInvites(account.id, nextInvites);
       if (!saved) {
         return;
       }
@@ -260,7 +223,7 @@ export function AdminAccountsPanel({
     }
 
     if (nextMaxBitrate !== currentMaxBitrate) {
-      const saved = await setAccountMaxBitrate(selectedAccount.id, nextMaxBitrate);
+      const saved = await setAccountMaxBitrate(account.id, nextMaxBitrate);
       if (!saved) {
         return;
       }
@@ -302,35 +265,12 @@ export function AdminAccountsPanel({
 
   return (
     <section className="settings-content-grid admin-accounts-layout" data-tv-focus-zone="shelf">
-      <AdminAccountsSummaryCard
-        accountsCount={accounts.length}
-        adminCount={adminCount}
-        sailerCount={sailerCount}
-        userCount={userCount}
-        totalInvites={totalInvites}
-        customBitrateCount={customBitrateCount}
-        activeAccountCount={activeAccountCount}
-        activeWatcherCount={activeWatcherCount}
-        activeDownloadCount={activeDownloadCount}
-        recentlyActiveCount={recentlyActiveCount}
-        accountsMessage={accountsMessage}
-        accountsError={accountsError}
-      />
-
-      <AdminAccountsActivityCard
-        loadingActivity={loadingActivity}
-        activeAccountActivity={activeAccountActivity}
-        accountsById={accountsById}
-        activityDownloads={activityDownloads}
-      />
-
       <AdminAccountsManageCard
         accounts={accounts}
         filteredAccounts={filteredAccounts}
         loadingAccounts={loadingAccounts}
         accountQuery={accountQuery}
         roleFilter={roleFilter}
-        selectedAccountId={selectedAccountId}
         adminCount={adminCount}
         activityByAccount={activityByAccount}
         selectedAccount={selectedAccount}
@@ -344,10 +284,13 @@ export function AdminAccountsPanel({
         resetPasswordDraft={resetPasswordDraft}
         updatingAccountId={updatingAccountId}
         editorNotice={editorNotice}
+        accountsMessage={accountsMessage}
+        accountsError={accountsError}
         onAccountQueryChange={setAccountQuery}
         onRoleFilterChange={setRoleFilter}
         onOpenAccountEditor={openAccountEditor}
-        onAccountRowKeyDown={handleAccountRowKeyDown}
+        onOpenCreateAccount={() => setCreateDialogOpen(true)}
+        onRefreshAccounts={refreshAccounts}
         onCloseAccountEditor={closeAccountEditor}
         onEditNameChange={setEditName}
         onEditEmailChange={setEditEmail}
@@ -357,6 +300,33 @@ export function AdminAccountsPanel({
         onResetPasswordDraftChange={setResetPasswordDraft}
         onSaveAccountEdits={handleSaveAccountEdits}
         onResetPassword={handleResetPassword}
+      />
+
+      <AdminAccountsActivityCard
+        loadingActivity={loadingActivity}
+        activityError={activityError}
+        activityAsOf={activityOverview?.asOf ?? null}
+        activeAccountActivity={activeAccountActivity}
+        accountsById={accountsById}
+        activityDownloads={activityDownloads}
+        onRefresh={refreshActivity}
+      />
+
+      <AdminAccountsSummaryCard
+        accountsCount={accounts.length}
+        adminCount={adminCount}
+        sailerCount={sailerCount}
+        userCount={userCount}
+        activeDownloadCount={activeDownloadCount}
+        recentlyActiveCount={recentlyActiveCount}
+      />
+
+      <AdminAccountCreateDialog
+        open={createDialogOpen}
+        creating={creatingAccount}
+        error={accountsError}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={createAccount}
       />
     </section>
   );

@@ -1,13 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  buildHomeCurationFeed,
-  type HomeFeedExperience,
-} from './homeCuration';
+import { useCallback, useMemo, useState } from "react";
+import { buildHomeCurationFeed, type HomeFeedExperience } from "./homeCuration";
 import {
   readDismissedContinueWatchingIds,
   writeDismissedContinueWatchingIds,
-} from './continueWatching';
-import type { MediaItem, ProgressEntry } from '../../shared/services/types';
+} from "./continueWatching";
+import type { MediaItem, ProgressEntry } from "../../shared/services/types";
 
 interface UseHomeCurationArgs {
   userId: string;
@@ -24,26 +21,48 @@ export function useHomeCuration({
   randomSeed,
   experience,
 }: UseHomeCurationArgs) {
-  const [dismissedContinueWatchingIds, setDismissedContinueWatchingIds] = useState(() =>
-    readDismissedContinueWatchingIds(userId),
+  const [dismissedState, setDismissedState] = useState(() => ({
+    userId,
+    ids: readDismissedContinueWatchingIds(userId),
+  }));
+  const dismissedContinueWatchingIds =
+    dismissedState.userId === userId
+      ? dismissedState.ids
+      : readDismissedContinueWatchingIds(userId);
+
+  const feed = useMemo(
+    () =>
+      buildHomeCurationFeed({
+        mediaItems,
+        progressItems,
+        dismissedContinueWatchingIds,
+        randomSeed,
+        experience,
+      }),
+    [
+      dismissedContinueWatchingIds,
+      experience,
+      mediaItems,
+      progressItems,
+      randomSeed,
+    ],
   );
 
-  const feed = useMemo(() => buildHomeCurationFeed({
-    mediaItems,
-    progressItems,
-    dismissedContinueWatchingIds,
-    randomSeed,
-    experience,
-  }), [dismissedContinueWatchingIds, experience, mediaItems, progressItems, randomSeed]);
-
-  const dismissContinueWatching = useCallback((mediaId: string) => {
-    setDismissedContinueWatchingIds((current) => {
-      const next = new Set(current);
-      next.add(mediaId);
-      writeDismissedContinueWatchingIds(userId, next);
-      return next;
-    });
-  }, [userId]);
+  const dismissContinueWatching = useCallback(
+    (mediaId: string) => {
+      setDismissedState((current) => {
+        const currentIds =
+          current.userId === userId
+            ? current.ids
+            : readDismissedContinueWatchingIds(userId);
+        const next = new Set(currentIds);
+        next.add(mediaId);
+        writeDismissedContinueWatchingIds(userId, next);
+        return { userId, ids: next };
+      });
+    },
+    [userId],
+  );
 
   return { feed, dismissContinueWatching };
 }

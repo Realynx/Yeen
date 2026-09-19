@@ -21,6 +21,7 @@ import {
   openAndScrollToUserSettingsCategory,
   toggleUserSettingsCategory,
 } from './userSettingsCategoryNavigation';
+import { AddonSettingsSurfaces } from '../../addons/runtime/AddonHostSlots';
 
 interface UserSettingsTabProps {
   token: string;
@@ -28,16 +29,46 @@ interface UserSettingsTabProps {
   onUserUpdated: (user: User) => void;
 }
 
+interface ProfileDraft {
+  email: string;
+  name: string;
+  sourceKey: string;
+}
+
 export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabProps) {
   const isAdmin = isAdminRole(user.role);
   const roleLabel = toRoleLabel(user.role);
   const configScopeLabel = isAdmin
     ? 'User + System + Permissions'
-    : user.role === 'sailer'
-      ? 'User + Torrent'
-      : 'User only';
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+    : 'User only';
+  const profileSourceKey = `${user.name}\u0000${user.email}`;
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft>({
+    email: user.email,
+    name: user.name,
+    sourceKey: profileSourceKey,
+  });
+  const activeProfileDraft = profileDraft.sourceKey === profileSourceKey
+    ? profileDraft
+    : { email: user.email, name: user.name, sourceKey: profileSourceKey };
+  const name = activeProfileDraft.name;
+  const email = activeProfileDraft.email;
+
+  function updateProfileDraft(patch: Partial<Pick<ProfileDraft, 'email' | 'name'>>) {
+    setProfileDraft((previous) => {
+      const active = previous.sourceKey === profileSourceKey
+        ? previous
+        : { email: user.email, name: user.name, sourceKey: profileSourceKey };
+      return { ...active, ...patch };
+    });
+  }
+
+  function setName(value: string) {
+    updateProfileDraft({ name: value });
+  }
+
+  function setEmail(value: string) {
+    updateProfileDraft({ email: value });
+  }
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
@@ -68,11 +99,14 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   const [expandedCategories, setExpandedCategories] = useState<
     Record<UserSettingsCategoryId, boolean>
   >({
+    appearance: false,
     profile: true,
     picture: false,
+    playback: false,
     invites: false,
     security: false,
     tv: false,
+    tvDisplay: false,
   });
 
   const availableInvites = isAdmin ? null : Math.max(0, user.invitesRemaining ?? 0);
@@ -80,13 +114,6 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
   const maxBitrateLabel = typeof user.maxBitrateKbps === 'number' && Number.isFinite(user.maxBitrateKbps)
     ? `${user.maxBitrateKbps.toLocaleString()} kbps`
     : 'No limit';
-
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setName(user.name);
-    setEmail(user.email);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [user.email, user.name]);
 
   const hasProfileChanges =
     name.trim() !== user.name || email.trim().toLowerCase() !== user.email.toLowerCase();
@@ -330,65 +357,61 @@ export function UserSettingsTab({ token, user, onUserUpdated }: UserSettingsTabP
             onOpenCategory={(category) => openAndScrollToUserSettingsCategory(setExpandedCategories, category)}
           />
 
-          <div
-            className="settings-categories user-settings-categories"
-            data-tv-focus-lane-id="user-settings-categories"
-          >
-            <UserSettingsSections
-              user={user}
-              isAdmin={isAdmin}
-              availableInvites={availableInvites}
-              expandedCategories={expandedCategories}
-              hasProfileChanges={hasProfileChanges}
-              name={name}
-              email={email}
-              savingProfile={savingProfile}
-              profileMessage={profileMessage}
-              profileError={profileError}
-              avatarPreviewUrl={avatarPreviewUrl}
-              selectedAvatarFile={selectedAvatarFile}
-              avatarInputKey={avatarInputKey}
-              savingAvatar={savingAvatar}
-              avatarMessage={avatarMessage}
-              avatarError={avatarError}
-              creatingInvite={creatingInvite}
-              latestInviteUrl={latestInviteUrl}
-              inviteMessage={inviteMessage}
-              inviteError={inviteError}
-              currentPassword={currentPassword}
-              newPassword={newPassword}
-              confirmPassword={confirmPassword}
-              savingPassword={savingPassword}
-              passwordMessage={passwordMessage}
-              passwordError={passwordError}
-              pairingCode={pairingCode}
-              claimingCode={claimingCode}
-              pairingMessage={pairingMessage}
-              pairingError={pairingError}
-              onToggleCategory={(category) => toggleUserSettingsCategory(setExpandedCategories, category)}
-              onNameChange={setName}
-              onEmailChange={setEmail}
-              onResetProfile={() => {
-                setName(user.name);
-                setEmail(user.email);
-              }}
-              onSaveProfile={handleSaveProfile}
-              onSelectAvatarFile={setSelectedAvatarFile}
-              onUploadAvatar={handleUploadAvatar}
-              onClearAvatarSelection={clearSelectedAvatar}
-              onRemoveCurrentPhoto={() => { void handleRemoveAvatar(); }}
-              onCreateInvite={() => { void handleCreateInvite(); }}
-              onCopyLatestInvite={() => { void handleCopyInviteLink(); }}
-              onCurrentPasswordChange={setCurrentPassword}
-              onNewPasswordChange={setNewPassword}
-              onConfirmPasswordChange={setConfirmPassword}
-              onChangePassword={handleChangePassword}
-              onPairingCodeChange={setPairingCode}
-              onApproveTvCode={handleApproveTvCode}
-            />
-          </div>
+          <UserSettingsSections
+            user={user}
+            isAdmin={isAdmin}
+            availableInvites={availableInvites}
+            expandedCategories={expandedCategories}
+            hasProfileChanges={hasProfileChanges}
+            name={name}
+            email={email}
+            savingProfile={savingProfile}
+            profileMessage={profileMessage}
+            profileError={profileError}
+            avatarPreviewUrl={avatarPreviewUrl}
+            selectedAvatarFile={selectedAvatarFile}
+            avatarInputKey={avatarInputKey}
+            savingAvatar={savingAvatar}
+            avatarMessage={avatarMessage}
+            avatarError={avatarError}
+            creatingInvite={creatingInvite}
+            latestInviteUrl={latestInviteUrl}
+            inviteMessage={inviteMessage}
+            inviteError={inviteError}
+            currentPassword={currentPassword}
+            newPassword={newPassword}
+            confirmPassword={confirmPassword}
+            savingPassword={savingPassword}
+            passwordMessage={passwordMessage}
+            passwordError={passwordError}
+            pairingCode={pairingCode}
+            claimingCode={claimingCode}
+            pairingMessage={pairingMessage}
+            pairingError={pairingError}
+            onToggleCategory={(category) => toggleUserSettingsCategory(setExpandedCategories, category)}
+            onNameChange={setName}
+            onEmailChange={setEmail}
+            onResetProfile={() => {
+              setName(user.name);
+              setEmail(user.email);
+            }}
+            onSaveProfile={handleSaveProfile}
+            onSelectAvatarFile={setSelectedAvatarFile}
+            onUploadAvatar={handleUploadAvatar}
+            onClearAvatarSelection={clearSelectedAvatar}
+            onRemoveCurrentPhoto={() => { void handleRemoveAvatar(); }}
+            onCreateInvite={() => { void handleCreateInvite(); }}
+            onCopyLatestInvite={() => { void handleCopyInviteLink(); }}
+            onCurrentPasswordChange={setCurrentPassword}
+            onNewPasswordChange={setNewPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+            onChangePassword={handleChangePassword}
+            onPairingCodeChange={setPairingCode}
+            onApproveTvCode={handleApproveTvCode}
+          />
         </div>
       </article>
+      <AddonSettingsSurfaces placement="user" />
     </section>
   );
 }

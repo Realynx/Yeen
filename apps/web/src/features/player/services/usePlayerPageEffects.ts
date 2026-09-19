@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import type { MutableRefObject } from 'react';
+import { useEffect, type MutableRefObject } from 'react';
 import {
   PLAYER_PREFERENCES_KEY,
   type PlayerPreferences,

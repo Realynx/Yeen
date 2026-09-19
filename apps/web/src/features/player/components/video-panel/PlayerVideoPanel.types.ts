@@ -8,7 +8,6 @@ import type {
   MediaItem,
   PlaybackAudioTrack,
   SubtitleTrack,
-  TorrentItem,
 } from '../../../shared/services/types';
 import type {
   HlsLevelOption,
@@ -40,6 +39,7 @@ export interface PlayerVideoPanelProps {
   activeSubtitle: SubtitleTrack | null;
   subtitleTracks: SubtitleTrack[];
   selectedSubtitleId: string;
+  subtitleTrackRevision: number;
   onSelectSubtitle: (subtitleId: string) => void;
   onExtractSubtitle: (track: SubtitleTrack) => void;
   extractingSubtitleTrackId: string | null;
@@ -91,7 +91,6 @@ export interface PlayerVideoPanelProps {
   hlsSessionStatsError: string | null;
   hlsSessionStatsUpdatedAt: string | null;
   videoTelemetry: PlayerVideoTelemetry | null;
-  downloadingTorrent: TorrentItem | null;
   onRevealControls: () => void;
   onHideControls: () => void;
   onToggleNerdStats: () => void;

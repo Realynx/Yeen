@@ -182,59 +182,44 @@ function extractYear(value: Record<string, unknown>): number | null {
 }
 
 function extractPosterUrl(value: Record<string, unknown>): string | null {
-  const images =
-    typeof value.images === 'object' &&
-    value.images !== null &&
-    !Array.isArray(value.images)
-      ? (value.images as Record<string, unknown>)
-      : null;
+  const images = asRecord(value.images);
   if (!images) return null;
 
-  const jpg =
-    typeof images.jpg === 'object' &&
-    images.jpg !== null &&
-    !Array.isArray(images.jpg)
-      ? (images.jpg as Record<string, unknown>)
-      : null;
-  const webp =
-    typeof images.webp === 'object' &&
-    images.webp !== null &&
-    !Array.isArray(images.webp)
-      ? (images.webp as Record<string, unknown>)
-      : null;
-
-  return (
-    getTitleString(jpg?.large_image_url) ??
-    getTitleString(jpg?.image_url) ??
-    getTitleString(webp?.large_image_url) ??
-    getTitleString(webp?.image_url) ??
-    null
-  );
+  return firstTitleString(asRecord(images.jpg), asRecord(images.webp), [
+    'large_image_url',
+    'image_url',
+  ]);
 }
 
 function extractBackdropUrl(value: Record<string, unknown>): string | null {
-  const trailer =
-    typeof value.trailer === 'object' &&
-    value.trailer !== null &&
-    !Array.isArray(value.trailer)
-      ? (value.trailer as Record<string, unknown>)
-      : null;
-  const images =
-    trailer &&
-    typeof trailer.images === 'object' &&
-    trailer.images !== null &&
-    !Array.isArray(trailer.images)
-      ? (trailer.images as Record<string, unknown>)
-      : null;
+  const images = asRecord(asRecord(value.trailer)?.images);
+  return firstTitleString(images, null, [
+    'maximum_image_url',
+    'large_image_url',
+    'medium_image_url',
+    'small_image_url',
+    'image_url',
+  ]);
+}
 
-  return (
-    getTitleString(images?.maximum_image_url) ??
-    getTitleString(images?.large_image_url) ??
-    getTitleString(images?.medium_image_url) ??
-    getTitleString(images?.small_image_url) ??
-    getTitleString(images?.image_url) ??
-    null
-  );
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstTitleString(
+  primary: Record<string, unknown> | null,
+  secondary: Record<string, unknown> | null,
+  keys: readonly string[],
+): string | null {
+  for (const record of [primary, secondary]) {
+    for (const key of keys) {
+      const value = getTitleString(record?.[key]);
+      if (value) return value;
+    }
+  }
+  return null;
 }
 
 export function toRemoteCandidate(item: unknown): JikanRemoteCandidate | null {

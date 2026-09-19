@@ -13,6 +13,43 @@ interface PublicBroadcastPageProps {
   shareToken?: string;
 }
 
+function broadcastDisplayState(status: BroadcastStatusSnapshot['status'] | null) {
+  return {
+    standby: Boolean(status?.enabled && !status.isLive),
+    live: Boolean(status?.enabled && status.isLive && status.manifestUrl),
+  };
+}
+
+function BroadcastStatusCards({ loading, error, enabled, standby }: {
+  loading: boolean; error: string | null; enabled: boolean; standby: boolean;
+}) {
+  return <>
+    {loading ? <p className="muted" role="status" aria-live="polite">Loading broadcast...</p> : null}
+    {error ? <p className="error-text broadcast-public-error" role="alert">{error}</p> : null}
+    {!loading && !enabled ? <section className="broadcast-offline-card" aria-live="polite">
+      <h2>Broadcast is offline</h2><p>The broadcaster has not enabled broadcast mode yet.</p></section> : null}
+    {standby ? <section className="broadcast-standby" aria-live="polite"><div className="broadcast-standby-bars" aria-hidden="true" />
+      <div className="broadcast-standby-loader"><span className="broadcast-standby-spinner" aria-hidden="true" />
+        <p>Waiting for the broadcaster to start playback...</p></div></section> : null}
+  </>;
+}
+
+function BroadcastLivePlayer({ videoRef, style, subtitleUrl, onSubtitleError, onSeeking,
+  showStart, buttonRef, onStart }: {
+  videoRef: React.RefObject<HTMLVideoElement | null>; style: React.CSSProperties;
+  subtitleUrl: string | null; onSubtitleError: () => void; onSeeking: () => void;
+  showStart: boolean; buttonRef: React.RefObject<HTMLButtonElement | null>; onStart: () => void;
+}) {
+  return <section className="broadcast-live-player" aria-live="polite" data-tv-focus-zone="hero" data-tv-focus-lane-id="broadcast-player">
+    <video ref={videoRef} className="broadcast-public-video" style={style} autoPlay playsInline preload="auto"
+      crossOrigin="anonymous" controls controlsList="nodownload noplaybackrate" tabIndex={-1} onSeeking={onSeeking}>
+      {subtitleUrl ? <track key={subtitleUrl} kind="subtitles" src={subtitleUrl} srcLang="en" label="Subtitles" default onError={onSubtitleError} /> : null}
+    </video>
+    {showStart ? <button ref={buttonRef} type="button" className="broadcast-start-playback-button"
+      onClick={onStart} aria-label="Start stream playback"><span className="broadcast-start-playback-icon" aria-hidden="true" /></button> : null}
+  </section>;
+}
+
 export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
   const experience = useClientExperience();
   const isTvExperience = experience === 'tv';
@@ -23,12 +60,9 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   const status = statusSnapshot?.status ?? null;
-  const isStandbyState = Boolean(status?.enabled && !status.isLive);
-  const isLiveState = Boolean(
-    status?.enabled
-    && status.isLive
-    && status.manifestUrl,
-  );
+  const displayState = broadcastDisplayState(status);
+  const isStandbyState = displayState.standby;
+  const isLiveState = displayState.live;
 
   const {
     videoRef,
@@ -110,7 +144,8 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
   const page = !resolvedShareToken ? (
     <main className="broadcast-public-page">
       <section className="broadcast-public-shell">
-        <p className="error-text">Broadcast token is missing.</p>
+        <h1>Broadcast unavailable</h1>
+        <p className="error-text" role="alert">Broadcast token is missing.</p>
       </section>
     </main>
   ) : (
@@ -122,77 +157,12 @@ export function PublicBroadcastPage({ shareToken }: PublicBroadcastPageProps) {
           <p className="broadcast-public-viewers">{viewerLabel}</p>
         </header>
 
-        {loading ? (
-          <p className="muted">Loading broadcast...</p>
-        ) : null}
+        <BroadcastStatusCards loading={loading} error={error} enabled={Boolean(status?.enabled)} standby={isStandbyState} />
 
-        {error ? (
-          <p className="error-text broadcast-public-error">{error}</p>
-        ) : null}
-
-        {!loading && !status?.enabled ? (
-          <section className="broadcast-offline-card" aria-live="polite">
-            <h2>Broadcast is offline</h2>
-            <p>The broadcaster has not enabled broadcast mode yet.</p>
-          </section>
-        ) : null}
-
-        {isStandbyState ? (
-          <section className="broadcast-standby" aria-live="polite">
-            <div className="broadcast-standby-bars" aria-hidden="true" />
-            <div className="broadcast-standby-loader">
-              <span className="broadcast-standby-spinner" aria-hidden="true" />
-              <p>Waiting for the broadcaster to start playback...</p>
-            </div>
-          </section>
-        ) : null}
-
-        {isLiveState ? (
-          <section
-            className="broadcast-live-player"
-            aria-live="polite"
-            data-tv-focus-zone="hero"
-            data-tv-focus-lane-id="broadcast-player"
-          >
-            <video
-              ref={videoRef}
-              className="broadcast-public-video"
-              style={subtitleVideoStyle}
-              autoPlay
-              playsInline
-              preload="auto"
-              crossOrigin="anonymous"
-              controls
-              controlsList="nodownload noplaybackrate"
-              tabIndex={-1}
-              onSeeking={handleVideoSeeking}
-            >
-              {activeSubtitleUrl ? (
-                <track
-                  key={activeSubtitleUrl}
-                  kind="subtitles"
-                  src={activeSubtitleUrl}
-                  srcLang="en"
-                  label="Subtitles"
-                  default
-                  onError={handleSubtitleTrackError}
-                />
-              ) : null}
-            </video>
-
-            {showStartPlaybackButton ? (
-              <button
-                ref={startPlaybackButtonRef}
-                type="button"
-                className="broadcast-start-playback-button"
-                onClick={handleStartPlaybackClick}
-                aria-label="Start stream playback"
-              >
-                <span className="broadcast-start-playback-icon" aria-hidden="true" />
-              </button>
-            ) : null}
-          </section>
-        ) : null}
+        {isLiveState ? <BroadcastLivePlayer videoRef={videoRef} style={subtitleVideoStyle}
+          subtitleUrl={activeSubtitleUrl} onSubtitleError={handleSubtitleTrackError}
+          onSeeking={handleVideoSeeking} showStart={showStartPlaybackButton}
+          buttonRef={startPlaybackButtonRef} onStart={handleStartPlaybackClick} /> : null}
       </section>
     </main>
   );

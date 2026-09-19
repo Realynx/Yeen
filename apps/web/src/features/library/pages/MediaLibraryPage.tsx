@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AssignToShowDialog } from '../../media-management/components/AssignToShowDialog';
 import { DeleteMediaDialog } from '../../media-management/components/DeleteMediaDialog';
@@ -20,7 +19,6 @@ import {
 } from '../services/librarySearchUtils';
 import type { MediaLibraryFilterState } from '../services/mediaLibraryFilterUtils';
 import {
-  toDownloadProgressMap,
   toLibraryItemGroups,
   toProgressMap,
 } from '../services/mediaLibraryUtils';
@@ -41,6 +39,18 @@ interface MediaLibraryPageProps {
   onLogout: () => void;
 }
 
+function LibraryFeedback({ error, manageError, loading }: {
+  error: string | null; manageError: string | null; loading: boolean;
+}) {
+  return (
+    <>
+      {error ? <p className="error-text library-feedback">{error}</p> : null}
+      {manageError ? <p className="error-text library-feedback">{manageError}</p> : null}
+      {loading ? <p className="muted library-feedback">Loading media library...</p> : null}
+    </>
+  );
+}
+
 export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -58,7 +68,6 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   const {
     mediaItems,
     progressItems,
-    downloadProgressItems,
     loading,
     error,
     activeSearch,
@@ -226,10 +235,6 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
   }, [filteredItems, visibleIdsRef]);
 
   const progressMap = useMemo(() => toProgressMap(progressItems), [progressItems]);
-  const downloadProgressMap = useMemo(
-    () => toDownloadProgressMap(downloadProgressItems),
-    [downloadProgressItems],
-  );
 
   const visibleManageActionError = hasSeriesAssignmentConflict
     ? manageActionError
@@ -276,6 +281,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
 
       <MediaLibraryToolbar
         filters={libraryFilters}
+        collapsible={experience === 'tv'}
         isAdmin={isAdmin}
         manageMode={manageMode}
         onClearSearch={handleClearSearch}
@@ -297,11 +303,7 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
         />
       ) : null}
 
-      {error ? <p className="error-text library-feedback">{error}</p> : null}
-      {visibleManageActionError ? (
-        <p className="error-text library-feedback">{visibleManageActionError}</p>
-      ) : null}
-      {loading ? <p className="muted library-feedback">Loading media library...</p> : null}
+      <LibraryFeedback error={error} manageError={visibleManageActionError} loading={loading} />
 
       <MediaLibraryLocalResultsSection
         hidden={hideLocalSearchEmptyState}
@@ -311,7 +313,6 @@ export function MediaLibraryPage({ token, user, onLogout }: MediaLibraryPageProp
         manageMode={manageMode}
         selectedIds={selectedIds}
         progressMap={progressMap}
-        downloadProgressMap={downloadProgressMap}
         hasSearchOrTagFilter={hasSearchOrTagFilter}
         onOpenDetails={openDetails}
         onToggleSelection={toggleSelection}

@@ -1,10 +1,10 @@
 import type { FormEvent, ReactNode } from 'react';
 import type { User } from '../../shared/services/types';
 import { PlayerDetails } from './PlayerDetails';
-import { PlayerDownloadProgress } from './PlayerDownloadProgress';
 import { PlayerEpisodeNavigation } from './PlayerEpisodeNavigation';
 import { PlayerStatusOverlay } from './PlayerStatusOverlay';
 import { PlayerTopBar } from './PlayerTopBar';
+import { AddonPlaybackStatusSurfaces } from '../../addons/runtime/AddonHostSlots';
 
 interface PlayerPlaybackLayoutProps {
   playerPageClassName: string;
@@ -27,7 +27,7 @@ interface PlayerPlaybackLayoutProps {
   videoPanelNode: ReactNode;
   episodeNavigationProps: React.ComponentProps<typeof PlayerEpisodeNavigation>;
   detailsProps: React.ComponentProps<typeof PlayerDetails>;
-  downloadProgressProps: React.ComponentProps<typeof PlayerDownloadProgress>;
+  preparation: unknown;
 }
 
 export function PlayerPlaybackLayout({
@@ -51,7 +51,7 @@ export function PlayerPlaybackLayout({
   videoPanelNode,
   episodeNavigationProps,
   detailsProps,
-  downloadProgressProps,
+  preparation,
 }: PlayerPlaybackLayoutProps) {
   return (
     <main className={playerPageClassName}>
@@ -79,7 +79,7 @@ export function PlayerPlaybackLayout({
         />
       ) : null}
 
-      {!isTvMode ? <PlayerDownloadProgress {...downloadProgressProps} /> : null}
+      {!isTvMode ? <AddonPlaybackStatusSurfaces preparation={preparation} /> : null}
 
       <section className={`player-layout ${activeTheaterMode ? 'player-layout-theater' : ''}`}>
         {videoPanelNode}

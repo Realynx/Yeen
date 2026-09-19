@@ -199,6 +199,11 @@ export class AuthService implements OnModuleInit {
     return toSafeAccount(account);
   }
 
+  async refreshSession(user: AuthUser) {
+    const account = await this.requireAccount(user.sub);
+    return this.buildAuthResponse(account);
+  }
+
   async updateProfile(user: AuthUser, dto: UpdateProfileDto) {
     const account = await this.requireAccount(user.sub);
     const nextEmail = dto.email.trim().toLowerCase();
@@ -285,6 +290,11 @@ export class AuthService implements OnModuleInit {
   }
 
   private async ensureDefaultAdmin() {
+    const existingAccounts = await this.accountsStore.list();
+    if (existingAccounts.length > 0) {
+      return;
+    }
+
     const email = this.configService.get<string>('DEFAULT_ADMIN_EMAIL')?.trim();
     const password = this.configService
       .get<string>('DEFAULT_ADMIN_PASSWORD')

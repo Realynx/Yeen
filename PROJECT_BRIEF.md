@@ -43,7 +43,7 @@ Yeen enables households to stream their personal media collection across all dev
 │      Storage, Filesystem, External Processes    │
 │  SQLite (metadata) │ JSON (accounts/progress)   │
 │  FFmpeg/FFprobe │ Filesystem (media/HLS/subs)   │
-│  Optional: TMDB/Jikan/OpenSubtitles/Downloader  │
+│  Optional: TMDB/Jikan/OpenSubtitles integrations│
 └─────────────────────────────────────────────────┘
 ```
 
@@ -54,14 +54,14 @@ Yeen enables households to stream their personal media collection across all dev
 | Project root | `.` | Multi-app orchestration scripts, root package.json |
 | Domain glossary | `CONTEXT.md` | Ubiquitous language and domain relationships |
 | Codebase docs | `docs/codebase/` | ARCHITECTURE.md, STACK.md, STRUCTURE.md, CONVENTIONS.md, etc. |
-| Architecture decisions | `docs/adr/` | ADRs for SQLite, security defaults, downloader addon boundary, scoped playback tokens |
+| Architecture decisions | `docs/adr/` | ADRs for SQLite, security defaults, the Downloader Add-on seam, and scoped playback tokens |
 | Server entry | `apps/server/src/main.ts` | Nest bootstrap with CORS, `/api` prefix, static serving |
 | Server app module | `apps/server/src/app.module.ts` | Domain module composition, config, ServeStaticModule |
-| Backend domains | `apps/server/src/domains/` | Auth, Media, Stream, Broadcast, System-Settings, Torrent, etc. with controllers/services/stores |
+| Backend domains | `apps/server/src/domains/` | Auth, Media, Stream, Broadcast, Add-ons, Lifecycle, and System Settings modules |
 | Web entry | `apps/web/src/main.tsx` | React bootstrap |
 | Web app shell | `apps/web/src/App.tsx` | Auth bootstrap, experience detection, route rendering |
 | Web routes | `apps/web/src/appRouteCatalog.tsx` | Feature routes with desktop/phone/TV variants |
-| Web features | `apps/web/src/features/` | Feature folders: library, player, admin, auth, settings, torrent, etc. |
+| Web features | `apps/web/src/features/` | Feature folders for library, player, admin, auth, settings, add-on hosting, and other Core Yeen experiences |
 | Shared contracts | `packages/shared-contracts/src/` | TypeScript API contracts shared by frontend/backend |
 | Sprint docs | `docs/sprint-N/` | Plans, progress, done files |
 | Brainstorm docs | `docs/brainstorm/` | Team ideation and concept votes |
@@ -114,7 +114,7 @@ Yeen enables households to stream their personal media collection across all dev
 
 1. Secrets live in environment variables only — never in code or git
 2. JWT bearer authentication required for all non-public API routes (except account bootstrap, public broadcast viewer access, TV pairing code flow)
-3. Admin-only routes protected by `AdminGuard`, downloader routes by `TorrentAccessGuard`
+3. Administrator routes are protected by `AdminGuard`; an installed Downloader Add-on applies Downloader authorization to the routes it contributes
 4. Account passwords hashed with bcrypt before storage
 5. Production deployments must use non-default `JWT_SECRET` and strict `CORS_ORIGIN` per ADR-0003
 6. Public broadcast tokens are scoped to specific media items and sessions per ADR-0004 (planned)

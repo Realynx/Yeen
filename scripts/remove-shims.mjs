@@ -3,7 +3,6 @@ import path from 'node:path';
 
 const APPLY = process.argv.includes('--apply');
 
-const ROOT = path.resolve('.');
 const SOURCE_ROOTS = [
   path.resolve('apps/web/src'),
   path.resolve('apps/server/src'),

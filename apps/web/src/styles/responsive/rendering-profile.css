@@ -1,0 +1,22 @@
+/* Keep visual fidelity adaptive to the browser's actual rendering backend.
+   Software and indeterminate renderers avoid full-surface blur repaints; a
+   confirmed hardware renderer retains the richer theme-authored treatment. */
+
+:root[data-yeen-rendering-profile='hardware'] {
+  --yeen-rendering-fidelity: rich;
+}
+
+:root[data-yeen-rendering-profile='software'],
+:root[data-yeen-rendering-profile='unknown'] {
+  --yeen-rendering-fidelity: efficient;
+}
+
+:root[data-yeen-rendering-profile='software'] *,
+:root[data-yeen-rendering-profile='software'] *::before,
+:root[data-yeen-rendering-profile='software'] *::after,
+:root[data-yeen-rendering-profile='unknown'] *,
+:root[data-yeen-rendering-profile='unknown'] *::before,
+:root[data-yeen-rendering-profile='unknown'] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

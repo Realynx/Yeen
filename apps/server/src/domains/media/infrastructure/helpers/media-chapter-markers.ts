@@ -15,6 +15,7 @@ export function normalizeFfprobeChapterMarkers(
   if (!Array.isArray(chapters) || chapters.length === 0) {
     return [];
   }
+  const typedChapters: readonly FfprobeChapter[] = chapters;
 
   const maxSecond =
     Number.isFinite(durationSeconds) && durationSeconds > 0
@@ -22,7 +23,7 @@ export function normalizeFfprobeChapterMarkers(
       : null;
   const markers: MediaChapterMarker[] = [];
 
-  for (const chapter of chapters) {
+  for (const chapter of typedChapters) {
     const rawSecond = resolveChapterSecond(chapter);
     if (rawSecond === null || !Number.isFinite(rawSecond) || rawSecond < 0) {
       continue;

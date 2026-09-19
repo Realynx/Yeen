@@ -151,10 +151,7 @@ export async function searchCandidatesByTagValue(
   if (context.isRateLimited()) return [];
 
   const limit = Math.max(1, Math.min(input.limit ?? 30, 120));
-  const requestedPage =
-    typeof input.page === 'number' && Number.isFinite(input.page)
-      ? Math.max(1, Math.floor(input.page))
-      : null;
+  const requestedPage = normalizePage(input.page);
   const useCache = input.useCache !== false;
   const genreId = await context.resolveGenreId(cleanedTag, useCache);
   if (!genreId) return [];
@@ -178,43 +175,19 @@ export async function searchCandidatesByTagValue(
       });
       const requestKey = `remote:tag:${params.toString()}`;
 
-      let payload: JikanSearchResponse | undefined;
-
-      if (useCache) {
-        payload = await context.metadataApiCacheStore.get<JikanSearchResponse>(
-          context.cacheProvider,
-          requestKey,
-        );
-      }
-
-      if (payload === undefined) {
-        const url = `https://api.jikan.moe/v4/anime?${params.toString()}`;
-        payload = (await context.fetchJson(url, 15000)) as JikanSearchResponse;
-
-        if (useCache) {
-          await context.metadataApiCacheStore.set(
-            context.cacheProvider,
-            requestKey,
-            payload,
-          );
-        }
-      }
+      const payload = await loadTagSearchPage(
+        context,
+        params,
+        requestKey,
+        useCache,
+      );
 
       const rawResults = Array.isArray(payload.data) ? payload.data : [];
       if (rawResults.length === 0) break;
 
-      for (const raw of rawResults) {
-        const candidate = toRemoteCandidate(raw);
-        if (!candidate) continue;
-
-        const key = `${candidate.mediaType}:${candidate.providerId}`;
-        if (!deduped.has(key)) {
-          deduped.set(key, candidate);
-        }
-
-        if (deduped.size >= limit) {
-          return [...deduped.values()].slice(0, limit);
-        }
+      addUniqueCandidates(deduped, rawResults);
+      if (deduped.size >= limit) {
+        return [...deduped.values()].slice(0, limit);
       }
     }
 
@@ -230,6 +203,49 @@ export async function searchCandidatesByTagValue(
       `Jikan remote tag search failed for "${cleanedTag}": ${message}`,
     );
     return [];
+  }
+}
+
+function normalizePage(value: number | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(1, Math.floor(value))
+    : null;
+}
+
+async function loadTagSearchPage(
+  context: JikanSearchContext,
+  params: URLSearchParams,
+  requestKey: string,
+  useCache: boolean,
+): Promise<JikanSearchResponse> {
+  if (useCache) {
+    const cached = await context.metadataApiCacheStore.get<JikanSearchResponse>(
+      context.cacheProvider,
+      requestKey,
+    );
+    if (cached !== undefined) return cached;
+  }
+  const url = `https://api.jikan.moe/v4/anime?${params.toString()}`;
+  const payload = (await context.fetchJson(url, 15000)) as JikanSearchResponse;
+  if (useCache) {
+    await context.metadataApiCacheStore.set(
+      context.cacheProvider,
+      requestKey,
+      payload,
+    );
+  }
+  return payload;
+}
+
+function addUniqueCandidates(
+  target: Map<string, JikanRemoteCandidate>,
+  rawResults: unknown[],
+): void {
+  for (const raw of rawResults) {
+    const candidate = toRemoteCandidate(raw);
+    if (!candidate) continue;
+    const key = `${candidate.mediaType}:${candidate.providerId}`;
+    if (!target.has(key)) target.set(key, candidate);
   }
 }
 

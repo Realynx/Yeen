@@ -54,6 +54,8 @@ export function toRemoteMediaItemValue(
     container: null,
     type: candidate.mediaType,
     digitalMediaType: 'video',
+    libraryType: 'video',
+    musicMetadata: null,
     sizeBytes: 0,
     durationSeconds:
       typeof candidate.runtimeSeconds === 'number' &&

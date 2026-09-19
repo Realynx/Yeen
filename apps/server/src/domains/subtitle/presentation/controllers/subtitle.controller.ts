@@ -9,8 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
 import { ExtractSubtitleDto } from '../../application/dto/extract-subtitle.dto';
 import { SubtitleExtractionService } from '../../application/services/subtitle-extraction.service';

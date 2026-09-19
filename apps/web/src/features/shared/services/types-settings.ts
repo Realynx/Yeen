@@ -1,7 +1,7 @@
 export interface MediaScanProgress {
   scanId: string | null;
-  status: 'idle' | 'running' | 'completed' | 'failed';
-  phase: 'idle' | 'collecting' | 'probing' | 'saving' | 'completed' | 'failed';
+  status: "idle" | "running" | "completed" | "failed";
+  phase: "idle" | "collecting" | "probing" | "saving" | "completed" | "failed";
   libraryPaths: string[];
   totalFiles: number;
   processedFiles: number;
@@ -17,11 +17,6 @@ export interface MediaScanProgress {
   scannedAt: string | null;
 }
 
-export interface QbittorrentPathMapping {
-  from: string;
-  to: string;
-}
-
 export interface SystemSettings {
   ffmpegPath: string;
   ffprobePath: string;
@@ -29,16 +24,14 @@ export interface SystemSettings {
   mediaMetadataSqlitePath: string;
   tmdbApiKey: string;
   openSubtitlesApiKey: string;
-  qbittorrentBaseUrl: string;
-  qbittorrentUsername: string;
-  qbittorrentPassword: string;
-  qbittorrentRequestTimeoutMs: number;
-  qbittorrentDefaultOrderMode: 'sequential' | 'random';
-  qbittorrentPathMappings: QbittorrentPathMapping[];
-  iptorrentsUsername: string;
-  iptorrentsPassword: string;
-  iptorrentsSeedingEnabled: boolean;
-  nyaaSeedingEnabled: boolean;
+  theAudioDbEnabled: boolean;
+  theAudioDbChartCountry: string;
+  theAudioDbHasCustomApiKey: boolean;
+  /** Write-only. Omitted responses preserve the currently stored key. */
+  theAudioDbCustomApiKey?: string;
+  /** Write-only. A saved key is removed only when this is explicitly true. */
+  clearTheAudioDbCustomApiKey?: boolean;
+  transcodeHardwareAcceleration: "auto" | "nvidia" | "cpu";
   transcodePreset: string;
   transcodeCrf: number;
   transcodeDefaultMaxBitrateKbps: number;

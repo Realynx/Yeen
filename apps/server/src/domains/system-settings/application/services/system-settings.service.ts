@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UpdateSystemSettingsDto } from '../dto/update-system-settings.dto';
 import {
-  QbittorrentPathMapping,
+  PublicSystemSettings,
   SystemSettings,
 } from '../../domain/entities/system-settings.entity';
 import { SystemSettingsStore } from '../../infrastructure/stores/system-settings.store';
@@ -10,7 +10,6 @@ import { SystemSettingsStore } from '../../infrastructure/stores/system-settings
 const DEFAULT_MEDIA_METADATA_SQLITE_PATH = 'data/media-metadata.sqlite';
 const DEFAULT_AI_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 const DEFAULT_AI_MODEL = 'llama3.1:8b';
-const DEFAULT_QBITTORRENT_TIMEOUT_MS = 15000;
 
 @Injectable()
 export class SystemSettingsService {
@@ -36,12 +35,27 @@ export class SystemSettingsService {
     return this.normalize(merged);
   }
 
+  async getPublicSettings(): Promise<PublicSystemSettings> {
+    const settings = await this.getSettings();
+    const { theAudioDbCustomApiKey, ...publicSettings } = settings;
+    return {
+      ...publicSettings,
+      theAudioDbHasCustomApiKey: Boolean(theAudioDbCustomApiKey),
+    };
+  }
+
   async updateSettings(dto: UpdateSystemSettingsDto): Promise<SystemSettings> {
     const current = await this.getSettings();
     const merged = {
       ...current,
       ...dto,
     } as Partial<SystemSettings>;
+
+    if (dto.clearTheAudioDbCustomApiKey) {
+      merged.theAudioDbCustomApiKey = '';
+    } else if (dto.theAudioDbCustomApiKey === undefined) {
+      merged.theAudioDbCustomApiKey = current.theAudioDbCustomApiKey;
+    }
 
     const normalized = this.normalize(merged);
     await this.systemSettingsStore.replace(normalized);
@@ -51,44 +65,15 @@ export class SystemSettingsService {
 
   private defaultsFromEnv(): SystemSettings {
     return {
-      ffmpegPath:
-        this.configService.get<string>('FFMPEG_PATH')?.trim() || 'ffmpeg',
-      ffprobePath:
-        this.configService.get<string>('FFPROBE_PATH')?.trim() || 'ffprobe',
+      ffmpegPath: this.envText('FFMPEG_PATH', 'ffmpeg'),
+      ffprobePath: this.envText('FFPROBE_PATH', 'ffprobe'),
       thumbnailCaptureCount: this.parseIntWithFallback(
         this.configService.get<string>('THUMBNAIL_CAPTURE_COUNT'),
         6,
       ),
-      mediaMetadataSqlitePath:
-        this.configService.get<string>('MEDIA_METADATA_SQLITE_PATH')?.trim() ||
+      mediaMetadataSqlitePath: this.envText(
+        'MEDIA_METADATA_SQLITE_PATH',
         DEFAULT_MEDIA_METADATA_SQLITE_PATH,
-      qbittorrentBaseUrl:
-        this.configService.get<string>('QBITTORRENT_BASE_URL')?.trim() || '',
-      qbittorrentUsername:
-        this.configService.get<string>('QBITTORRENT_USERNAME')?.trim() || '',
-      qbittorrentPassword:
-        this.configService.get<string>('QBITTORRENT_PASSWORD')?.trim() || '',
-      qbittorrentRequestTimeoutMs: this.parseIntWithFallback(
-        this.configService.get<string>('QBITTORRENT_REQUEST_TIMEOUT_MS'),
-        DEFAULT_QBITTORRENT_TIMEOUT_MS,
-      ),
-      qbittorrentDefaultOrderMode: this.normalizeQbittorrentOrderMode(
-        this.configService.get<string>('QBITTORRENT_DEFAULT_ORDER_MODE'),
-      ),
-      qbittorrentPathMappings: this.parsePathMappingsFromEnv(
-        this.configService.get<string>('QBITTORRENT_PATH_MAPPINGS'),
-      ),
-      iptorrentsUsername:
-        this.configService.get<string>('IPTORRENTS_USERNAME')?.trim() || '',
-      iptorrentsPassword:
-        this.configService.get<string>('IPTORRENTS_PASSWORD')?.trim() || '',
-      iptorrentsSeedingEnabled: this.parseBooleanWithFallback(
-        this.configService.get<string>('IPTORRENTS_SEEDING_ENABLED'),
-        true,
-      ),
-      nyaaSeedingEnabled: this.parseBooleanWithFallback(
-        this.configService.get<string>('NYAA_SEEDING_ENABLED'),
-        true,
       ),
       aiMetadataEnabled: this.parseBooleanWithFallback(
         this.configService.get<string>('AI_METADATA_ENABLED'),
@@ -97,13 +82,12 @@ export class SystemSettingsService {
       aiProvider: this.normalizeAiProvider(
         this.configService.get<string>('AI_PROVIDER'),
       ),
-      aiModel:
-        this.configService.get<string>('AI_MODEL')?.trim() || DEFAULT_AI_MODEL,
-      aiOllamaBaseUrl:
-        this.configService.get<string>('AI_OLLAMA_BASE_URL')?.trim() ||
+      aiModel: this.envText('AI_MODEL', DEFAULT_AI_MODEL),
+      aiOllamaBaseUrl: this.envText(
+        'AI_OLLAMA_BASE_URL',
         DEFAULT_AI_OLLAMA_BASE_URL,
-      aiOpenAiApiKey:
-        this.configService.get<string>('AI_OPENAI_API_KEY')?.trim() || '',
+      ),
+      aiOpenAiApiKey: this.envText('AI_OPENAI_API_KEY', ''),
       aiDeduplicationEnabled: this.parseBooleanWithFallback(
         this.configService.get<string>('AI_DEDUPLICATION_ENABLED'),
         true,
@@ -112,12 +96,18 @@ export class SystemSettingsService {
         this.configService.get<string>('AI_REQUEST_TIMEOUT_MS'),
         20000,
       ),
-      tmdbApiKey: this.configService.get<string>('TMDB_API_KEY')?.trim() || '',
-      openSubtitlesApiKey:
-        this.configService.get<string>('OPENSUBTITLES_API_KEY')?.trim() || '',
-      transcodePreset:
-        this.configService.get<string>('TRANSCODE_PRESET')?.trim() ||
-        'veryfast',
+      tmdbApiKey: this.envText('TMDB_API_KEY', ''),
+      openSubtitlesApiKey: this.envText('OPENSUBTITLES_API_KEY', ''),
+      theAudioDbEnabled: this.parseBooleanWithFallback(
+        this.configService.get<string>('THEAUDIODB_ENABLED'),
+        true,
+      ),
+      theAudioDbCustomApiKey: this.envText('THEAUDIODB_API_KEY', ''),
+      theAudioDbChartCountry: this.envText('THEAUDIODB_CHART_COUNTRY', 'US'),
+      transcodeHardwareAcceleration: this.normalizeHardwareAcceleration(
+        this.configService.get<string>('TRANSCODE_HARDWARE_ACCELERATION'),
+      ),
+      transcodePreset: this.envText('TRANSCODE_PRESET', 'veryfast'),
       transcodeCrf: this.parseIntWithFallback(
         this.configService.get<string>('TRANSCODE_CRF'),
         22,
@@ -142,53 +132,32 @@ export class SystemSettingsService {
         this.configService.get<string>('HLS_SEGMENT_SECONDS'),
         4,
       ),
-      subtitleDefaultLanguage:
-        this.configService.get<string>('SUBTITLE_DEFAULT_LANGUAGE')?.trim() ||
-        'en',
+      subtitleDefaultLanguage: this.envText('SUBTITLE_DEFAULT_LANGUAGE', 'en'),
     };
   }
 
   private normalize(input: Partial<SystemSettings>): SystemSettings {
     return {
-      ffmpegPath: input.ffmpegPath?.trim() || 'ffmpeg',
-      ffprobePath: input.ffprobePath?.trim() || 'ffprobe',
+      ffmpegPath: this.textOrFallback(input.ffmpegPath, 'ffmpeg'),
+      ffprobePath: this.textOrFallback(input.ffprobePath, 'ffprobe'),
       thumbnailCaptureCount: this.clampInteger(
         input.thumbnailCaptureCount,
         1,
         30,
         6,
       ),
-      mediaMetadataSqlitePath:
-        input.mediaMetadataSqlitePath?.trim() ||
+      mediaMetadataSqlitePath: this.textOrFallback(
+        input.mediaMetadataSqlitePath,
         DEFAULT_MEDIA_METADATA_SQLITE_PATH,
-      qbittorrentBaseUrl: input.qbittorrentBaseUrl?.trim() || '',
-      qbittorrentUsername: input.qbittorrentUsername?.trim() || '',
-      qbittorrentPassword: input.qbittorrentPassword?.trim() || '',
-      qbittorrentRequestTimeoutMs: this.clampInteger(
-        input.qbittorrentRequestTimeoutMs,
-        1000,
-        120000,
-        DEFAULT_QBITTORRENT_TIMEOUT_MS,
       ),
-      qbittorrentDefaultOrderMode: this.normalizeQbittorrentOrderMode(
-        input.qbittorrentDefaultOrderMode,
-      ),
-      qbittorrentPathMappings: this.normalizePathMappings(
-        input.qbittorrentPathMappings,
-      ),
-      iptorrentsUsername: input.iptorrentsUsername?.trim() || '',
-      iptorrentsPassword: input.iptorrentsPassword?.trim() || '',
-      iptorrentsSeedingEnabled: this.normalizeBoolean(
-        input.iptorrentsSeedingEnabled,
-        true,
-      ),
-      nyaaSeedingEnabled: this.normalizeBoolean(input.nyaaSeedingEnabled, true),
       aiMetadataEnabled: this.normalizeBoolean(input.aiMetadataEnabled, false),
       aiProvider: this.normalizeAiProvider(input.aiProvider),
-      aiModel: input.aiModel?.trim() || DEFAULT_AI_MODEL,
-      aiOllamaBaseUrl:
-        input.aiOllamaBaseUrl?.trim() || DEFAULT_AI_OLLAMA_BASE_URL,
-      aiOpenAiApiKey: input.aiOpenAiApiKey?.trim() || '',
+      aiModel: this.textOrFallback(input.aiModel, DEFAULT_AI_MODEL),
+      aiOllamaBaseUrl: this.textOrFallback(
+        input.aiOllamaBaseUrl,
+        DEFAULT_AI_OLLAMA_BASE_URL,
+      ),
+      aiOpenAiApiKey: this.textOrFallback(input.aiOpenAiApiKey, ''),
       aiDeduplicationEnabled: this.normalizeBoolean(
         input.aiDeduplicationEnabled,
         true,
@@ -199,9 +168,20 @@ export class SystemSettingsService {
         120000,
         20000,
       ),
-      tmdbApiKey: input.tmdbApiKey?.trim() || '',
-      openSubtitlesApiKey: input.openSubtitlesApiKey?.trim() || '',
-      transcodePreset: input.transcodePreset?.trim() || 'veryfast',
+      tmdbApiKey: this.textOrFallback(input.tmdbApiKey, ''),
+      openSubtitlesApiKey: this.textOrFallback(input.openSubtitlesApiKey, ''),
+      theAudioDbEnabled: this.normalizeBoolean(input.theAudioDbEnabled, true),
+      theAudioDbCustomApiKey: this.textOrFallback(
+        input.theAudioDbCustomApiKey,
+        '',
+      ),
+      theAudioDbChartCountry: this.normalizeCountry(
+        input.theAudioDbChartCountry,
+      ),
+      transcodeHardwareAcceleration: this.normalizeHardwareAcceleration(
+        input.transcodeHardwareAcceleration,
+      ),
+      transcodePreset: this.textOrFallback(input.transcodePreset, 'veryfast'),
       transcodeCrf: this.clampInteger(input.transcodeCrf, 12, 40, 22),
       transcodeDefaultMaxBitrateKbps: this.clampInteger(
         input.transcodeDefaultMaxBitrateKbps,
@@ -228,8 +208,19 @@ export class SystemSettingsService {
         3,
       ),
       hlsSegmentSeconds: this.clampInteger(input.hlsSegmentSeconds, 1, 20, 4),
-      subtitleDefaultLanguage: input.subtitleDefaultLanguage?.trim() || 'en',
+      subtitleDefaultLanguage: this.textOrFallback(
+        input.subtitleDefaultLanguage,
+        'en',
+      ),
     };
+  }
+
+  private envText(key: string, fallback: string): string {
+    return this.textOrFallback(this.configService.get<string>(key), fallback);
+  }
+
+  private textOrFallback(value: string | undefined, fallback: string): string {
+    return value?.trim() || fallback;
   }
 
   private parseIntWithFallback(
@@ -292,10 +283,15 @@ export class SystemSettingsService {
     return value === 'openai' ? 'openai' : 'ollama';
   }
 
-  private normalizeQbittorrentOrderMode(
+  private normalizeHardwareAcceleration(
     value: string | undefined,
-  ): 'sequential' | 'random' {
-    return value === 'sequential' ? 'sequential' : 'random';
+  ): 'auto' | 'nvidia' | 'cpu' {
+    return value === 'nvidia' || value === 'cpu' ? value : 'auto';
+  }
+
+  private normalizeCountry(value: string | undefined): string {
+    const normalized = value?.trim().toUpperCase() ?? '';
+    return /^[A-Z]{2}$/.test(normalized) ? normalized : 'US';
   }
 
   private clampInteger(
@@ -310,59 +306,5 @@ export class SystemSettingsService {
 
     const rounded = Math.round(value);
     return Math.max(min, Math.min(max, rounded));
-  }
-
-  private normalizePathMappings(value: unknown): QbittorrentPathMapping[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const seen = new Set<string>();
-    const result: QbittorrentPathMapping[] = [];
-    for (const entry of value) {
-      if (!entry || typeof entry !== 'object') continue;
-      const from =
-        typeof (entry as { from?: unknown }).from === 'string'
-          ? (entry as { from: string }).from.trim()
-          : '';
-      const to =
-        typeof (entry as { to?: unknown }).to === 'string'
-          ? (entry as { to: string }).to.trim()
-          : '';
-      if (!from || !to) continue;
-      const dedupeKey = `${from.toLowerCase()}|${to.toLowerCase()}`;
-      if (seen.has(dedupeKey)) continue;
-      seen.add(dedupeKey);
-      result.push({ from, to });
-      if (result.length >= 32) break;
-    }
-    return result;
-  }
-
-  private parsePathMappingsFromEnv(
-    raw: string | undefined,
-  ): QbittorrentPathMapping[] {
-    if (!raw) return [];
-    const trimmed = raw.trim();
-    if (!trimmed) return [];
-
-    // Accept either JSON array or "from=to;from=to" form.
-    if (trimmed.startsWith('[')) {
-      try {
-        return this.normalizePathMappings(JSON.parse(trimmed));
-      } catch {
-        return [];
-      }
-    }
-
-    const parsed: QbittorrentPathMapping[] = [];
-    for (const segment of trimmed.split(/[;\n]+/)) {
-      const eq = segment.indexOf('=');
-      if (eq <= 0) continue;
-      const from = segment.slice(0, eq).trim();
-      const to = segment.slice(eq + 1).trim();
-      if (from && to) parsed.push({ from, to });
-    }
-    return this.normalizePathMappings(parsed);
   }
 }

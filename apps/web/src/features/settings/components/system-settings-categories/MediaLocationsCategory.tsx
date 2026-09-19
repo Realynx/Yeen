@@ -17,6 +17,52 @@ interface MediaLocationsCategoryProps {
   onScan: (event: FormEvent<HTMLFormElement>) => void;
 }
 
+function MediaLocationList({ state }: { state: MediaLocationsState }) {
+  if (state.loadingLocations) return <p className="muted">Loading media locations...</p>;
+  if (state.locations.length === 0) {
+    return <p className="muted">No locations configured yet. Add one or more paths, then save.</p>;
+  }
+  return (
+    <ul className="settings-location-list">
+      {state.locations.map((location, index) => (
+        <li key={`${location.path}-${index}`} className="settings-location-item">
+          <span className="settings-location-badge">{index + 1}</span>
+          <span className="settings-location-text">{location.path}</span>
+          <span className={`settings-library-type-badge settings-library-type-badge-${location.type}`}>
+            {location.type === 'music' ? 'Music' : 'Video'}
+          </span>
+          <button type="button" className="ghost-button small !rounded-lg !px-3 !py-1.5"
+            onClick={() => state.removeLocation(index)}>Remove</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ScanProgress({ state }: { state: MediaLocationsState }) {
+  const scan = getActiveScan(state.scanProgress);
+  if (!scan) return null;
+  const percent = getScanProgressPercent(state.scanProgress);
+  return (
+    <section className="settings-scan-progress" aria-live="polite">
+      <div className="settings-scan-progress-head">
+        <strong>Scan Status: {formatScanStatus(scan.status)}</strong><span>{percent}%</span>
+      </div>
+      <div className="settings-scan-progress-bar" role="progressbar" aria-valuemin={0}
+        aria-valuemax={100} aria-valuenow={percent}><div style={{ width: `${percent}%` }} /></div>
+      <div className="settings-inline-meta">
+        <span>Phase: {formatScanPhase(scan.phase)}</span>
+        <span>Processed: {scan.processedFiles}/{scan.totalFiles}</span>
+        <span>Indexed: {scan.indexedItems}</span>
+        <span>Skipped (already indexed): {scan.skippedIndexedFiles}</span>
+        {scan.failedFiles > 0 ? <span>Failed: {scan.failedFiles}</span> : null}
+      </div>
+      {scan.currentFile ? <p className="muted settings-scan-current-file">Current file: {scan.currentFile}</p> : null}
+      {scan.message ? <p className="muted settings-scan-message">{scan.message}</p> : null}
+    </section>
+  );
+}
+
 export function MediaLocationsCategory({
   mediaLocationsState,
   configuredLabel,
@@ -29,21 +75,17 @@ export function MediaLocationsCategory({
     locations,
     newLocation,
     setNewLocation,
+    newLocationType,
+    setNewLocationType,
     locationsSource,
-    loadingLocations,
     savingLocations,
     scanBusy,
-    scanProgress,
     locationMessage,
     locationError,
     scanMessage,
     scanError,
-    removeLocation,
     saveLocations,
   } = mediaLocationsState;
-
-  const activeScan = getActiveScan(scanProgress);
-  const progressPercent = getScanProgressPercent(scanProgress);
 
   return (
     <SettingsCategorySection
@@ -66,6 +108,21 @@ export function MediaLocationsCategory({
               placeholder="Example: D:/Media/Movies or Z:/TV"
             />
           </label>
+          <label className="settings-field settings-library-type-field">
+            <span className="settings-field-label">Library type</span>
+            <select
+              value={newLocationType}
+              onChange={(event) =>
+                setNewLocationType(
+                  event.target.value === 'music' ? 'music' : 'video',
+                )
+              }
+              aria-label="Library type"
+            >
+              <option value="video">Video</option>
+              <option value="music">Music</option>
+            </select>
+          </label>
           <button
             className="ghost-button !rounded-xl !px-4 !py-2"
             type="submit"
@@ -84,29 +141,7 @@ export function MediaLocationsCategory({
           <span>{configuredLabel} configured</span>
         </div>
 
-        {loadingLocations ? <p className="muted">Loading media locations...</p> : null}
-
-        {!loadingLocations && locations.length === 0 ? (
-          <p className="muted">
-            No locations configured yet. Add one or more paths, then save.
-          </p>
-        ) : null}
-
-        <ul className="settings-location-list">
-          {locations.map((location, index) => (
-            <li key={`${location}-${index}`} className="settings-location-item">
-              <span className="settings-location-badge">{index + 1}</span>
-              <span className="settings-location-text">{location}</span>
-              <button
-                type="button"
-                className="ghost-button small !rounded-lg !px-3 !py-1.5"
-                onClick={() => removeLocation(index)}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
+        <MediaLocationList state={mediaLocationsState} />
 
         <div className="settings-actions-row">
           <button
@@ -129,46 +164,7 @@ export function MediaLocationsCategory({
           </form>
         </div>
 
-        {activeScan ? (
-          <section className="settings-scan-progress" aria-live="polite">
-            <div className="settings-scan-progress-head">
-              <strong>Scan Status: {formatScanStatus(activeScan.status)}</strong>
-              <span>{progressPercent}%</span>
-            </div>
-
-            <div
-              className="settings-scan-progress-bar"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progressPercent}
-            >
-              <div style={{ width: `${progressPercent}%` }} />
-            </div>
-
-            <div className="settings-inline-meta">
-              <span>Phase: {formatScanPhase(activeScan.phase)}</span>
-              <span>
-                Processed: {activeScan.processedFiles}/{activeScan.totalFiles}
-              </span>
-              <span>Indexed: {activeScan.indexedItems}</span>
-              <span>Skipped (already indexed): {activeScan.skippedIndexedFiles}</span>
-              {activeScan.failedFiles > 0 ? (
-                <span>Failed: {activeScan.failedFiles}</span>
-              ) : null}
-            </div>
-
-            {activeScan.currentFile ? (
-              <p className="muted settings-scan-current-file">
-                Current file: {activeScan.currentFile}
-              </p>
-            ) : null}
-
-            {activeScan.message ? (
-              <p className="muted settings-scan-message">{activeScan.message}</p>
-            ) : null}
-          </section>
-        ) : null}
+        <ScanProgress state={mediaLocationsState} />
 
         {locationMessage ? <p className="scan-success">{locationMessage}</p> : null}
         {locationError ? <p className="error-text">{locationError}</p> : null}

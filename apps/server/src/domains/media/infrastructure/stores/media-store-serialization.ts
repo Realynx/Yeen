@@ -3,8 +3,11 @@ import {
   MediaDetails,
   MediaItem,
   MediaSubtitleDetail,
+  MusicMetadata,
 } from '../../domain/entities/media-item.entity';
 import { parseSeriesAssignmentRules } from './media-store-series-rules.helpers';
+import { buildMediaDedupeKey } from '../../domain/media-dedupe-key';
+import { normalizePersistedMediaAssetPath } from '../helpers/media-persisted-asset-path';
 
 export interface MediaRow {
   id: string;
@@ -23,6 +26,8 @@ export interface MediaRow {
   container: string | null;
   type: 'movie' | 'show' | 'other';
   digital_media_type: 'video' | 'audio' | 'image' | 'other';
+  library_type: 'video' | 'music';
+  music_metadata_json: string | null;
   size_bytes: number;
   duration_seconds: number;
   width: number | null;
@@ -62,6 +67,11 @@ export function mediaRowToItem(row: MediaRow): MediaItem {
     container: row.container,
     type: row.type,
     digitalMediaType: row.digital_media_type,
+    libraryType: row.library_type === 'music' ? 'music' : 'video',
+    musicMetadata:
+      row.library_type === 'music'
+        ? parseMusicMetadata(row.music_metadata_json)
+        : null,
     sizeBytes: row.size_bytes,
     durationSeconds: row.duration_seconds,
     width: row.width,
@@ -70,9 +80,9 @@ export function mediaRowToItem(row: MediaRow): MediaItem {
     audioCodec: row.audio_codec,
     subtitleStreams: row.subtitle_streams,
     subtitleDetails: parseSubtitleDetails(row.subtitle_details_json),
-    previewImagePath: row.preview_image_path,
+    previewImagePath: normalizePersistedMediaAssetPath(row.preview_image_path),
     backdropImagePath:
-      toNullableString(row.backdrop_image_path) ??
+      normalizePersistedMediaAssetPath(row.backdrop_image_path) ??
       chapterThumbnails[0]?.imagePath ??
       null,
     chapterThumbnails,
@@ -102,13 +112,18 @@ export function mediaItemToDbParams(item: MediaItem): Record<string, unknown> {
     season_number: item.seasonNumber,
     episode_number: item.episodeNumber,
     episode_title: item.episodeTitle,
-    dedupe_key: item.dedupeKey || buildDedupeKey(item),
+    dedupe_key: item.dedupeKey || buildMediaDedupeKey(item),
     relative_path: item.relativePath,
     file_path: item.filePath,
     extension: item.extension,
     container: item.container,
     type: item.type,
     digital_media_type: item.digitalMediaType,
+    library_type: item.libraryType === 'music' ? 'music' : 'video',
+    music_metadata_json:
+      item.libraryType === 'music'
+        ? JSON.stringify(normalizeMusicMetadata(item.musicMetadata))
+        : null,
     size_bytes: item.sizeBytes,
     duration_seconds: item.durationSeconds,
     width: item.width,
@@ -117,9 +132,18 @@ export function mediaItemToDbParams(item: MediaItem): Record<string, unknown> {
     audio_codec: item.audioCodec,
     subtitle_streams: item.subtitleStreams,
     subtitle_details_json: JSON.stringify(item.subtitleDetails ?? []),
-    preview_image_path: item.previewImagePath,
-    backdrop_image_path: item.backdropImagePath,
-    chapter_thumbnails_json: JSON.stringify(item.chapterThumbnails ?? []),
+    preview_image_path: normalizePersistedMediaAssetPath(item.previewImagePath),
+    backdrop_image_path: normalizePersistedMediaAssetPath(
+      item.backdropImagePath,
+    ),
+    chapter_thumbnails_json: JSON.stringify(
+      (item.chapterThumbnails ?? []).map((thumbnail) => ({
+        ...thumbnail,
+        imagePath:
+          normalizePersistedMediaAssetPath(thumbnail.imagePath) ??
+          thumbnail.imagePath,
+      })),
+    ),
     media_details_json: JSON.stringify(
       item.mediaDetails ?? defaultMediaDetails(),
     ),
@@ -134,6 +158,47 @@ export function mediaItemToDbParams(item: MediaItem): Record<string, unknown> {
     episode_catalog_source_id: toNullableString(item.episodeCatalogSourceId),
     metadata_refreshed_at: item.metadataRefreshedAt ?? item.updatedAt,
     updated_at: item.updatedAt,
+  };
+}
+
+function parseMusicMetadata(raw: string | null): MusicMetadata {
+  const fallback = normalizeMusicMetadata(null);
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return fallback;
+    }
+
+    return normalizeMusicMetadata(parsed);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeMusicMetadata(
+  value: Partial<MusicMetadata> | null | undefined,
+): MusicMetadata {
+  const artworkKind =
+    value?.artworkKind === 'embedded' || value?.artworkKind === 'sidecar'
+      ? value.artworkKind
+      : 'none';
+
+  return {
+    artist: toNullableString(value?.artist),
+    album: toNullableString(value?.album),
+    albumArtist: toNullableString(value?.albumArtist),
+    trackNumber: toFiniteInteger(value?.trackNumber),
+    discNumber: toFiniteInteger(value?.discNumber),
+    genre: toNullableString(value?.genre),
+    artworkKind,
   };
 }
 
@@ -220,7 +285,7 @@ function parseChapterThumbnails(raw: string): MediaChapterThumbnail[] {
         }
 
         return {
-          imagePath,
+          imagePath: normalizePersistedMediaAssetPath(imagePath) ?? imagePath,
           second,
           name,
         };
@@ -329,35 +394,19 @@ function normalizeTitle(value: string): string {
     .trim();
 }
 
-function buildDedupeKey(item: {
-  type: 'movie' | 'show' | 'other';
-  normalizedTitle: string;
-  releaseYear: number | null;
-  seasonNumber: number | null;
-  episodeNumber: number | null;
-  durationSeconds: number;
-}): string {
-  const normalizedTitle = item.normalizedTitle || normalizeTitle('untitled');
-
-  if (item.type === 'show') {
-    return `show:${normalizedTitle}:s${item.seasonNumber ?? 0}:e${item.episodeNumber ?? 0}`;
-  }
-
-  if (item.type === 'movie') {
-    return `movie:${normalizedTitle}:y${item.releaseYear ?? 0}`;
-  }
-
-  const durationBucket = Math.max(0, Math.round(item.durationSeconds / 300));
-  return `other:${normalizedTitle}:y${item.releaseYear ?? 0}:d${durationBucket}`;
-}
-
 function buildDedupeKeyFromRow(row: MediaRow): string {
-  return buildDedupeKey({
+  const libraryType = row.library_type === 'music' ? 'music' : 'video';
+  return buildMediaDedupeKey({
     type: row.type,
     normalizedTitle: row.normalized_title || normalizeTitle(row.title),
     releaseYear: toFiniteInteger(row.release_year),
     seasonNumber: toFiniteInteger(row.season_number),
     episodeNumber: toFiniteInteger(row.episode_number),
     durationSeconds: row.duration_seconds,
+    libraryType,
+    musicMetadata:
+      libraryType === 'music'
+        ? parseMusicMetadata(row.music_metadata_json)
+        : null,
   });
 }

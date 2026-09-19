@@ -49,6 +49,48 @@ function printUsage() {
   console.log('  - For live mode, start Vite in another terminal: npm run dev:tv');
 }
 
+const SIMPLE_FLAG_UPDATES = new Map([
+  ['--list', ['list', true]],
+  ['--live', ['mode', 'live']],
+  ['--apk', ['mode', 'apk']],
+  ['--sync', ['sync', true]],
+  ['--no-sync', ['sync', false]],
+]);
+const VALUE_FLAG_PATTERN = /^--(mode|serial|host|port)(?:=(.*))?$/;
+
+function applyArgument(argv, index, options) {
+  const token = argv[index];
+  const simpleUpdate = SIMPLE_FLAG_UPDATES.get(token);
+  if (simpleUpdate) {
+    const [key, value] = simpleUpdate;
+    options[key] = value;
+    return 0;
+  }
+
+  const valueFlag = token.match(VALUE_FLAG_PATTERN);
+  if (valueFlag) {
+    const [, key, inlineValue] = valueFlag;
+    const rawValue = inlineValue ?? argv[index + 1] ?? '';
+    options[key] = key === 'mode'
+      ? rawValue.trim().toLowerCase()
+      : rawValue.trim();
+    return inlineValue === undefined ? 1 : 0;
+  }
+
+  if (!token.startsWith('-') && !options.serial) {
+    options.serial = token.trim();
+    return 0;
+  }
+
+  throw new Error(`Unknown argument: ${token}`);
+}
+
+function validateMode(mode) {
+  if (mode !== 'apk' && mode !== 'live') {
+    throw new Error(`Unsupported mode: ${mode}. Expected "apk" or "live".`);
+  }
+}
+
 function parseArgs(argv) {
   const options = {
     list: false,
@@ -67,86 +109,10 @@ function parseArgs(argv) {
       process.exit(0);
     }
 
-    if (token === '--list') {
-      options.list = true;
-      continue;
-    }
-
-    if (token === '--live') {
-      options.mode = 'live';
-      continue;
-    }
-
-    if (token === '--apk') {
-      options.mode = 'apk';
-      continue;
-    }
-
-    if (token === '--sync') {
-      options.sync = true;
-      continue;
-    }
-
-    if (token === '--no-sync') {
-      options.sync = false;
-      continue;
-    }
-
-    if (token.startsWith('--mode=')) {
-      options.mode = token.slice('--mode='.length).trim().toLowerCase();
-      continue;
-    }
-
-    if (token === '--mode') {
-      options.mode = (argv[index + 1] ?? '').trim().toLowerCase();
-      index += 1;
-      continue;
-    }
-
-    if (token.startsWith('--serial=')) {
-      options.serial = token.slice('--serial='.length).trim();
-      continue;
-    }
-
-    if (token === '--serial') {
-      options.serial = (argv[index + 1] ?? '').trim();
-      index += 1;
-      continue;
-    }
-
-    if (token.startsWith('--host=')) {
-      options.host = token.slice('--host='.length).trim();
-      continue;
-    }
-
-    if (token === '--host') {
-      options.host = (argv[index + 1] ?? '').trim();
-      index += 1;
-      continue;
-    }
-
-    if (token.startsWith('--port=')) {
-      options.port = token.slice('--port='.length).trim();
-      continue;
-    }
-
-    if (token === '--port') {
-      options.port = (argv[index + 1] ?? '').trim();
-      index += 1;
-      continue;
-    }
-
-    if (!token.startsWith('-') && !options.serial) {
-      options.serial = token.trim();
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${token}`);
+    index += applyArgument(argv, index, options);
   }
 
-  if (options.mode !== 'apk' && options.mode !== 'live') {
-    throw new Error(`Unsupported mode: ${options.mode}. Expected "apk" or "live".`);
-  }
+  validateMode(options.mode);
 
   if (!options.host) {
     throw new Error('Host cannot be empty.');

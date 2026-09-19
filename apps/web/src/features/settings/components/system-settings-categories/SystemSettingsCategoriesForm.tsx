@@ -4,7 +4,6 @@ import { MaintenanceCategory } from './MaintenanceCategory';
 import { MetadataCategory } from './MetadataCategory';
 import { MetadataDefaultsCategory } from './MetadataDefaultsCategory';
 import { PlaybackCategory } from './PlaybackCategory';
-import { TorrentCategory } from './TorrentCategory';
 
 interface SystemSettingsCategoriesFormProps {
   token: string;
@@ -15,10 +14,6 @@ interface SystemSettingsCategoriesFormProps {
   onTogglePlayback: () => void;
   metadataDefaultsIsOpen: boolean;
   onToggleMetadataDefaults: () => void;
-  torrentClientIsOpen: boolean;
-  onToggleTorrentClient: () => void;
-  torrentProvidersIsOpen: boolean;
-  onToggleTorrentProviders: () => void;
   metadataCommitsIsOpen: boolean;
   onToggleMetadataCommits: () => void;
   maintenanceIsOpen: boolean;
@@ -34,10 +29,6 @@ export function SystemSettingsCategoriesForm({
   onTogglePlayback,
   metadataDefaultsIsOpen,
   onToggleMetadataDefaults,
-  torrentClientIsOpen,
-  onToggleTorrentClient,
-  torrentProvidersIsOpen,
-  onToggleTorrentProviders,
   metadataCommitsIsOpen,
   onToggleMetadataCommits,
   maintenanceIsOpen,
@@ -73,15 +64,6 @@ export function SystemSettingsCategoriesForm({
         updateSetting={updateSetting}
         isOpen={metadataDefaultsIsOpen}
         onToggle={onToggleMetadataDefaults}
-      />
-
-      <TorrentCategory
-        systemSettings={systemSettings}
-        updateSetting={updateSetting}
-        clientIsOpen={torrentClientIsOpen}
-        onToggleClient={onToggleTorrentClient}
-        providersIsOpen={torrentProvidersIsOpen}
-        onToggleProviders={onToggleTorrentProviders}
       />
 
       <MetadataCategory

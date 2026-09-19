@@ -36,9 +36,9 @@
 ### 4) Error and Logging Conventions
 
 - Server validation uses a global Nest `ValidationPipe` with `whitelist`, `transform`, and `forbidNonWhitelisted`.
-- Server authentication errors use Nest exceptions such as `UnauthorizedException`; qBittorrent integration maps failures to `BadGatewayException` or `GatewayTimeoutException`; OpenSubtitles failures map to `BadRequestException`.
+- Server authentication errors use Nest exceptions such as `UnauthorizedException`; OpenSubtitles failures map to `BadRequestException`; add-on package validation reports explicit trust, integrity, and compatibility failures.
 - Web API wrapper throws `ApiError` with HTTP status and attempts to extract a JSON `message` from failed responses.
-- Logging uses Nest `Logger` in backend integration/runtime code such as media probing, qBittorrent, and media stores.
+- Logging uses Nest `Logger` in backend integration/runtime code such as media probing, add-on loading/quarantine, and media stores.
 - Sensitive-data redaction rules: [TODO] no explicit project-wide redaction policy was found in inspected configs/docs.
 
 ### 5) Testing Conventions
@@ -63,7 +63,7 @@
 - `packages\shared-contracts\tsconfig.json`
 - `apps\server\src\main.ts`
 - `apps\web\src\features\shared\services\api-core.ts`
-- `apps\server\src\domains\torrent\infrastructure\clients\qbittorrent-http.client.ts`
+- `apps\server\src\domains\addons`
 - `apps\server\src\domains\subtitle\application\services\subtitle-lookup.service.ts`
 - `apps\server\test\jest-e2e.json`
 - `apps\web\vitest.config.ts`

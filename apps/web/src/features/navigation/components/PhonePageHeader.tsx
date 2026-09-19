@@ -2,6 +2,7 @@ import type { FormEventHandler, ReactNode } from 'react';
 import { LibrarySearchForm } from './LibrarySearchForm';
 import { ProfileMenu } from './ProfileMenu';
 import type { User } from '../../shared/services/types';
+import { MediaModeSwitchSlot } from '../../media-mode/components/MediaModeSwitcher';
 
 interface PhonePageHeaderProps {
   user: User;
@@ -55,6 +56,7 @@ export function PhonePageHeader(props: PhonePageHeaderProps) {
           <ProfileMenu user={user} onLogout={onLogout} />
         </div>
       </div>
+      <MediaModeSwitchSlot placement="phone-header" />
     </header>
   );
 }

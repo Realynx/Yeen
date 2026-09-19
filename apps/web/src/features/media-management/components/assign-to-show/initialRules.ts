@@ -16,100 +16,43 @@ export function hasPersistedSeriesRules(
   );
 }
 
+function normalizedInteger(value: unknown, minimum: number): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimum
+    ? Math.floor(value)
+    : null;
+}
+
+function persistedKeywordMappings(rules: FilenameParseRules) {
+  return (rules.keywordMappings ?? []).flatMap((rule) => {
+    const keyword = rule.keyword.trim();
+    const seasonNumber = normalizedInteger(rule.seasonNumber, -1);
+    const episodeNumber = normalizedInteger(rule.episodeNumber, 0);
+    return keyword && (seasonNumber !== null || episodeNumber !== null)
+      ? [{ keyword, seasonNumber, episodeNumber }]
+      : [];
+  });
+}
+
+function persistedPatternMappings(rules: FilenameParseRules) {
+  return (rules.patternMappings ?? []).flatMap((rule) => {
+    const pattern = rule.pattern.trim();
+    const seasonGroup = normalizedInteger(rule.seasonGroup, 1);
+    const episodeGroup = normalizedInteger(rule.episodeGroup, 1);
+    const seasonNumber = normalizedInteger(rule.seasonNumber, -1);
+    const episodeNumber = normalizedInteger(rule.episodeNumber, 0);
+    const hasAssignment = seasonGroup !== null || episodeGroup !== null
+      || seasonNumber !== null || episodeNumber !== null;
+    if (!pattern || !hasAssignment) return [];
+    const flags = sanitizeRuleFlags(rule.flags);
+    return [{ pattern, flags: flags || undefined, seasonGroup, episodeGroup, seasonNumber, episodeNumber }];
+  });
+}
+
 export function toPersistedSeriesAssignmentRules(
   rules: FilenameParseRules,
 ): SeriesAssignmentRules | null {
-  const keywordMappings: NonNullable<SeriesAssignmentRules['keywordMappings']> =
-    [];
-
-  if (Array.isArray(rules.keywordMappings)) {
-    for (const rule of rules.keywordMappings) {
-      const keyword = rule.keyword.trim();
-      if (!keyword) {
-        continue;
-      }
-
-      const seasonNumber =
-        typeof rule.seasonNumber === 'number' &&
-        Number.isFinite(rule.seasonNumber) &&
-        rule.seasonNumber >= -1
-          ? Math.floor(rule.seasonNumber)
-          : null;
-      const episodeNumber =
-        typeof rule.episodeNumber === 'number' &&
-        Number.isFinite(rule.episodeNumber) &&
-        rule.episodeNumber >= 0
-          ? Math.floor(rule.episodeNumber)
-          : null;
-
-      if (seasonNumber === null && episodeNumber === null) {
-        continue;
-      }
-
-      keywordMappings.push({
-        keyword,
-        seasonNumber,
-        episodeNumber,
-      });
-    }
-  }
-
-  const patternMappings: NonNullable<SeriesAssignmentRules['patternMappings']> =
-    [];
-
-  if (Array.isArray(rules.patternMappings)) {
-    for (const rule of rules.patternMappings) {
-      const pattern = rule.pattern.trim();
-      if (!pattern) {
-        continue;
-      }
-
-      const seasonGroup =
-        typeof rule.seasonGroup === 'number' &&
-        Number.isFinite(rule.seasonGroup) &&
-        rule.seasonGroup >= 1
-          ? Math.floor(rule.seasonGroup)
-          : null;
-      const episodeGroup =
-        typeof rule.episodeGroup === 'number' &&
-        Number.isFinite(rule.episodeGroup) &&
-        rule.episodeGroup >= 1
-          ? Math.floor(rule.episodeGroup)
-          : null;
-      const seasonNumber =
-        typeof rule.seasonNumber === 'number' &&
-        Number.isFinite(rule.seasonNumber) &&
-        rule.seasonNumber >= -1
-          ? Math.floor(rule.seasonNumber)
-          : null;
-      const episodeNumber =
-        typeof rule.episodeNumber === 'number' &&
-        Number.isFinite(rule.episodeNumber) &&
-        rule.episodeNumber >= 0
-          ? Math.floor(rule.episodeNumber)
-          : null;
-
-      if (
-        seasonGroup === null &&
-        episodeGroup === null &&
-        seasonNumber === null &&
-        episodeNumber === null
-      ) {
-        continue;
-      }
-
-      const flags = sanitizeRuleFlags(rule.flags);
-
-      patternMappings.push({
-        pattern,
-        flags: flags || undefined,
-        seasonGroup,
-        episodeGroup,
-        seasonNumber,
-        episodeNumber,
-      });
-    }
-  }
+  const keywordMappings = persistedKeywordMappings(rules);
+  const patternMappings = persistedPatternMappings(rules);
 
   if (keywordMappings.length === 0 && patternMappings.length === 0) {
     return null;
@@ -149,23 +92,19 @@ export function initialRuleDraftsFromSelection(items: MediaItem[]): {
         : '',
   }));
 
-  const patternRules = (source.patternMappings ?? []).map((rule) => {
-    const normalizedSeasonGroup =
-      typeof rule.seasonGroup === 'number' && Number.isFinite(rule.seasonGroup)
-        ? Math.floor(rule.seasonGroup)
-        : null;
-    const normalizedEpisodeGroup =
-      typeof rule.episodeGroup === 'number' && Number.isFinite(rule.episodeGroup)
-        ? Math.floor(rule.episodeGroup)
-        : null;
+  const patternRules = (source.patternMappings ?? []).map(toPatternRuleDraft);
+
+  return { keywordRules, patternRules };
+}
+
+function toPatternRuleDraft(rule: NonNullable<SeriesAssignmentRules['patternMappings']>[number]): PatternRuleDraft {
+    const normalizedSeasonGroup = normalizedInteger(rule.seasonGroup, Number.MIN_SAFE_INTEGER);
+    const normalizedEpisodeGroup = normalizedInteger(rule.episodeGroup, Number.MIN_SAFE_INTEGER);
     const normalizedFlags = sanitizeRuleFlags(rule.flags ?? '');
     const parsedGenerated = parseGeneratedLandmarkPattern(rule.pattern.trim());
-    const canUseLandmarkBuilder =
-      parsedGenerated !== null &&
-      (normalizedSeasonGroup === null ||
-        normalizedSeasonGroup === parsedGenerated.seasonGroup) &&
-      (normalizedEpisodeGroup === null ||
-        normalizedEpisodeGroup === parsedGenerated.episodeGroup);
+    const canUseLandmarkBuilder = parsedGenerated !== null
+      && matchesGeneratedGroup(normalizedSeasonGroup, parsedGenerated.seasonGroup)
+      && matchesGeneratedGroup(normalizedEpisodeGroup, parsedGenerated.episodeGroup);
 
     return {
       id: createDraftId('pattern'),
@@ -176,31 +115,25 @@ export function initialRuleDraftsFromSelection(items: MediaItem[]): {
         ? parsedGenerated.episodeLandmark
         : '',
       caseSensitive: !normalizedFlags.includes('i'),
-      seasonNumber:
-        typeof rule.seasonNumber === 'number' && Number.isFinite(rule.seasonNumber)
-          ? String(rule.seasonNumber)
-          : '',
-      episodeNumber:
-        typeof rule.episodeNumber === 'number' && Number.isFinite(rule.episodeNumber)
-          ? String(rule.episodeNumber)
-          : '',
+      seasonNumber: finiteNumberString(rule.seasonNumber),
+      episodeNumber: finiteNumberString(rule.episodeNumber),
       legacyPattern: canUseLandmarkBuilder ? null : rule.pattern,
       legacyFlags: canUseLandmarkBuilder ? '' : rule.flags ?? 'i',
-      legacySeasonGroup:
-        !canUseLandmarkBuilder && normalizedSeasonGroup !== null
-          ? String(normalizedSeasonGroup)
-          : '',
-      legacyEpisodeGroup:
-        !canUseLandmarkBuilder && normalizedEpisodeGroup !== null
-          ? String(normalizedEpisodeGroup)
-          : '',
+      legacySeasonGroup: legacyGroupString(canUseLandmarkBuilder, normalizedSeasonGroup),
+      legacyEpisodeGroup: legacyGroupString(canUseLandmarkBuilder, normalizedEpisodeGroup),
     };
-  });
+}
 
-  return {
-    keywordRules,
-    patternRules,
-  };
+function matchesGeneratedGroup(actual: number | null, generated: number | null): boolean {
+  return actual === null || actual === generated;
+}
+
+function finiteNumberString(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
+}
+
+function legacyGroupString(usingBuilder: boolean, value: number | null): string {
+  return !usingBuilder && value !== null ? String(value) : '';
 }
 
 function normalizeTagsForInput(

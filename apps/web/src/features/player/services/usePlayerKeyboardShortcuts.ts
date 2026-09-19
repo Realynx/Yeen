@@ -17,6 +17,97 @@ interface UsePlayerKeyboardShortcutsOptions {
   volume: number;
 }
 
+function isTextEntryTarget(target: HTMLElement | null): boolean {
+  return Boolean(target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? ''));
+}
+
+function interactiveContext(target: HTMLElement | null) {
+  const element = target?.closest(
+    'button, a[href], input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])',
+  ) as HTMLElement | null;
+  const playerSurface = Boolean(target?.closest('[data-player-video-surface="true"]'));
+  const interactive = Boolean(target && (
+    ['BUTTON', 'A', 'INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+    || (element && !playerSurface)
+  ));
+  return { element, playerSurface, interactive };
+}
+
+function handleTvDirectional(
+  event: KeyboardEvent,
+  key: string,
+  options: UsePlayerKeyboardShortcutsOptions,
+): boolean {
+  const directional = ['arrowright', 'arrowleft', 'arrowup', 'arrowdown'].includes(key);
+  if (!options.isTvMode || !directional) return false;
+  if (!options.controlsVisible && (key === 'arrowright' || key === 'arrowleft')) {
+    event.preventDefault();
+    const direction = key === 'arrowright' ? 1 : -1;
+    options.skipBy(direction * SKIP_SECONDS * (event.repeat ? 3 : 1));
+    return true;
+  }
+  options.revealControls();
+  return true;
+}
+
+function handleTvActivation(
+  event: KeyboardEvent,
+  key: string,
+  options: UsePlayerKeyboardShortcutsOptions,
+  context: ReturnType<typeof interactiveContext>,
+): boolean {
+  if (!options.isTvMode || (key !== 'enter' && key !== ' ')) return false;
+  if (!context.interactive || !options.controlsVisible || context.playerSurface) {
+    event.preventDefault();
+    void options.togglePlay();
+    options.revealControls();
+    return true;
+  }
+  if (key === 'enter' && context.element) {
+    const opacity = Number.parseFloat(window.getComputedStyle(context.element).opacity);
+    if (Number.isFinite(opacity) && opacity < 0.08) {
+      event.preventDefault();
+      options.revealControls();
+    }
+  }
+  return true;
+}
+
+function shortcutActions(options: UsePlayerKeyboardShortcutsOptions): Record<string, () => void> {
+  const play = () => { void options.togglePlay(); options.revealControls(); };
+  return {
+    ' ': play, k: play,
+    arrowright: () => options.skipBy(SKIP_SECONDS), l: () => options.skipBy(SKIP_SECONDS),
+    arrowleft: () => options.skipBy(-SKIP_SECONDS), j: () => options.skipBy(-SKIP_SECONDS),
+    arrowup: () => { options.applyVolume(options.volume + 0.05); options.revealControls(); },
+    arrowdown: () => { options.applyVolume(options.volume - 0.05); options.revealControls(); },
+    m: options.toggleMute,
+    f: () => { void options.toggleFullscreen(); },
+    c: options.toggleSubtitleVisibility,
+    p: () => { void options.togglePictureInPicture(); },
+    '.': () => options.adjustPlaybackRate(0.25), '>': () => options.adjustPlaybackRate(0.25),
+    ',': () => options.adjustPlaybackRate(-0.25), '<': () => options.adjustPlaybackRate(-0.25),
+  };
+}
+
+function handleKeyboardShortcut(event: KeyboardEvent, options: UsePlayerKeyboardShortcutsOptions): void {
+  if (event.defaultPrevented) return;
+  const target = event.target as HTMLElement | null;
+  if (isTextEntryTarget(target)) return;
+  const key = event.key.toLowerCase();
+  const context = interactiveContext(target);
+  if (handleTvDirectional(event, key, options)) return;
+  if (handleTvActivation(event, key, options, context)) return;
+  if (key === 'enter' && (!options.isTvMode || context.interactive)) return;
+  if (key === 'escape') {
+    if (options.isTvMode) { event.preventDefault(); options.revealControls(); }
+    return;
+  }
+  if (key === 'f' && options.isTvMode) return;
+  const action = shortcutActions(options)[key];
+  if (action) { event.preventDefault(); action(); }
+}
+
 export function usePlayerKeyboardShortcuts({
   enabled = true,
   isTvMode = false,
@@ -37,172 +128,13 @@ export function usePlayerKeyboardShortcuts({
       return;
     }
 
+    const options = {
+      enabled, isTvMode, controlsVisible, applyVolume, revealControls, skipBy,
+      toggleFullscreen, toggleMute, togglePictureInPicture, togglePlay,
+      toggleSubtitleVisibility, adjustPlaybackRate, volume,
+    };
     function handleKeyboardShortcuts(event: KeyboardEvent) {
-      if (event.defaultPrevented) {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      const tagName = target?.tagName ?? '';
-      if (
-        tagName === 'INPUT' ||
-        tagName === 'TEXTAREA' ||
-        tagName === 'SELECT' ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const isTvDirectionalKey =
-        key === 'arrowright'
-        || key === 'arrowleft'
-        || key === 'arrowup'
-        || key === 'arrowdown';
-
-      const interactiveElement = target?.closest(
-        'button, a[href], input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])',
-      ) as HTMLElement | null;
-      const isPlayerSurfaceTarget = Boolean(
-        target?.closest('[data-player-video-surface="true"]'),
-      );
-
-      const isInteractiveTarget = Boolean(
-        target
-        && (
-          tagName === 'BUTTON'
-          || tagName === 'A'
-          || tagName === 'INPUT'
-          || tagName === 'TEXTAREA'
-          || tagName === 'SELECT'
-          || (interactiveElement && !isPlayerSurfaceTarget)
-        ),
-      );
-
-      if (isTvMode && isTvDirectionalKey) {
-        if (!controlsVisible) {
-          event.preventDefault();
-          if (key === 'arrowright') {
-            skipBy(event.repeat ? SKIP_SECONDS * 3 : SKIP_SECONDS);
-            return;
-          }
-
-          if (key === 'arrowleft') {
-            skipBy(event.repeat ? -SKIP_SECONDS * 3 : -SKIP_SECONDS);
-            return;
-          }
-        }
-
-        revealControls();
-        return;
-      }
-
-      if (
-        isTvMode
-        && (key === 'enter' || key === ' ')
-        && (!isInteractiveTarget || !controlsVisible || isPlayerSurfaceTarget)
-      ) {
-        event.preventDefault();
-        void togglePlay();
-        revealControls();
-        return;
-      }
-
-      if (
-        isTvMode
-        && isInteractiveTarget
-        && key === 'enter'
-      ) {
-        if (interactiveElement) {
-          const interactiveOpacity = Number.parseFloat(
-            window.getComputedStyle(interactiveElement).opacity,
-          );
-          if (Number.isFinite(interactiveOpacity) && interactiveOpacity < 0.08) {
-            event.preventDefault();
-            revealControls();
-          }
-        }
-
-        return;
-      }
-
-      switch (key) {
-        case ' ':
-        case 'k':
-          event.preventDefault();
-          void togglePlay();
-          revealControls();
-          break;
-        case 'arrowright':
-        case 'l':
-          event.preventDefault();
-          skipBy(SKIP_SECONDS);
-          break;
-        case 'arrowleft':
-        case 'j':
-          event.preventDefault();
-          skipBy(-SKIP_SECONDS);
-          break;
-        case 'arrowup':
-          event.preventDefault();
-          applyVolume(volume + 0.05);
-          revealControls();
-          break;
-        case 'arrowdown':
-          event.preventDefault();
-          applyVolume(volume - 0.05);
-          revealControls();
-          break;
-        case 'enter':
-          if (!isTvMode || isInteractiveTarget) {
-            break;
-          }
-
-          event.preventDefault();
-          void togglePlay();
-          revealControls();
-          break;
-        case 'escape':
-          if (!isTvMode) {
-            break;
-          }
-
-          event.preventDefault();
-          revealControls();
-          break;
-        case 'm':
-          event.preventDefault();
-          toggleMute();
-          break;
-        case 'f':
-          if (isTvMode) {
-            break;
-          }
-
-          event.preventDefault();
-          void toggleFullscreen();
-          break;
-        case 'c':
-          event.preventDefault();
-          toggleSubtitleVisibility();
-          break;
-        case 'p':
-          event.preventDefault();
-          void togglePictureInPicture();
-          break;
-        case '.':
-        case '>':
-          event.preventDefault();
-          adjustPlaybackRate(0.25);
-          break;
-        case ',':
-        case '<':
-          event.preventDefault();
-          adjustPlaybackRate(-0.25);
-          break;
-        default:
-          break;
-      }
+      handleKeyboardShortcut(event, options);
     }
 
     window.addEventListener('keydown', handleKeyboardShortcuts);

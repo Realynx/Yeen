@@ -1,13 +1,15 @@
-import { useCallback, useMemo } from 'react';
-import type { ComponentProps } from 'react';
-import type { NavigateFunction } from 'react-router-dom';
-import { PlayerPanelContainer } from '../components/PlayerPanelContainer';
-import { PlayerPlaybackLayout } from '../components/PlayerPlaybackLayout';
-import type { SubtitleTrack } from '../../shared/services/types';
+import { useCallback, useMemo, type ComponentProps } from "react";
+import type { NavigateFunction } from "react-router-dom";
+import { PlayerPanelContainer } from "../components/PlayerPanelContainer";
+import { PlayerPlaybackLayout } from "../components/PlayerPlaybackLayout";
+import type { SubtitleTrack } from "../../shared/services/types";
+import type { BroadcastViewerStatus } from "../../shared/services/types";
 
 type PanelProps = ComponentProps<typeof PlayerPanelContainer>;
-type EpisodeNavigationProps = ComponentProps<typeof PlayerPlaybackLayout>['episodeNavigationProps'];
-type DetailsProps = ComponentProps<typeof PlayerPlaybackLayout>['detailsProps'];
+type EpisodeNavigationProps = ComponentProps<
+  typeof PlayerPlaybackLayout
+>["episodeNavigationProps"];
+type DetailsProps = ComponentProps<typeof PlayerPlaybackLayout>["detailsProps"];
 
 interface ExtractSubtitleContext {
   setSelectedSubtitleId: (subtitleId: string) => void;
@@ -20,12 +22,12 @@ interface ExtractSubtitleContext {
 }
 
 interface EpisodeNavigationContext {
-  previousEpisode: EpisodeNavigationProps['previousEpisode'];
-  nextEpisode: EpisodeNavigationProps['nextEpisode'];
-  previousEpisodeImage: EpisodeNavigationProps['previousEpisodeImage'];
-  nextEpisodeImage: EpisodeNavigationProps['nextEpisodeImage'];
-  autoAdvanceSeconds: EpisodeNavigationProps['autoAdvanceSeconds'];
-  cancelAutoAdvance: EpisodeNavigationProps['onCancelAutoAdvance'];
+  previousEpisode: EpisodeNavigationProps["previousEpisode"];
+  nextEpisode: EpisodeNavigationProps["nextEpisode"];
+  previousEpisodeImage: EpisodeNavigationProps["previousEpisodeImage"];
+  nextEpisodeImage: EpisodeNavigationProps["nextEpisodeImage"];
+  autoAdvanceSeconds: EpisodeNavigationProps["autoAdvanceSeconds"];
+  cancelAutoAdvance: EpisodeNavigationProps["onCancelAutoAdvance"];
   navigate: NavigateFunction;
 }
 
@@ -33,6 +35,8 @@ interface DetailsContext {
   totalDuration: number;
   currentTime: number;
   onOpenDetails: () => void;
+  broadcastEnabled: boolean;
+  broadcastViewers: BroadcastViewerStatus[];
 }
 
 interface UsePlayerPlaybackViewStateArgs {
@@ -40,21 +44,21 @@ interface UsePlayerPlaybackViewStateArgs {
   hideTopNav: boolean;
   isTvMode: boolean;
   theaterMode: boolean;
-  media: PanelProps['media'];
-  source: PanelProps['source'];
+  media: PanelProps["media"];
+  source: PanelProps["source"];
   redactedStreamUrl: string | null;
-  trackState: PanelProps['trackState'];
-  playbackState: PanelProps['playbackState'];
-  capabilities: PanelProps['capabilities'];
-  qualityStateBase: Omit<PanelProps['qualityState'], 'qualityStatus'>;
+  trackState: PanelProps["trackState"];
+  playbackState: PanelProps["playbackState"];
+  capabilities: PanelProps["capabilities"];
+  qualityStateBase: Omit<PanelProps["qualityState"], "qualityStatus">;
   sourceHasHls: boolean;
   currentAutoLevel: number | null;
-  diagnostics: PanelProps['diagnostics'];
-  refs: PanelProps['refs'];
-  runtime: PanelProps['runtime'];
-  selectionHandlers: Omit<PanelProps['selectionHandlers'], 'onExtractSubtitle'>;
+  diagnostics: PanelProps["diagnostics"];
+  refs: PanelProps["refs"];
+  runtime: PanelProps["runtime"];
+  selectionHandlers: Omit<PanelProps["selectionHandlers"], "onExtractSubtitle">;
   extractSubtitleContext: ExtractSubtitleContext;
-  preferenceHandlers: PanelProps['preferenceHandlers'];
+  preferenceHandlers: PanelProps["preferenceHandlers"];
   episodeNavigationContext: EpisodeNavigationContext;
   detailsContext: DetailsContext;
 }
@@ -92,11 +96,11 @@ export function usePlayerPlaybackViewState({
 }: UsePlayerPlaybackViewStateArgs): PlayerPlaybackViewState {
   const activeTheaterMode = hideTopNav ? false : theaterMode;
   const playerPageClassName = [
-    hideTopNav ? 'player-page phone-player-page' : 'player-page',
-    isTvMode ? 'tv-player-page' : '',
+    hideTopNav ? "player-page phone-player-page" : "player-page",
+    isTvMode ? "tv-player-page" : "",
   ]
     .filter((className) => className.length > 0)
-    .join(' ');
+    .join(" ");
   const {
     setSelectedSubtitleId,
     setSubtitleVisible,
@@ -106,29 +110,44 @@ export function usePlayerPlaybackViewState({
 
   const qualityStatus = useMemo(() => {
     if (!sourceHasHls) {
-      return 'Direct Play';
+      return "Direct Play";
     }
 
-    if (qualityStateBase.qualityMode === 'auto') {
-      const level = qualityStateBase.hlsLevels.find((item) => item.index === currentAutoLevel);
-      return level ? `Auto (${level.label})` : 'Auto';
+    if (qualityStateBase.qualityMode === "auto") {
+      const level = qualityStateBase.hlsLevels.find(
+        (item) => item.index === currentAutoLevel,
+      );
+      return level ? `Auto (${level.label})` : "Auto";
     }
 
     const selectedLevel = qualityStateBase.hlsLevels.find(
       (item) => item.index === qualityStateBase.qualityMode,
     );
-    return selectedLevel?.label ?? 'Manual';
-  }, [currentAutoLevel, qualityStateBase.hlsLevels, qualityStateBase.qualityMode, sourceHasHls]);
+    return selectedLevel?.label ?? "Manual";
+  }, [
+    currentAutoLevel,
+    qualityStateBase.hlsLevels,
+    qualityStateBase.qualityMode,
+    sourceHasHls,
+  ]);
 
-  const handleExtractSubtitle = useCallback((track: SubtitleTrack) => {
-    setSelectedSubtitleId(track.id);
-    setSubtitleVisible(true);
-    void persistSeriesPlaybackPreference({
-      preferredSubtitleLanguage: track.language ?? null,
-      subtitlePreferenceEnabled: true,
-    });
-    void extractTrack(track);
-  }, [extractTrack, persistSeriesPlaybackPreference, setSelectedSubtitleId, setSubtitleVisible]);
+  const handleExtractSubtitle = useCallback(
+    (track: SubtitleTrack) => {
+      setSelectedSubtitleId(track.id);
+      setSubtitleVisible(true);
+      void persistSeriesPlaybackPreference({
+        preferredSubtitleLanguage: track.language ?? null,
+        subtitlePreferenceEnabled: true,
+      });
+      void extractTrack(track);
+    },
+    [
+      extractTrack,
+      persistSeriesPlaybackPreference,
+      setSelectedSubtitleId,
+      setSubtitleVisible,
+    ],
+  );
 
   const panelProps: PanelProps = {
     token,
@@ -155,14 +174,15 @@ export function usePlayerPlaybackViewState({
   };
 
   const episodeNavigationProps: EpisodeNavigationProps = {
-    isShowMedia: media?.type === 'show',
+    isShowMedia: media?.type === "show",
     previousEpisode: episodeNavigationContext.previousEpisode,
     nextEpisode: episodeNavigationContext.nextEpisode,
     previousEpisodeImage: episodeNavigationContext.previousEpisodeImage,
     nextEpisodeImage: episodeNavigationContext.nextEpisodeImage,
     autoAdvanceSeconds: episodeNavigationContext.autoAdvanceSeconds,
     onCancelAutoAdvance: episodeNavigationContext.cancelAutoAdvance,
-    onNavigateToEpisode: (episodeId) => episodeNavigationContext.navigate(`/player/${episodeId}`),
+    onNavigateToEpisode: (episodeId) =>
+      episodeNavigationContext.navigate(`/player/${episodeId}`),
   };
 
   const detailsProps: DetailsProps = {
@@ -171,6 +191,8 @@ export function usePlayerPlaybackViewState({
     currentTime: detailsContext.currentTime,
     showKeyboardShortcuts: !hideTopNav,
     onOpenDetails: detailsContext.onOpenDetails,
+    broadcastEnabled: detailsContext.broadcastEnabled,
+    broadcastViewers: detailsContext.broadcastViewers,
   };
 
   return {

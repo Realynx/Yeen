@@ -87,37 +87,34 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
     }
 
     const existing = this.state[accountIndex];
-    const role =
-      input.role === 'admin' || input.role === 'sailer' || input.role === 'user'
-        ? input.role
-        : existing.role;
-    const updated: AccountRecord = {
+    const updated = this.buildUpdatedAccount(existing, input);
+
+    this.state[accountIndex] = updated;
+    await this.queueSave();
+
+    return updated;
+  }
+
+  private buildUpdatedAccount(
+    existing: AccountRecord,
+    input: UpdateAccountInput,
+  ): AccountRecord {
+    const role = this.resolveUpdatedRole(input.role, existing.role);
+    return {
       ...existing,
-      email:
-        typeof input.email === 'string'
-          ? input.email.trim().toLowerCase()
-          : existing.email,
-      name: typeof input.name === 'string' ? input.name.trim() : existing.name,
-      passwordHash:
-        typeof input.passwordHash === 'string'
-          ? input.passwordHash
-          : existing.passwordHash,
+      email: this.updatedEmail(input.email, existing.email),
+      name: this.updatedString(input.name, existing.name, true),
+      passwordHash: this.updatedString(
+        input.passwordHash,
+        existing.passwordHash,
+        false,
+      ),
       avatarDataUrl:
         input.avatarDataUrl !== undefined
           ? input.avatarDataUrl
           : existing.avatarDataUrl,
       role,
-      invitesRemaining:
-        role === 'admin'
-          ? null
-          : input.invitesRemaining !== undefined
-            ? this.normalizeInviteCount(
-                input.invitesRemaining,
-                existing.invitesRemaining ?? 0,
-              )
-            : existing.role === 'admin'
-              ? 0
-              : (existing.invitesRemaining ?? 0),
+      invitesRemaining: this.updatedInviteCount(existing, input, role),
       maxBitrateKbps:
         input.maxBitrateKbps !== undefined
           ? this.normalizeMaxBitrateKbps(input.maxBitrateKbps)
@@ -127,11 +124,43 @@ export class AccountsStore extends JsonFileStore<AccountRecord[]> {
           ? this.asNullableString(input.invitedByAccountId)
           : existing.invitedByAccountId,
     };
+  }
 
-    this.state[accountIndex] = updated;
-    await this.queueSave();
+  private resolveUpdatedRole(
+    role: UpdateAccountInput['role'],
+    fallback: AccountRecord['role'],
+  ): AccountRecord['role'] {
+    return role === 'admin' || role === 'sailer' || role === 'user'
+      ? role
+      : fallback;
+  }
 
-    return updated;
+  private updatedEmail(value: string | undefined, fallback: string): string {
+    return typeof value === 'string' ? value.trim().toLowerCase() : fallback;
+  }
+
+  private updatedString(
+    value: string | undefined,
+    fallback: string,
+    trim: boolean,
+  ): string {
+    if (typeof value !== 'string') return fallback;
+    return trim ? value.trim() : value;
+  }
+
+  private updatedInviteCount(
+    existing: AccountRecord,
+    input: UpdateAccountInput,
+    role: AccountRecord['role'],
+  ): number | null {
+    if (role === 'admin') return null;
+    if (input.invitesRemaining !== undefined) {
+      return this.normalizeInviteCount(
+        input.invitesRemaining,
+        existing.invitesRemaining ?? 0,
+      );
+    }
+    return existing.role === 'admin' ? 0 : (existing.invitesRemaining ?? 0);
   }
 
   private defaultRole(): 'admin' | 'sailer' | 'user' {

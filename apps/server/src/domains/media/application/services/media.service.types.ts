@@ -30,13 +30,6 @@ export interface BulkDeleteMediaResult {
   results: DeletedMediaItemResult[];
 }
 
-export interface MediaTorrentDownloadProgressItem {
-  mediaId: string;
-  hash: string;
-  progressPercent: number;
-  state: string;
-}
-
 export interface MediaStorageSummary {
   totalBytes: number;
   usedBytes: number;
@@ -125,6 +118,35 @@ export type SeriesEpisodeTrackerResult =
       missingEpisodes: SeriesEpisodeTrackerMissingEpisode[];
       updatedAt: string;
       note: string | null;
+    };
+
+export interface RemoteSeriesEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  synopsis: string | null;
+  airedAt: string | null;
+}
+
+export interface RemoteSeriesSeason {
+  seasonNumber: number;
+  episodes: RemoteSeriesEpisode[];
+}
+
+export type RemoteSeriesEpisodeCatalogResult =
+  | {
+      status: 'unavailable';
+      reason: string;
+      source: null;
+    }
+  | {
+      status: 'ready';
+      source: 'jikan' | 'tmdb';
+      sourceLabel: string;
+      providerId: string;
+      totalEpisodeCount: number;
+      seasons: RemoteSeriesSeason[];
+      updatedAt: string;
     };
 
 export type MetadataImportMode = 'replace' | 'upsert';

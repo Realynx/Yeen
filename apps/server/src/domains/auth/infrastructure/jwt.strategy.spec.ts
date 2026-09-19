@@ -8,22 +8,23 @@ describe('JwtStrategy', () => {
       get: jest.fn().mockReturnValue('test-secret'),
     } as unknown as ConfigService;
 
+    const findById = jest.fn();
     const accountsStore = {
-      findById: jest.fn(),
+      findById,
     } as unknown as import('./stores/accounts.store').AccountsStore;
 
     const strategy = new JwtStrategy(configService, accountsStore);
 
     return {
       strategy,
-      accountsStore,
+      findById,
     };
   }
 
   it('hydrates auth user from the current account record', async () => {
-    const { strategy, accountsStore } = createStrategy();
+    const { strategy, findById } = createStrategy();
 
-    (accountsStore.findById as jest.Mock).mockResolvedValue({
+    findById.mockResolvedValue({
       id: 'account-1',
       email: 'fresh@example.com',
       name: 'Fresh Name',
@@ -52,7 +53,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects malformed JWT payloads before account lookup', async () => {
-    const { strategy, accountsStore } = createStrategy();
+    const { strategy, findById } = createStrategy();
 
     await expect(
       strategy.validate({
@@ -62,12 +63,12 @@ describe('JwtStrategy', () => {
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
-    expect(accountsStore.findById).not.toHaveBeenCalled();
+    expect(findById).not.toHaveBeenCalled();
   });
 
   it('rejects tokens for deleted or missing accounts', async () => {
-    const { strategy, accountsStore } = createStrategy();
-    (accountsStore.findById as jest.Mock).mockResolvedValue(undefined);
+    const { strategy, findById } = createStrategy();
+    findById.mockResolvedValue(undefined);
 
     await expect(
       strategy.validate({

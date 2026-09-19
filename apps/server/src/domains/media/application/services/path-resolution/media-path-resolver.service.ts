@@ -9,12 +9,12 @@ export interface MediaPathResolverContext {
 
 @Injectable()
 export class MediaPathResolverService {
-  buildTorrentAbsoluteFileCandidates(input: {
+  buildExternalAbsoluteFileCandidates(input: {
     savePath: string;
     contentPath: string | null;
-    torrentRelativePath: string;
+    sourceRelativePath: string;
   }): string[] {
-    const normalizedRelativePath = input.torrentRelativePath
+    const normalizedRelativePath = input.sourceRelativePath
       .trim()
       .replace(/\\/g, '/');
     if (!normalizedRelativePath) {
@@ -117,12 +117,12 @@ export class MediaPathResolverService {
       }
 
       if (!trimmedImportedPath.endsWith('.!qB')) {
-        const qbVariant = `${trimmedImportedPath}.!qB`;
-        if (isAbsolute(qbVariant)) {
-          pushCandidate(qbVariant);
+        const legacyPartialVariant = `${trimmedImportedPath}.!qB`;
+        if (isAbsolute(legacyPartialVariant)) {
+          pushCandidate(legacyPartialVariant);
         } else if (context.roots.length > 0) {
           for (const root of context.roots) {
-            pushCandidate(resolve(root, qbVariant));
+            pushCandidate(resolve(root, legacyPartialVariant));
           }
         }
       }

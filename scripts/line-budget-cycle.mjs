@@ -30,44 +30,54 @@ async function runScan() {
   return JSON.parse(trimmed);
 }
 
+function summarizeReport(report) {
+  const summary = report?.summary ?? {};
+  const config = report?.config ?? {};
+  const violations = report?.violations ?? {};
+  return {
+    remaining: summary.unallowlistedViolations ?? 0,
+    total: summary.totalViolations ?? 0,
+    filesScanned: summary.filesScanned ?? 0,
+    roots: Array.isArray(config.scopedRoots)
+      ? config.scopedRoots.join(', ')
+      : '(unknown roots)',
+    maxLines: config.maxLines ?? 400,
+    topFive: Array.isArray(violations.unallowlisted)
+      ? violations.unallowlisted.slice(0, 5)
+      : [],
+  };
+}
+
+function printCycleReport(cycle, summary) {
+  console.log(
+    `[cycle ${cycle}] scanned=${summary.filesScanned} roots=[${summary.roots}] overBudget=${summary.remaining}/${summary.total}`,
+  );
+  if (summary.topFive.length === 0) return;
+  console.log('[cycle] top over-budget files:');
+  for (const entry of summary.topFive) {
+    console.log(`  - ${entry.path} (${entry.lines} lines)`);
+  }
+}
+
 async function main() {
   let cycle = 0;
 
   while (true) {
     cycle += 1;
     const report = await runScan();
-    const remaining = report?.summary?.unallowlistedViolations ?? 0;
-    const total = report?.summary?.totalViolations ?? 0;
-    const filesScanned = report?.summary?.filesScanned ?? 0;
-    const roots = Array.isArray(report?.config?.scopedRoots)
-      ? report.config.scopedRoots.join(', ')
-      : '(unknown roots)';
+    const summary = summarizeReport(report);
+    printCycleReport(cycle, summary);
 
-    console.log(
-      `[cycle ${cycle}] scanned=${filesScanned} roots=[${roots}] overBudget=${remaining}/${total}`,
-    );
-
-    if (remaining <= 0) {
+    if (summary.remaining <= 0) {
       console.log(
-        `[cycle ${cycle}] clean: no source files are above ${report?.config?.maxLines ?? 400} lines.`,
+        `[cycle ${cycle}] clean: no source files are above ${summary.maxLines} lines.`,
       );
       return;
     }
 
-    const topFive = Array.isArray(report?.violations?.unallowlisted)
-      ? report.violations.unallowlisted.slice(0, 5)
-      : [];
-
-    if (topFive.length > 0) {
-      console.log('[cycle] top over-budget files:');
-      for (const entry of topFive) {
-        console.log(`  - ${entry.path} (${entry.lines} lines)`);
-      }
-    }
-
     if (maxCycles !== null && cycle >= maxCycles) {
       console.warn(
-        `[cycle ${cycle}] reached max cycles (${maxCycles}) with ${remaining} file(s) still over budget.`,
+        `[cycle ${cycle}] reached max cycles (${maxCycles}) with ${summary.remaining} file(s) still over budget.`,
       );
       process.exitCode = 1;
       return;

@@ -12,7 +12,6 @@ import {
   detectFromFilenameAndPath,
   type FilenameDetectResult,
 } from '../../infrastructure/helpers/filename-metadata';
-import { MediaTorrentIndexingService } from './torrent-intake/media-torrent-indexing.service';
 import { MediaLibraryLocationsService } from './media-library-locations.service';
 import { MediaStorageSummaryService } from './media-storage-summary.service';
 import { MediaIndexedItemRefreshService } from './index-refresh/media-indexed-item-refresh.service';
@@ -36,6 +35,7 @@ import {
   importMetadataFromJsonValue,
   importMetadataValue,
   updateMediaValue,
+  type MediaMetadataOpsContext,
 } from './media-service-metadata.helper';
 import { bulkAssignEpisodesValue } from './media-service-bulk-assign.helper';
 import {
@@ -43,21 +43,26 @@ import {
   getRemoteMediaByIdValue,
   searchMetadataCandidatesValue,
   searchRemoteMediaCatalogValue,
+  type MediaCatalogOpsContext,
 } from './media-service-catalog.helper';
 import {
   getPlaybackAudioTracksValue,
   getPlaybackPlanValue,
-  getTorrentDownloadProgressByMediaIdsValue,
   scanValue,
   streamBackdropImageValue,
   streamChapterThumbnailValue,
   streamPreviewImageValue,
+  type MediaPlaybackOpsContext,
 } from './media-service-playback.helper';
-import { listValue } from './media-service-list.helper';
-import type { MediaMetadataOpsContext } from './media-service-metadata.helper';
-import type { MediaCatalogOpsContext } from './media-service-catalog.helper';
-import type { MediaPlaybackOpsContext } from './media-service-playback.helper';
-import type { MediaListOpsContext } from './media-service-list.helper';
+import {
+  listValue,
+  type MediaListOpsContext,
+} from './media-service-list.helper';
+import { reconcileDurationSecondsValue } from './media-duration-reconciliation.helper';
+import type {
+  MediaLibraryLocation,
+  MediaLibraryType,
+} from '@yeen/shared-contracts';
 
 export type { MediaMetadataPatch } from './metadata-update/media-metadata-patch.types';
 export type * from './media.service.types';
@@ -65,11 +70,11 @@ export type * from './media.service.types';
 import type {
   BulkAssignEpisodesInput,
   BulkDeleteMediaResult,
-  MediaTorrentDownloadProgressItem,
   MediaStorageSummary,
   PlaybackAudioTrack,
   RecycleDeletionsListResult,
   PurgeRecycleDeletionsResult,
+  RemoteSeriesEpisodeCatalogResult,
   SeriesEpisodeTrackerResult,
   MetadataImportMode,
   MetadataExportImageAsset,
@@ -122,7 +127,6 @@ export class MediaService {
     private readonly metadataApiCacheStore: MetadataApiCacheStore,
     private readonly tmdbMetadataService: TmdbMetadataService,
     private readonly jikanMetadataService: JikanMetadataService,
-    private readonly mediaTorrentIndexingService: MediaTorrentIndexingService,
     private readonly mediaScannerService: MediaScannerService,
   ) {
     this.metadataOps = {
@@ -176,16 +180,25 @@ export class MediaService {
     );
   }
 
-  async setLocations(locations: string[]) {
+  async setLocations(locations: readonly (string | MediaLibraryLocation)[]) {
     return this.mediaLibraryLocationsService.setLocations(locations);
   }
 
-  async list(search?: string, tags?: string[]): Promise<MediaItem[]> {
-    return listValue(this.listOps, search, tags);
+  async list(
+    search?: string,
+    tags?: string[],
+    libraryType: MediaLibraryType = 'video',
+  ): Promise<MediaItem[]> {
+    return listValue(this.listOps, search, tags, libraryType);
   }
 
   async getStats() {
-    return { indexedItems: await this.mediaStore.count() };
+    const items = await this.mediaStore.all();
+    return {
+      indexedItems: items.length,
+      videoItems: items.filter((item) => item.libraryType === 'video').length,
+      musicItems: items.filter((item) => item.libraryType === 'music').length,
+    };
   }
 
   async refreshIndexedMediaItemForAutomaticIntake(
@@ -206,18 +219,18 @@ export class MediaService {
 
   /**
    * Resolve the authoritative playback runtime for a media item by probing the
-   * real source file, correcting the stored `durationSeconds` when it was a
-   * too-short estimate (a torrent file-size guess or a remote catalog runtime).
+   * real source file, correcting the stored `durationSeconds` when it differs
+   * from a complete source or when a growing partial source proves it is longer.
    *
    * The HLS manifest is built from this value, so a stored runtime shorter than
-   * the file truncates the transcode and cuts playback off early. We only ever
-   * grow the value from a probe — never shrink it — because probing an
-   * in-progress torrent file can under-report; an under-report falls back to the
-   * existing estimate rather than truncating playback further.
+   * the file truncates the transcode and cuts playback off early, while a stored
+   * runtime longer than a complete file creates an unplayable tail. Partial
+   * sources retain the stored upper bound because their probe can under-report.
    */
   async reconcileSourceDurationSeconds(
     mediaId: string,
     sourceFilePath: string,
+    options: { mayBePartial?: boolean } = {},
   ): Promise<number> {
     const item = await this.mediaStore.findById(mediaId);
     const storedDuration =
@@ -236,18 +249,15 @@ export class MediaService {
       );
     }
 
-    if (!Number.isFinite(probedDuration) || probedDuration <= 0) {
-      return storedDuration;
-    }
-
-    const DURATION_CORRECTION_EPSILON_SECONDS = 1;
-    if (
-      item &&
-      probedDuration > storedDuration + DURATION_CORRECTION_EPSILON_SECONDS
-    ) {
+    const reconciliation = reconcileDurationSecondsValue(
+      storedDuration,
+      probedDuration,
+      options.mayBePartial ?? false,
+    );
+    if (item && reconciliation.correctedStoredDurationSeconds !== null) {
       const corrected: MediaItem = {
         ...item,
-        durationSeconds: Math.round(probedDuration),
+        durationSeconds: reconciliation.correctedStoredDurationSeconds,
       };
       corrected.dedupeKey =
         this.mediaMetadataPatchApplicationService.buildDedupeKey(corrected);
@@ -258,7 +268,7 @@ export class MediaService {
       return corrected.durationSeconds;
     }
 
-    return Math.max(storedDuration, probedDuration);
+    return reconciliation.durationSeconds;
   }
 
   async getSeriesEpisodeTracker(
@@ -267,6 +277,15 @@ export class MediaService {
     const current = await this.getById(mediaId);
 
     return this.mediaEpisodeCatalogService.getSeriesEpisodeTracker(current);
+  }
+
+  async getRemoteSeriesEpisodeCatalog(
+    remoteId: string,
+  ): Promise<RemoteSeriesEpisodeCatalogResult> {
+    const current = await this.getRemoteMediaById(remoteId);
+    return this.mediaEpisodeCatalogService.getRemoteSeriesEpisodeCatalog(
+      current,
+    );
   }
 
   async resolveMediaFilePath(
@@ -279,15 +298,6 @@ export class MediaService {
       relativePath,
       providedContext,
     );
-  }
-
-  async indexTorrentFile(
-    hash: string,
-  ): Promise<
-    | { status: 'indexed'; media: MediaItem }
-    | { status: 'pending'; reason: string }
-  > {
-    return this.mediaTorrentIndexingService.indexTorrentFile(hash);
   }
 
   async detectFilenameMetadata(mediaId: string): Promise<FilenameDetectResult> {
@@ -407,8 +417,17 @@ export class MediaService {
     return bulkAssignEpisodesValue(this.metadataOps, input);
   }
 
-  async scan(libraryPath?: string, libraryPaths?: string[]) {
-    return scanValue(this.playbackOps, libraryPath, libraryPaths);
+  async scan(
+    libraryPath?: string,
+    libraryPaths?: string[],
+    libraryLocations?: MediaLibraryLocation[],
+  ) {
+    return scanValue(
+      this.playbackOps,
+      libraryPath,
+      libraryPaths,
+      libraryLocations,
+    );
   }
 
   async getPlaybackAudioTracks(mediaId: string): Promise<PlaybackAudioTrack[]> {
@@ -417,15 +436,6 @@ export class MediaService {
 
   async getPlaybackPlan(mediaId: string) {
     return getPlaybackPlanValue(this.playbackOps, mediaId);
-  }
-
-  async getTorrentDownloadProgressByMediaIds(
-    mediaIds: string[],
-  ): Promise<{ items: MediaTorrentDownloadProgressItem[] }> {
-    return getTorrentDownloadProgressByMediaIdsValue(
-      this.playbackOps,
-      mediaIds,
-    );
   }
 
   async streamPreviewImage(mediaId: string, response: Response): Promise<void> {

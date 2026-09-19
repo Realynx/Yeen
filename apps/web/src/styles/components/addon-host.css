@@ -1,0 +1,77 @@
+.addon-settings-surfaces,
+.addon-media-item-actions,
+.addon-preparation-surfaces {
+  display: grid;
+  gap: 1rem;
+}
+
+.addon-settings-categories {
+  min-width: 0;
+  display: grid;
+  gap: var(--settings-section-gap);
+}
+
+[data-addon-surface^='settings:'] {
+  display: block;
+  min-width: 0;
+}
+
+.addon-host-surface {
+  display: grid;
+  gap: 1rem;
+}
+
+.addon-host-surface-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.addon-host-surface-header h2 {
+  margin: 0;
+}
+
+.addon-media-item-actions {
+  margin: 0 auto 1.25rem;
+  max-width: 1500px;
+  position: relative;
+  width: min(94%, 1500px);
+  z-index: 2;
+}
+
+.addon-media-card-surfaces,
+.addon-media-card-surfaces > [data-addon-surface] {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: block;
+  pointer-events: none;
+}
+
+.addon-preparation-surfaces {
+  margin-top: 0.5rem;
+}
+
+.addon-route-page {
+  padding-top: 1.25rem;
+}
+
+.addon-route-surface {
+  grid-column: 1 / -1;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.addon-phone-nav-icon {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+@media (max-width: 780px) {
+  .addon-host-surface-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

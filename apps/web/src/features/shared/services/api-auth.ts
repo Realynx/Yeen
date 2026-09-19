@@ -226,6 +226,14 @@ export async function me(token: string) {
   return request<User>('/auth/me', {}, token);
 }
 
+export async function refreshSession(token: string) {
+  return request<AuthResponse>(
+    '/auth/refresh',
+    { method: 'POST' },
+    token,
+  );
+}
+
 export async function updateMyProfile(
   token: string,
   input: {

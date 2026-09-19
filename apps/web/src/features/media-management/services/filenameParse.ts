@@ -142,99 +142,52 @@ function parseSeasonEpisodeBuiltin(relativePath: string): ParsedSeasonEpisode {
     relativePath.split(/[/\\]/).pop() ?? relativePath,
   );
 
-  const standard = fileName.match(/s(\d{1,2})[\s._-]?e(\d{1,3})/i);
-  if (standard) {
-    return {
-      seasonNumber: toInt(standard[1]),
-      episodeNumber: toInt(standard[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
-  const altMatch = fileName.match(/\b(\d{1,2})x(\d{1,3})\b/i);
-  if (altMatch) {
-    return {
-      seasonNumber: toInt(altMatch[1]),
-      episodeNumber: toInt(altMatch[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
-  const verbose = fileName.match(
-    /season[\s._-]*(\d{1,2})[\s._-]+episode[\s._-]*(\d{1,3})/i,
-  );
-  if (verbose) {
-    return {
-      seasonNumber: toInt(verbose[1]),
-      episodeNumber: toInt(verbose[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
   const seasonFromPath = parseSeasonFromPath(relativePath);
+  return parsePairedSeasonEpisode(fileName)
+    ?? parseEpisodeOnly(fileName, seasonFromPath)
+    ?? parseAnimeEpisode(fileName, seasonFromPath)
+    ?? parseSeasonFolderEpisode(fileName, seasonFromPath)
+    ?? EMPTY;
+}
 
-  const episodeOnly = fileName.match(
-    /(?:^|[\s._-])(?:e|ep|episode)[\s._-]*(\d{1,3})\b/i,
-  );
-  if (episodeOnly) {
-    return {
-      seasonNumber: seasonFromPath,
-      episodeNumber: toInt(episodeOnly[1]),
-      isAbsoluteEpisode: seasonFromPath === null,
-    };
+function parsedPair(match: RegExpMatchArray | null): ParsedSeasonEpisode | null {
+  return match ? { seasonNumber: toInt(match[1]), episodeNumber: toInt(match[2]), isAbsoluteEpisode: false } : null;
+}
+
+function parsePairedSeasonEpisode(fileName: string): ParsedSeasonEpisode | null {
+  return parsedPair(fileName.match(/s(\d{1,2})[\s._-]?e(\d{1,3})/i))
+    ?? parsedPair(fileName.match(/\b(\d{1,2})x(\d{1,3})\b/i))
+    ?? parsedPair(fileName.match(/season[\s._-]*(\d{1,2})[\s._-]+episode[\s._-]*(\d{1,3})/i));
+}
+
+function episodeResult(value: number | null, seasonNumber: number | null): ParsedSeasonEpisode | null {
+  return value !== null
+    ? { seasonNumber, episodeNumber: value, isAbsoluteEpisode: seasonNumber === null }
+    : null;
+}
+
+function parseEpisodeOnly(fileName: string, seasonNumber: number | null): ParsedSeasonEpisode | null {
+  const match = fileName.match(/(?:^|[\s._-])(?:e|ep|episode)[\s._-]*(\d{1,3})\b/i);
+  return episodeResult(toInt(match?.[1]), seasonNumber);
+}
+
+function parseAnimeEpisode(fileName: string, seasonNumber: number | null): ParsedSeasonEpisode | null {
+  const match = fileName.match(/[\s._]-[\s._](\d{1,4})(?:v\d+)?(?:[\s._-]|$)/);
+  const value = toInt(match?.[1]);
+  return value !== null && value > 0 && value < 2000 ? episodeResult(value, seasonNumber) : null;
+}
+
+function parseSeasonFolderEpisode(fileName: string, seasonNumber: number | null): ParsedSeasonEpisode | null {
+  if (seasonNumber === null) return null;
+  const leadingValue = toInt(fileName.match(/^(\d{1,3})(?:[\s._-]|$)/)?.[1]);
+  if (leadingValue !== null && leadingValue > 0) return episodeResult(leadingValue, seasonNumber);
+  const compactValue = toInt(fileName.match(/(?:^|[\s._-])(\d{3,4})(?:[\s._-]|$)/)?.[1]);
+  if (compactValue !== null && compactValue >= 100 && compactValue < 5000) {
+    const compactSeason = Math.floor(compactValue / 100);
+    const episode = compactValue % 100;
+    if (episode > 0 && compactSeason === seasonNumber) return episodeResult(episode, compactSeason);
   }
-
-  const animeDash = fileName.match(
-    /[\s._]-[\s._](\d{1,4})(?:v\d+)?(?:[\s._-]|$)/,
-  );
-  if (animeDash) {
-    const value = toInt(animeDash[1]);
-    if (value !== null && value > 0 && value < 2000) {
-      return {
-        seasonNumber: seasonFromPath,
-        episodeNumber: value,
-        isAbsoluteEpisode: seasonFromPath === null,
-      };
-    }
-  }
-
-  if (seasonFromPath !== null) {
-    const leading = fileName.match(/^(\d{1,3})(?:[\s._-]|$)/);
-    if (leading) {
-      const value = toInt(leading[1]);
-      if (value !== null && value > 0) {
-        return {
-          seasonNumber: seasonFromPath,
-          episodeNumber: value,
-          isAbsoluteEpisode: false,
-        };
-      }
-    }
-
-    const compact = fileName.match(/(?:^|[\s._-])(\d{3,4})(?:[\s._-]|$)/);
-    if (compact) {
-      const value = toInt(compact[1]);
-      if (value !== null && value >= 100 && value < 5000) {
-        const season = Math.floor(value / 100);
-        const episode = value % 100;
-        if (episode > 0 && season === seasonFromPath) {
-          return {
-            seasonNumber: season,
-            episodeNumber: episode,
-            isAbsoluteEpisode: false,
-          };
-        }
-      }
-    }
-
-    return {
-      seasonNumber: seasonFromPath,
-      episodeNumber: null,
-      isAbsoluteEpisode: false,
-    };
-  }
-
-  return EMPTY;
+  return { seasonNumber, episodeNumber: null, isAbsoluteEpisode: false };
 }
 
 function applyPatternMappings(
@@ -254,48 +207,35 @@ function applyPatternMappings(
       continue;
     }
 
-    const flags = sanitizePatternFlags(mapping.flags);
-
-    let regex: RegExp;
-    try {
-      regex = new RegExp(pattern, flags);
-    } catch {
-      continue;
-    }
-
-    const fixedSeason = normalizeOptionalSeasonInt(mapping.seasonNumber);
-    const fixedEpisode = normalizeOptionalNonNegativeInt(mapping.episodeNumber);
-    const seasonGroup = normalizeOptionalPositiveInt(mapping.seasonGroup);
-    const episodeGroup = normalizeOptionalPositiveInt(mapping.episodeGroup);
-
-    for (const candidate of candidates) {
-      const match = regex.exec(candidate);
-      if (!match) {
-        continue;
-      }
-
-      const seasonFromGroup = seasonGroup
-        ? toInt(match[seasonGroup])
-        : null;
-      const episodeFromGroup = episodeGroup
-        ? toInt(match[episodeGroup])
-        : null;
-
-      const seasonNumber = fixedSeason ?? seasonFromGroup;
-      const episodeNumber = fixedEpisode ?? episodeFromGroup;
-
-      if (seasonNumber === null && episodeNumber === null) {
-        continue;
-      }
-
-      return {
-        pattern,
-        seasonNumber,
-        episodeNumber,
-      };
-    }
+    const result = matchPatternMapping(mapping, pattern, candidates);
+    if (result) return result;
   }
 
+  return null;
+}
+
+function matchPatternMapping(
+  mapping: FilenamePatternMappingRule,
+  pattern: string,
+  candidates: string[],
+): { pattern: string; seasonNumber: number | null; episodeNumber: number | null } | null {
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, sanitizePatternFlags(mapping.flags));
+  } catch {
+    return null;
+  }
+  const seasonGroup = normalizeOptionalPositiveInt(mapping.seasonGroup);
+  const episodeGroup = normalizeOptionalPositiveInt(mapping.episodeGroup);
+  for (const candidate of candidates) {
+    const match = regex.exec(candidate);
+    if (!match) continue;
+    const seasonNumber = normalizeOptionalSeasonInt(mapping.seasonNumber)
+      ?? (seasonGroup ? toInt(match[seasonGroup]) : null);
+    const episodeNumber = normalizeOptionalNonNegativeInt(mapping.episodeNumber)
+      ?? (episodeGroup ? toInt(match[episodeGroup]) : null);
+    if (seasonNumber !== null || episodeNumber !== null) return { pattern, seasonNumber, episodeNumber };
+  }
   return null;
 }
 

@@ -12,6 +12,7 @@ import {
   isGoogleCastMissingOptionsError,
   isLoopbackStreamUrl,
   isPromptCancellation,
+  toAbsoluteCastMediaUrl,
   toCastErrorMessage,
   type CastContext,
   type CastFrameworkApi,
@@ -34,6 +35,50 @@ interface OpenGoogleCastPickerFlowOptions {
     chromeCast: ChromeCastApi,
   ) => boolean;
   googleCastOptionsConfiguredRef: MutableRefObject<boolean>;
+}
+
+async function requestCastSession(
+  castContext: CastContext,
+  framework: CastFrameworkApi,
+  chromeCast: ChromeCastApi,
+  configureOptions: OpenGoogleCastPickerFlowOptions['configureGoogleCastOptions'],
+  configuredRef: MutableRefObject<boolean>,
+): Promise<unknown> {
+  try {
+    await castContext.requestSession();
+    return null;
+  } catch (error) {
+    if (!isGoogleCastMissingOptionsError(error)) return error;
+  }
+  configuredRef.current = false;
+  if (!configureOptions(castContext, framework, chromeCast)) return new Error('Cast options unavailable.');
+  try {
+    await castContext.requestSession();
+    return null;
+  } catch (error) {
+    return error;
+  }
+}
+
+function createCastLoadRequest(
+  chromeCast: ChromeCastApi,
+  mediaUrl: string,
+  sourceIsHls: boolean,
+  mediaTitle: string | null,
+  video: HTMLVideoElement | null,
+) {
+  const mediaInfo = new chromeCast.media.MediaInfo(mediaUrl, inferCastContentType(mediaUrl, sourceIsHls));
+  if (chromeCast.media.StreamType?.BUFFERED) mediaInfo.streamType = chromeCast.media.StreamType.BUFFERED;
+  if (mediaTitle?.trim()) {
+    const metadata = new chromeCast.media.GenericMediaMetadata();
+    metadata.title = mediaTitle.trim();
+    mediaInfo.metadata = metadata;
+  }
+  const request = new chromeCast.media.LoadRequest(mediaInfo);
+  const currentTime = video?.currentTime ?? 0;
+  if (Number.isFinite(currentTime) && currentTime > 0) request.currentTime = currentTime;
+  request.autoplay = !(video?.paused ?? false);
+  return request;
 }
 
 export async function openGoogleCastPickerFlow({
@@ -65,33 +110,21 @@ export async function openGoogleCastPickerFlow({
   const { framework, chromeCast } = castApis;
   const castContext = framework.CastContext.getInstance();
 
+  const castMediaUrl = toAbsoluteCastMediaUrl(sourceUrl);
+  if (isLoopbackStreamUrl(castMediaUrl)) {
+    setPlayerError(
+      'Cast devices cannot reach a localhost stream. Open Yeen using its LAN or HTTPS address, then try again.',
+    );
+    return 'handled';
+  }
+
   if (!configureGoogleCastOptions(castContext, framework, chromeCast)) {
     return 'handled';
   }
 
-  const requestSession = async () => {
-    await castContext.requestSession();
-  };
-
-  let sessionStartError: unknown = null;
-
-  try {
-    await requestSession();
-  } catch (error) {
-    sessionStartError = error;
-  }
-
-  if (sessionStartError && isGoogleCastMissingOptionsError(sessionStartError)) {
-    googleCastOptionsConfiguredRef.current = false;
-    if (configureGoogleCastOptions(castContext, framework, chromeCast)) {
-      try {
-        await requestSession();
-        sessionStartError = null;
-      } catch (retryError) {
-        sessionStartError = retryError;
-      }
-    }
-  }
+  const sessionStartError = await requestCastSession(
+    castContext, framework, chromeCast, configureGoogleCastOptions, googleCastOptionsConfiguredRef,
+  );
 
   if (sessionStartError) {
     const error = sessionStartError;
@@ -111,28 +144,9 @@ export async function openGoogleCastPickerFlow({
   }
 
   try {
-    const mediaInfo = new chromeCast.media.MediaInfo(
-      sourceUrl,
-      inferCastContentType(sourceUrl, sourceIsHls),
+    const loadRequest = createCastLoadRequest(
+      chromeCast, castMediaUrl, sourceIsHls, mediaTitle, videoRef.current,
     );
-    if (chromeCast.media.StreamType?.BUFFERED) {
-      mediaInfo.streamType = chromeCast.media.StreamType.BUFFERED;
-    }
-
-    if (mediaTitle?.trim()) {
-      const metadata = new chromeCast.media.GenericMediaMetadata();
-      metadata.title = mediaTitle.trim();
-      mediaInfo.metadata = metadata;
-    }
-
-    const loadRequest = new chromeCast.media.LoadRequest(mediaInfo);
-    const video = videoRef.current;
-    const currentTime = video?.currentTime ?? 0;
-    if (Number.isFinite(currentTime) && currentTime > 0) {
-      loadRequest.currentTime = currentTime;
-    }
-    loadRequest.autoplay = !(video?.paused ?? false);
-
     await session.loadMedia(loadRequest);
     setPlayerError(null);
     return 'handled';
@@ -141,7 +155,7 @@ export async function openGoogleCastPickerFlow({
       return 'handled';
     }
 
-    const fallbackMessage = isLoopbackStreamUrl(sourceUrl)
+    const fallbackMessage = isLoopbackStreamUrl(castMediaUrl)
       ? 'Cast device cannot reach localhost stream URLs. Use a LAN URL for VITE_API_BASE_URL and try again.'
       : 'Unable to load media on the selected cast device.';
     setPlayerError(toCastErrorMessage(error, fallbackMessage));
@@ -156,6 +170,49 @@ interface OpenCastPickerFlowOptions {
   googleCastSupported: boolean;
   setPlayerError: Dispatch<SetStateAction<string | null>>;
   openGoogleCastPicker: () => Promise<OpenGoogleCastPickerResult>;
+}
+
+interface NativePickerResult {
+  handled: boolean;
+  error: unknown;
+}
+
+async function promptRemote(remote: NonNullable<VideoWithCastApis['remote']>): Promise<NativePickerResult> {
+  try {
+    await remote.prompt();
+    return { handled: true, error: null };
+  } catch (error) {
+    return { handled: isPromptCancellation(error), error };
+  }
+}
+
+async function tryNativePickers(
+  video: VideoWithCastApis,
+  remoteAvailable: boolean,
+): Promise<NativePickerResult> {
+  const remote = video.remote;
+  const canPromptRemote = Boolean(remote && typeof remote.prompt === 'function');
+  const canPromptAirPlay = typeof video.webkitShowPlaybackTargetPicker === 'function';
+  let deferredError: unknown = null;
+  if (canPromptRemote && remote && (remoteAvailable || !canPromptAirPlay)) {
+    const result = await promptRemote(remote);
+    if (result.handled) return result;
+    deferredError = result.error;
+  }
+  if (canPromptAirPlay) {
+    try {
+      video.webkitShowPlaybackTargetPicker?.();
+      return { handled: true, error: null };
+    } catch (error) {
+      deferredError ??= error;
+    }
+  }
+  if (canPromptRemote && remote) {
+    const result = await promptRemote(remote);
+    if (result.handled) return result;
+    deferredError = result.error;
+  }
+  return { handled: false, error: deferredError };
 }
 
 export async function openCastPickerFlow({
@@ -177,10 +234,7 @@ export async function openCastPickerFlow({
     return;
   }
 
-  const remote = video.remote;
-  const canPromptRemote = Boolean(remote && typeof remote.prompt === 'function');
   const canPromptAirPlay = typeof video.webkitShowPlaybackTargetPicker === 'function';
-  let deferredPickerError: unknown = null;
   let castInitializing = false;
 
   if (!canPromptAirPlay) {
@@ -192,42 +246,10 @@ export async function openCastPickerFlow({
     castInitializing = googleCastResult === 'initializing';
   }
 
-  if (canPromptRemote && (remoteAvailable || !canPromptAirPlay)) {
-    try {
-      await remote.prompt();
-      setPlayerError(null);
-      return;
-    } catch (error) {
-      if (isPromptCancellation(error)) {
-        return;
-      }
-
-      deferredPickerError = error;
-    }
-  }
-
-  if (canPromptAirPlay) {
-    try {
-      video.webkitShowPlaybackTargetPicker?.();
-      setPlayerError(null);
-      return;
-    } catch (error) {
-      deferredPickerError = deferredPickerError ?? error;
-    }
-  }
-
-  if (canPromptRemote) {
-    try {
-      await remote.prompt();
-      setPlayerError(null);
-      return;
-    } catch (error) {
-      if (isPromptCancellation(error)) {
-        return;
-      }
-
-      deferredPickerError = error;
-    }
+  const nativeResult = await tryNativePickers(video, remoteAvailable);
+  if (nativeResult.handled) {
+    if (!isPromptCancellation(nativeResult.error)) setPlayerError(null);
+    return;
   }
 
   if (googleCastSupported) {
@@ -239,9 +261,9 @@ export async function openCastPickerFlow({
     castInitializing = castInitializing || googleCastResult === 'initializing';
   }
 
-  if (deferredPickerError) {
+  if (nativeResult.error) {
     setPlayerError(
-      toCastErrorMessage(deferredPickerError, 'Unable to open the cast device picker.'),
+      toCastErrorMessage(nativeResult.error, 'Unable to open the cast device picker.'),
     );
     return;
   }

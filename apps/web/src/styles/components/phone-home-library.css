@@ -193,28 +193,39 @@
 .phone-featured-pagination {
   display: flex;
   align-items: center;
-  gap: 0.16rem;
+  gap: 0.04rem;
 }
 
 .phone-featured-dot {
-  width: 0.26rem;
-  height: 0.26rem;
-  min-width: 0;
-  min-height: 0;
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
   padding: 0;
   line-height: 0;
   flex: 0 0 auto;
   appearance: none;
   -webkit-appearance: none;
   transform: none;
-  border-radius: 999px;
+  border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.28);
+  background: transparent;
 }
 
-.phone-featured-dot.is-active {
-  width: 0.56rem;
-  height: 0.26rem;
+.phone-featured-dot::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.34);
+  transform: translate(-50%, -50%);
+}
+
+.phone-featured-dot.is-active::after {
+  width: 0.72rem;
   background: rgba(255, 255, 255, 0.95);
 }
 
@@ -225,6 +236,41 @@
 
 .phone-home-section {
   margin-top: 0;
+}
+
+.phone-home-shelf-heading {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.8rem;
+}
+
+.phone-home-loading {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 0.9rem 1.4rem;
+}
+
+.phone-home-loading p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.phone-home-loading-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 1.15rem;
+}
+
+.phone-home-loading-row {
+  display: flex;
+  gap: 0.58rem;
+  overflow: hidden;
+}
+
+.phone-home-loading-tile {
+  flex: 0 0 clamp(7rem, 32vw, 8.9rem);
+  aspect-ratio: 2 / 3;
+  border-radius: 0.75rem;
 }
 
 .phone-home-page .phone-home-section + .phone-home-section {

@@ -152,46 +152,36 @@ export function scoreMediaHeader(
     return 0;
   }
 
-  if (
-    header[0] === 0x1a &&
-    header[1] === 0x45 &&
-    header[2] === 0xdf &&
-    header[3] === 0xa3
-  ) {
-    return 100;
-  }
-
-  if (
-    header.length >= 8 &&
-    header[4] === 0x66 &&
-    header[5] === 0x74 &&
-    header[6] === 0x79 &&
-    header[7] === 0x70
-  ) {
-    return 100;
-  }
-
-  if (
-    header[0] === 0x52 &&
-    header[1] === 0x49 &&
-    header[2] === 0x46 &&
-    header[3] === 0x46
-  ) {
-    return 100;
-  }
+  if (hasKnownMediaSignature(header)) return 100;
 
   const isAllZero = header.every((byte) => byte === 0);
   if (isAllZero) {
     return -1;
   }
 
-  if (
-    typeof fileSize === 'number' &&
-    Number.isFinite(fileSize) &&
-    fileSize > 0
-  ) {
+  if (isPositiveFiniteNumber(fileSize)) {
     return 1 + Math.min(10, Math.floor(fileSize / (1024 * 1024 * 1024)));
   }
 
   return 1;
+}
+
+function hasKnownMediaSignature(header: Buffer): boolean {
+  return (
+    matchesBytes(header, 0, [0x1a, 0x45, 0xdf, 0xa3]) ||
+    matchesBytes(header, 4, [0x66, 0x74, 0x79, 0x70]) ||
+    matchesBytes(header, 0, [0x52, 0x49, 0x46, 0x46])
+  );
+}
+
+function matchesBytes(
+  header: Buffer,
+  offset: number,
+  expected: readonly number[],
+): boolean {
+  return expected.every((byte, index) => header[offset + index] === byte);
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }

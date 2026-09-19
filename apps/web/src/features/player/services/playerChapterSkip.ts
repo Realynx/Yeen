@@ -37,6 +37,45 @@ export interface ChapterSkipAction {
   targetSeconds: number;
 }
 
+interface ClassifiedChapter {
+  chapter: { second: number; name: string | null };
+  markerKind: ChapterSkipMarkerKind | null;
+}
+
+function shouldSkipMarker(
+  markerKind: ChapterSkipMarkerKind,
+  hasExplicitIntroMarker: boolean,
+  hasExplicitOutroMarker: boolean,
+): boolean {
+  return (markerKind === 'intro_generic' && hasExplicitIntroMarker)
+    || (markerKind === 'outro_generic' && hasExplicitOutroMarker);
+}
+
+function createSkipSegment(
+  entry: ClassifiedChapter,
+  nextChapterStart: number | null,
+  maxDuration: number | null,
+): ChapterSkipSegment | null {
+  const { chapter, markerKind } = entry;
+  if (!markerKind) return null;
+  const kind: ChapterSkipKind = markerKind.startsWith('intro') ? 'intro' : 'outro';
+  const endSeconds = maxDuration === null
+    ? nextChapterStart ?? chapter.second
+    : clamp(nextChapterStart ?? maxDuration, 0, maxDuration);
+  const targetSeconds = kind === 'outro' ? maxDuration ?? endSeconds : endSeconds;
+  if (endSeconds - chapter.second < MIN_ACTIONABLE_SEGMENT_SECONDS
+      || targetSeconds <= chapter.second + SEGMENT_EDGE_TOLERANCE_SECONDS) {
+    return null;
+  }
+  return {
+    kind,
+    chapterName: chapter.name,
+    startSeconds: chapter.second,
+    endSeconds,
+    targetSeconds,
+  };
+}
+
 export function resolveChapterSkipKindFromName(
   chapterName: string | null | undefined,
 ): ChapterSkipKind | null {
@@ -73,70 +112,18 @@ export function buildChapterSkipSegments(
     (entry) => entry.markerKind === 'outro_explicit',
   );
 
-  const segments: ChapterSkipSegment[] = [];
-
-  for (let index = 0; index < classifiedChapters.length; index += 1) {
-    const chapter = classifiedChapters[index].chapter;
-    const markerKind = classifiedChapters[index].markerKind;
-    if (!markerKind) {
-      continue;
+  const segments = classifiedChapters.flatMap((entry, index) => {
+    if (!entry.markerKind
+        || shouldSkipMarker(entry.markerKind, hasExplicitIntroMarker, hasExplicitOutroMarker)) {
+      return [];
     }
-
-    if (markerKind === 'intro_generic' && hasExplicitIntroMarker) {
-      continue;
-    }
-
-    if (markerKind === 'outro_generic' && hasExplicitOutroMarker) {
-      continue;
-    }
-
-    const kind: ChapterSkipKind = markerKind.startsWith('intro')
-      ? 'intro'
-      : 'outro';
-
-    const nextChapterStart = classifiedChapters[index + 1]?.chapter.second ?? null;
-    const startSeconds = chapter.second;
-
-    let endSeconds =
-      nextChapterStart !== null
-        ? nextChapterStart
-        : maxDuration !== null
-          ? maxDuration
-          : startSeconds;
-
-    if (maxDuration !== null) {
-      endSeconds = clamp(endSeconds, 0, maxDuration);
-    }
-
-    if (endSeconds <= startSeconds) {
-      continue;
-    }
-
-    const segmentLength = endSeconds - startSeconds;
-    if (segmentLength < MIN_ACTIONABLE_SEGMENT_SECONDS) {
-      continue;
-    }
-
-    const targetSeconds =
-      kind === 'outro'
-        ? maxDuration ?? endSeconds
-        : endSeconds;
-
-    if (targetSeconds <= startSeconds + SEGMENT_EDGE_TOLERANCE_SECONDS) {
-      continue;
-    }
-
-    segments.push({
-      kind,
-      chapterName:
-        typeof chapter.name === 'string' && chapter.name.trim()
-          ? chapter.name.trim()
-          : null,
-      startSeconds,
-      endSeconds,
-      targetSeconds,
-    });
-  }
+    const segment = createSkipSegment(
+      entry,
+      classifiedChapters[index + 1]?.chapter.second ?? null,
+      maxDuration,
+    );
+    return segment ? [segment] : [];
+  });
 
   return segments;
 }

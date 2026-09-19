@@ -7,8 +7,6 @@ interface HomeDiscoverSectionsProps {
   movieRowsByTag: TaggedMovieRow[];
   progressMap: Map<string, ProgressEntry>;
   onOpenDetails: (mediaId: string) => void;
-  onViewDiscover?: () => void;
-  onViewTag?: (tag: string) => void;
 }
 
 export function HomeDiscoverSections({
@@ -16,8 +14,6 @@ export function HomeDiscoverSections({
   movieRowsByTag,
   progressMap,
   onOpenDetails,
-  onViewDiscover,
-  onViewTag,
 }: HomeDiscoverSectionsProps) {
   return (
     <>
@@ -29,7 +25,6 @@ export function HomeDiscoverSections({
           items={discoverItems}
           progressMap={progressMap}
           onOpen={onOpenDetails}
-          onViewAll={onViewDiscover}
         />
       ) : null}
 
@@ -42,7 +37,6 @@ export function HomeDiscoverSections({
           items={row.items}
           progressMap={progressMap}
           onOpen={onOpenDetails}
-          onViewAll={() => onViewTag?.(row.label)}
         />
       ))}
     </>

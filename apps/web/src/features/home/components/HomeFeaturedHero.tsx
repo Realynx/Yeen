@@ -18,6 +18,18 @@ interface HomeFeaturedHeroProps {
   onHeroInteractionChange?: (active: boolean) => void;
 }
 
+function FeaturedMeta({ item }: { item: MediaItem | null }) {
+  if (!item) return <div className="hero-meta-strip" />;
+  return (
+    <div className="hero-meta-strip">
+      {item.releaseYear ? <span>{item.releaseYear}</span> : null}
+      <span>{formatDuration(item.durationSeconds)}</span>
+      <span>{toQualityLabel(item)}</span>
+      <span>{item.extension.replace('.', '').toUpperCase()}</span>
+    </div>
+  );
+}
+
 export function HomeFeaturedHero({
   heroBackgroundImage,
   featuredItems,
@@ -88,12 +100,7 @@ export function HomeFeaturedHero({
         <h1>{featuredItem ? featuredItem.title : 'No media found yet'}</h1>
         <p className="hero-description">{featuredDescription}</p>
 
-        <div className="hero-meta-strip">
-          {featuredItem?.releaseYear ? <span>{featuredItem.releaseYear}</span> : null}
-          {featuredItem ? <span>{formatDuration(featuredItem.durationSeconds)}</span> : null}
-          {featuredItem ? <span>{toQualityLabel(featuredItem)}</span> : null}
-          {featuredItem ? <span>{featuredItem.extension.replace('.', '').toUpperCase()}</span> : null}
-        </div>
+        <FeaturedMeta item={featuredItem} />
 
         <div className="hero-actions" data-tv-focus-lane-id="hero-actions">
           {featuredItem ? (

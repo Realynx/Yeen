@@ -1,4 +1,6 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { MediaLibraryLocationDto } from './set-media-locations.dto';
 
 export class ScanMediaDto {
   @IsOptional()
@@ -9,4 +11,10 @@ export class ScanMediaDto {
   @IsArray()
   @IsString({ each: true })
   libraryPaths?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MediaLibraryLocationDto)
+  libraryLocations?: MediaLibraryLocationDto[];
 }

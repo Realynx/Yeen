@@ -1,4 +1,3 @@
-import type { TorrentListItem } from '../../../torrent/application/services/torrent.service';
 import type { AdminMediaActivityItem } from './auth-admin-account.types';
 
 export function toMediaActivityItemValue(
@@ -30,32 +29,4 @@ export function toProgressPercentValue(value: number): number {
   }
 
   return Math.min(100, Math.max(0, Math.round(value * 100)));
-}
-
-export function isActiveDownloadValue(item: TorrentListItem): boolean {
-  const normalizedState = item.state.trim().toLowerCase();
-  if (!normalizedState) {
-    return false;
-  }
-
-  if (
-    normalizedState.includes('pausedup') ||
-    normalizedState.includes('upload') ||
-    normalizedState.includes('error') ||
-    normalizedState.includes('missing')
-  ) {
-    return false;
-  }
-
-  if (item.progress >= 1) {
-    return false;
-  }
-
-  return (
-    normalizedState.includes('download') ||
-    normalizedState.includes('queue') ||
-    normalizedState.includes('stall') ||
-    normalizedState.includes('check') ||
-    normalizedState.includes('meta')
-  );
 }

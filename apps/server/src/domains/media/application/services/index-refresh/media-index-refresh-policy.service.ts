@@ -4,8 +4,15 @@ import { MediaItem } from '../../../domain/entities/media-item.entity';
 @Injectable()
 export class MediaIndexRefreshPolicyService {
   shouldRefreshIndexedItem(item: MediaItem): boolean {
-    if (this.looksLikeProvisionalTorrentMetadata(item)) {
+    if (this.looksLikeProvisionalExternalMetadata(item)) {
       return true;
+    }
+
+    // Audio libraries commonly contain valid tracks without tags or artwork.
+    // Once ffprobe populated stream details, absence of optional album metadata
+    // must not force the same track through every subsequent scan.
+    if (item.libraryType === 'music') {
+      return false;
     }
 
     if (
@@ -29,7 +36,7 @@ export class MediaIndexRefreshPolicyService {
     return Date.now() - refreshedAtMs >= minAgeMs;
   }
 
-  looksLikeProvisionalTorrentMetadata(item: MediaItem): boolean {
+  looksLikeProvisionalExternalMetadata(item: MediaItem): boolean {
     const extensionContainer = item.extension.replace(/^\./, '').toLowerCase();
     const container = (item.container ?? '').trim().toLowerCase();
     const formatName = (item.mediaDetails.formatName ?? '')

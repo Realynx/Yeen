@@ -216,6 +216,84 @@ export function formatPatternRulePreview(rule: PatternRuleDraft): string {
   return 'Add a season or episode landmark to generate a pattern.';
 }
 
+function buildKeywordMapping(draft: KeywordRuleDraft): {
+  mapping?: FilenameKeywordMappingRule;
+  error?: string;
+} {
+  const keyword = draft.keyword.trim();
+  if (!keyword) return {};
+  const seasonNumber = parseOptionalSeasonIntInput(draft.seasonNumber);
+  const episodeNumber = parseOptionalNonNegativeIntInput(draft.episodeNumber);
+  return seasonNumber === null && episodeNumber === null
+    ? { error: `Keyword rule "${keyword}" must define season and/or episode.` }
+    : { mapping: { keyword, seasonNumber, episodeNumber } };
+}
+
+interface PatternDefinition {
+  pattern: string;
+  flags: string;
+  seasonGroup: number | null;
+  episodeGroup: number | null;
+  descriptor: string;
+}
+
+function patternDefinition(draft: PatternRuleDraft): PatternDefinition | string | null {
+  const seasonLandmark = draft.seasonLandmark.trim();
+  const episodeLandmark = draft.episodeLandmark.trim();
+  const built = buildLandmarkPattern(seasonLandmark, episodeLandmark);
+  if (built) {
+    return {
+      pattern: built.pattern,
+      flags: draft.caseSensitive ? '' : 'i',
+      seasonGroup: built.seasonGroup,
+      episodeGroup: built.episodeGroup,
+      descriptor: `landmark rule "${seasonLandmark || 'season n/a'} / ${episodeLandmark || 'episode n/a'}"`,
+    };
+  }
+  const pattern = draft.legacyPattern?.trim() ?? '';
+  if (!pattern) {
+    return draft.seasonNumber.trim() || draft.episodeNumber.trim()
+      ? 'Pattern landmark rules need season and/or episode landmark text before fixed values can be applied.'
+      : null;
+  }
+  return {
+    pattern,
+    flags: sanitizeRuleFlags(draft.legacyFlags),
+    seasonGroup: parseOptionalPositiveIntInput(draft.legacySeasonGroup),
+    episodeGroup: parseOptionalPositiveIntInput(draft.legacyEpisodeGroup),
+    descriptor: `legacy regex rule "${pattern}"`,
+  };
+}
+
+function buildPatternMapping(draft: PatternRuleDraft): {
+  mapping?: FilenamePatternMappingRule;
+  error?: string;
+} {
+  const definition = patternDefinition(draft);
+  if (!definition) return {};
+  if (typeof definition === 'string') return { error: definition };
+  try {
+    RegExp(definition.pattern, definition.flags);
+  } catch {
+    return { error: `${definition.descriptor} is not a valid pattern.` };
+  }
+  const seasonNumber = parseOptionalSeasonIntInput(draft.seasonNumber);
+  const episodeNumber = parseOptionalNonNegativeIntInput(draft.episodeNumber);
+  const hasAssignment = definition.seasonGroup !== null || definition.episodeGroup !== null
+    || seasonNumber !== null || episodeNumber !== null;
+  if (!hasAssignment) {
+    return { error: `${definition.descriptor} needs a captured season/episode or fixed season/episode value.` };
+  }
+  return { mapping: {
+    pattern: definition.pattern,
+    flags: definition.flags || undefined,
+    seasonGroup: definition.seasonGroup,
+    episodeGroup: definition.episodeGroup,
+    seasonNumber,
+    episodeNumber,
+  } };
+}
+
 export function buildDetectRuleSet(
   keywordDrafts: KeywordRuleDraft[],
   patternDrafts: PatternRuleDraft[],
@@ -224,95 +302,14 @@ export function buildDetectRuleSet(
   const patternMappings: FilenamePatternMappingRule[] = [];
   const errors: string[] = [];
 
-  for (const draft of keywordDrafts) {
-    const keyword = draft.keyword.trim();
-    if (!keyword) {
-      continue;
-    }
-
-    const seasonNumber = parseOptionalSeasonIntInput(draft.seasonNumber);
-    const episodeNumber = parseOptionalNonNegativeIntInput(draft.episodeNumber);
-
-    if (seasonNumber === null && episodeNumber === null) {
-      errors.push(
-        `Keyword rule "${keyword}" must define season and/or episode.`,
-      );
-      continue;
-    }
-
-    keywordMappings.push({
-      keyword,
-      seasonNumber,
-      episodeNumber,
-    });
-  }
-
-  for (const draft of patternDrafts) {
-    const seasonLandmark = draft.seasonLandmark.trim();
-    const episodeLandmark = draft.episodeLandmark.trim();
-    const builtPattern = buildLandmarkPattern(seasonLandmark, episodeLandmark);
-
-    let pattern: string;
-    let flags: string;
-    let seasonGroup: number | null;
-    let episodeGroup: number | null;
-    let descriptor: string;
-
-    if (builtPattern) {
-      pattern = builtPattern.pattern;
-      seasonGroup = builtPattern.seasonGroup;
-      episodeGroup = builtPattern.episodeGroup;
-      flags = draft.caseSensitive ? '' : 'i';
-      descriptor = `landmark rule "${seasonLandmark || 'season n/a'} / ${episodeLandmark || 'episode n/a'}"`;
-    } else {
-      const legacyPattern = draft.legacyPattern?.trim() ?? '';
-      if (!legacyPattern) {
-        if (draft.seasonNumber.trim() || draft.episodeNumber.trim()) {
-          errors.push(
-            'Pattern landmark rules need season and/or episode landmark text before fixed values can be applied.',
-          );
-        }
-        continue;
-      }
-
-      pattern = legacyPattern;
-      flags = sanitizeRuleFlags(draft.legacyFlags);
-      seasonGroup = parseOptionalPositiveIntInput(draft.legacySeasonGroup);
-      episodeGroup = parseOptionalPositiveIntInput(draft.legacyEpisodeGroup);
-      descriptor = `legacy regex rule "${legacyPattern}"`;
-    }
-
-    try {
-      RegExp(pattern, flags);
-    } catch {
-      errors.push(`${descriptor} is not a valid pattern.`);
-      continue;
-    }
-
-    const seasonNumber = parseOptionalSeasonIntInput(draft.seasonNumber);
-    const episodeNumber = parseOptionalNonNegativeIntInput(draft.episodeNumber);
-
-    if (
-      seasonGroup === null &&
-      episodeGroup === null &&
-      seasonNumber === null &&
-      episodeNumber === null
-    ) {
-      errors.push(
-        `${descriptor} needs a captured season/episode or fixed season/episode value.`,
-      );
-      continue;
-    }
-
-    patternMappings.push({
-      pattern,
-      flags: flags || undefined,
-      seasonGroup,
-      episodeGroup,
-      seasonNumber,
-      episodeNumber,
-    });
-  }
+  keywordDrafts.map(buildKeywordMapping).forEach((result) => {
+    if (result.mapping) keywordMappings.push(result.mapping);
+    if (result.error) errors.push(result.error);
+  });
+  patternDrafts.map(buildPatternMapping).forEach((result) => {
+    if (result.mapping) patternMappings.push(result.mapping);
+    if (result.error) errors.push(result.error);
+  });
 
   return {
     rules: {

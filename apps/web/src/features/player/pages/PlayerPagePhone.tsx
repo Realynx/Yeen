@@ -1,5 +1,4 @@
-import { useCallback, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listMedia } from '../../shared/services/api';
 import type { User } from '../../shared/services/types';
@@ -12,6 +11,7 @@ import {
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
 import { useSafeBackNavigation } from '../../navigation/services/safeBackNavigation';
+import { MediaHomeButton } from '../../navigation/components/MediaHomeButton';
 
 interface PlayerPagePhoneProps {
   token: string;
@@ -63,15 +63,18 @@ export function PlayerPagePhone({ token, user, onLogout }: PlayerPagePhoneProps)
             onSearchSubmit={handleSearchSubmit}
             onOpenRandomDetails={openRandomDetails}
             leadingAction={(
-              <button
-                type="button"
-                className="phone-details-back-button phone-player-back-button"
-                onClick={handleBackNavigation}
-                aria-label="Go back"
-              >
-                <span aria-hidden="true">←</span>
-                Back
-              </button>
+              <div className="phone-context-navigation-actions">
+                <button
+                  type="button"
+                  className="phone-details-back-button phone-player-back-button"
+                  onClick={handleBackNavigation}
+                  aria-label="Go back"
+                >
+                  <span aria-hidden="true">←</span>
+                  Back
+                </button>
+                <MediaHomeButton compact />
+              </div>
             )}
           />
         )}

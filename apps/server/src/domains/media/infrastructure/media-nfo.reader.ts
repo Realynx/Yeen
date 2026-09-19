@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { readFile } from 'node:fs/promises';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 
 export interface NfoMetadata {

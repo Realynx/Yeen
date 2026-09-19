@@ -4,6 +4,7 @@ const TV_FOCUSABLE_SELECTOR = [
   'input[data-tv-text-entry="true"]:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
   'select:not([disabled]):not([tabindex="-1"])',
   'textarea[data-tv-text-entry="true"]:not([disabled]):not([tabindex="-1"])',
+  'summary:not([tabindex="-1"])',
   '[contenteditable="true"][data-tv-text-entry="true"]:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
@@ -65,7 +66,12 @@ function isElementVisible(element: HTMLElement): boolean {
 
 export function isEditableElement(element: HTMLElement): boolean {
   const tagName = element.tagName;
-  return tagName === 'INPUT' || tagName === 'TEXTAREA' || element.isContentEditable;
+  const isTextEntry = element.dataset.tvTextEntry === 'true';
+  return isTextEntry && (
+    tagName === 'INPUT'
+    || tagName === 'TEXTAREA'
+    || element.isContentEditable
+  );
 }
 
 export function isSelectElement(

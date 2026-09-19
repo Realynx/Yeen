@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 import {
   absoluteApiUrl,
   getBroadcastSession,
@@ -17,17 +17,19 @@ import {
   toApiErrorMessage,
   updateBroadcastPlayback,
   updateBroadcastSource,
-} from '../../shared/services/api';
+} from "../../shared/services/api";
 import type {
   BroadcastOwnerSession,
   BroadcastPlaybackUpdate,
   BroadcastSourceUpdate,
-} from '../../shared/services/types';
+  BroadcastViewerStatus,
+} from "../../shared/services/types";
 
 interface BroadcastContextValue {
   session: BroadcastOwnerSession | null;
   isEnabled: boolean;
   viewerCount: number;
+  viewers: BroadcastViewerStatus[];
   shareToken: string | null;
   publicWatchUrl: string | null;
   directStreamUrl: string | null;
@@ -55,7 +57,7 @@ function resolvePublicWatchUrl(shareToken: string | null): string | null {
 
   const encodedToken = encodeURIComponent(shareToken);
 
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return `/watch/${encodedToken}`;
   }
 
@@ -72,39 +74,41 @@ function resolveDirectStreamUrl(shareToken: string | null): string | null {
     `/broadcast/public/${encodedToken}/direct/master.m3u8`,
   );
 
-  if (/^https?:\/\//i.test(candidateUrl) || typeof window === 'undefined') {
+  if (/^https?:\/\//i.test(candidateUrl) || typeof window === "undefined") {
     return candidateUrl;
   }
 
   try {
     return new URL(candidateUrl, window.location.origin).toString();
   } catch {
-    const path = candidateUrl.startsWith('/') ? candidateUrl : `/${candidateUrl}`;
+    const path = candidateUrl.startsWith("/")
+      ? candidateUrl
+      : `/${candidateUrl}`;
     return `${window.location.origin}${path}`;
   }
 }
 
 function toSourceUpdateKey(payload: BroadcastSourceUpdate): string {
   return [
-    payload.mediaId ?? '',
-    payload.hlsSessionId ?? '',
-    payload.subtitleFileName ?? '',
-    payload.subtitleFontPreset ?? '',
-    payload.selectedAudioStreamIndex ?? '',
-    payload.maxVideoBitrateKbps ?? '',
-    payload.audioBitrateKbps ?? '',
-    payload.maxOutputHeight ?? '',
-  ].join('|');
+    payload.mediaId ?? "",
+    payload.hlsSessionId ?? "",
+    payload.subtitleFileName ?? "",
+    payload.subtitleFontPreset ?? "",
+    payload.selectedAudioStreamIndex ?? "",
+    payload.maxVideoBitrateKbps ?? "",
+    payload.audioBitrateKbps ?? "",
+    payload.maxOutputHeight ?? "",
+  ].join("|");
 }
 
 function toPlaybackUpdateKey(payload: BroadcastPlaybackUpdate): string {
   const clampedPosition = Math.max(0, payload.positionSeconds);
   const decisecondBucket = Math.floor(clampedPosition * 10);
-  const stateLabel = payload.playbackIsPlaying ? 'playing' : 'paused';
-  const activePlayerLabel = payload.activePlayer ? 'active' : 'inactive';
+  const stateLabel = payload.playbackIsPlaying ? "playing" : "paused";
+  const activePlayerLabel = payload.activePlayer ? "active" : "inactive";
   const syncTimestampBucket =
-    typeof payload.syncTimestampMs === 'number'
-      && Number.isFinite(payload.syncTimestampMs)
+    typeof payload.syncTimestampMs === "number" &&
+    Number.isFinite(payload.syncTimestampMs)
       ? Math.floor(payload.syncTimestampMs / 1000)
       : 0;
 
@@ -115,6 +119,7 @@ const defaultContextValue: BroadcastContextValue = {
   session: null,
   isEnabled: false,
   viewerCount: 0,
+  viewers: [],
   shareToken: null,
   publicWatchUrl: null,
   directStreamUrl: null,
@@ -130,7 +135,8 @@ const defaultContextValue: BroadcastContextValue = {
   updatePlayback: async () => {},
 };
 
-const BroadcastContext = createContext<BroadcastContextValue>(defaultContextValue);
+const BroadcastContext =
+  createContext<BroadcastContextValue>(defaultContextValue);
 
 export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
   const [session, setSession] = useState<BroadcastOwnerSession | null>(null);
@@ -139,8 +145,9 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   const sessionRef = useRef<BroadcastOwnerSession | null>(null);
-  const lastSourceKeyRef = useRef('');
-  const lastPlaybackKeyRef = useRef('');
+  const lastSourceKeyRef = useRef("");
+  const lastPlaybackKeyRef = useRef("");
+  const sourceMutationTailRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     sessionRef.current = session;
@@ -153,7 +160,9 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       setSession(nextSession);
       setError(null);
     } catch (refreshError) {
-      setError(toApiErrorMessage(refreshError, 'Unable to refresh broadcast status.'));
+      setError(
+        toApiErrorMessage(refreshError, "Unable to refresh broadcast status."),
+      );
     } finally {
       setLoading(false);
     }
@@ -178,93 +187,125 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
     };
   }, [refreshSession, session?.enabled]);
 
-  const setEnabled = useCallback(async (nextEnabled: boolean) => {
-    setUpdatingEnabled(true);
+  const setEnabled = useCallback(
+    async (nextEnabled: boolean) => {
+      setUpdatingEnabled(true);
 
-    try {
-      const nextSession = await setBroadcastEnabled(token, nextEnabled);
-      sessionRef.current = nextSession;
-      setSession(nextSession);
-      setError(null);
-      lastSourceKeyRef.current = '';
-      lastPlaybackKeyRef.current = '';
-    } catch (toggleError) {
-      setError(toApiErrorMessage(toggleError, 'Unable to update broadcast mode.'));
-    } finally {
-      setUpdatingEnabled(false);
-    }
-  }, [token]);
+      try {
+        const nextSession = await setBroadcastEnabled(token, nextEnabled);
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        setError(null);
+        lastSourceKeyRef.current = "";
+        lastPlaybackKeyRef.current = "";
+      } catch (toggleError) {
+        setError(
+          toApiErrorMessage(toggleError, "Unable to update broadcast mode."),
+        );
+      } finally {
+        setUpdatingEnabled(false);
+      }
+    },
+    [token],
+  );
 
   const toggleEnabled = useCallback(async () => {
     const currentlyEnabled = Boolean(sessionRef.current?.enabled);
     await setEnabled(!currentlyEnabled);
   }, [setEnabled]);
 
-  const updateSource = useCallback(async (payload: BroadcastSourceUpdate | null) => {
-    const activeSession = sessionRef.current;
-    if (!activeSession?.enabled) {
-      return;
-    }
+  const updateSource = useCallback(
+    async (payload: BroadcastSourceUpdate | null) => {
+      const activeSession = sessionRef.current;
+      if (!activeSession?.enabled) {
+        return;
+      }
 
-    const normalizedPayload: BroadcastSourceUpdate = payload ?? {
-      mediaId: null,
-      hlsSessionId: null,
-      subtitleFileName: null,
-      subtitleFontPreset: null,
-      selectedAudioStreamIndex: null,
-      maxVideoBitrateKbps: null,
-      audioBitrateKbps: null,
-      maxOutputHeight: null,
-    };
+      const normalizedPayload: BroadcastSourceUpdate = payload ?? {
+        mediaId: null,
+        hlsSessionId: null,
+        subtitleFileName: null,
+        subtitleFontPreset: null,
+        selectedAudioStreamIndex: null,
+        maxVideoBitrateKbps: null,
+        audioBitrateKbps: null,
+        maxOutputHeight: null,
+      };
 
-    const nextKey = toSourceUpdateKey(normalizedPayload);
-    if (lastSourceKeyRef.current === nextKey) {
-      return;
-    }
+      const nextKey = toSourceUpdateKey(normalizedPayload);
+      if (lastSourceKeyRef.current === nextKey) {
+        return;
+      }
 
-    lastSourceKeyRef.current = nextKey;
+      lastSourceKeyRef.current = nextKey;
 
-    try {
-      const nextSession = await updateBroadcastSource(token, normalizedPayload);
-      sessionRef.current = nextSession;
-      setSession(nextSession);
-      setError(null);
-    } catch (updateError) {
-      lastSourceKeyRef.current = '';
-      setError(toApiErrorMessage(updateError, 'Unable to update broadcast source.'));
-    }
-  }, [token]);
+      const mutation = sourceMutationTailRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const nextSession = await updateBroadcastSource(
+              token,
+              normalizedPayload,
+            );
+            sessionRef.current = nextSession;
+            setSession(nextSession);
+            setError(null);
+          } catch (updateError) {
+            if (lastSourceKeyRef.current === nextKey) {
+              lastSourceKeyRef.current = "";
+            }
+            setError(
+              toApiErrorMessage(
+                updateError,
+                "Unable to update broadcast source.",
+              ),
+            );
+          }
+        });
+      sourceMutationTailRef.current = mutation;
+      await mutation;
+    },
+    [token],
+  );
 
-  const updatePlayback = useCallback(async (payload: BroadcastPlaybackUpdate) => {
-    const activeSession = sessionRef.current;
-    if (!activeSession?.enabled) {
-      return;
-    }
+  const updatePlayback = useCallback(
+    async (payload: BroadcastPlaybackUpdate) => {
+      const activeSession = sessionRef.current;
+      if (!activeSession?.enabled) {
+        return;
+      }
 
-    const normalizedPayload: BroadcastPlaybackUpdate = {
-      positionSeconds: Math.max(0, payload.positionSeconds),
-      playbackIsPlaying: Boolean(payload.playbackIsPlaying),
-      activePlayer: Boolean(payload.activePlayer),
-      syncTimestampMs: payload.syncTimestampMs,
-    };
+      const normalizedPayload: BroadcastPlaybackUpdate = {
+        positionSeconds: Math.max(0, payload.positionSeconds),
+        playbackIsPlaying: Boolean(payload.playbackIsPlaying),
+        activePlayer: Boolean(payload.activePlayer),
+        syncTimestampMs: payload.syncTimestampMs,
+      };
 
-    const nextKey = toPlaybackUpdateKey(normalizedPayload);
-    if (lastPlaybackKeyRef.current === nextKey) {
-      return;
-    }
+      const nextKey = toPlaybackUpdateKey(normalizedPayload);
+      if (lastPlaybackKeyRef.current === nextKey) {
+        return;
+      }
 
-    lastPlaybackKeyRef.current = nextKey;
+      lastPlaybackKeyRef.current = nextKey;
 
-    try {
-      const nextSession = await updateBroadcastPlayback(token, normalizedPayload);
-      sessionRef.current = nextSession;
-      setSession(nextSession);
-      setError(null);
-    } catch (updateError) {
-      lastPlaybackKeyRef.current = '';
-      setError(toApiErrorMessage(updateError, 'Unable to sync broadcast playback.'));
-    }
-  }, [token]);
+      try {
+        const nextSession = await updateBroadcastPlayback(
+          token,
+          normalizedPayload,
+        );
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        setError(null);
+      } catch (updateError) {
+        lastPlaybackKeyRef.current = "";
+        setError(
+          toApiErrorMessage(updateError, "Unable to sync broadcast playback."),
+        );
+      }
+    },
+    [token],
+  );
 
   const publicWatchUrl = useMemo(() => {
     return resolvePublicWatchUrl(session?.shareToken ?? null);
@@ -314,6 +355,7 @@ export function BroadcastProvider({ token, children }: BroadcastProviderProps) {
       session,
       isEnabled,
       viewerCount: session?.viewerCount ?? 0,
+      viewers: session?.viewers ?? [],
       shareToken: session?.shareToken ?? null,
       publicWatchUrl,
       directStreamUrl,

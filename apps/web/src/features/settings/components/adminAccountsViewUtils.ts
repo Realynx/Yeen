@@ -8,6 +8,19 @@ export function normalizeBitrateInput(rawValue: string): number | null {
   return Number.isFinite(parsed) ? Math.max(250, Math.min(50000, parsed)) : null;
 }
 
+export type AccountRole = 'admin' | 'sailer' | 'user';
+
+export function toAccountRoleLabel(role: AccountRole): string {
+  switch (role) {
+    case 'admin':
+      return 'Administrator';
+    case 'sailer':
+      return 'Downloader';
+    case 'user':
+      return 'Standard Account';
+  }
+}
+
 export function toProgressLabel(progressPercent: number): string {
   const normalized = Number.isFinite(progressPercent)
     ? Math.max(0, Math.min(100, Math.round(progressPercent)))

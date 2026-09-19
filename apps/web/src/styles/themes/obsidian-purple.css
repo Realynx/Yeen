@@ -1,0 +1,766 @@
+/*
+ * Opt-in Obsidian Purple theme.
+ * Every rule is scoped so the default Yeen presentation is unchanged.
+ */
+
+:root[data-yeen-theme='obsidian-purple'] {
+  color-scheme: dark;
+  --bg-base: #050507;
+  --bg-card: rgba(17, 16, 24, 0.92);
+  --bg-card-soft: rgba(13, 12, 19, 0.82);
+  --text-main: #f7f5fb;
+  --text-muted: #bdb9c9;
+  --line: rgba(216, 211, 228, 0.2);
+  --orange: #a78bfa;
+  --orange-deep: #7c3aed;
+  --blue: #c4b5fd;
+  --blue-deep: #8b5cf6;
+  --ok: #65d6a1;
+  --shell-canvas: #050507;
+  --shell-canvas-raised: #0d0c12;
+  --shell-surface: rgba(18, 17, 25, 0.88);
+  --shell-surface-hover: rgba(31, 28, 42, 0.96);
+  --shell-border: rgba(216, 211, 228, 0.16);
+  --shell-border-strong: rgba(226, 221, 238, 0.3);
+  --shell-text: #f7f5fb;
+  --shell-text-muted: rgba(226, 222, 235, 0.76);
+  --shell-accent: #8b5cf6;
+  --shell-accent-bright: #c084fc;
+  --shell-focus: #d8b4fe;
+  --shell-shadow: 0 28px 76px rgba(0, 0, 0, 0.68);
+  --shell-shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Foundation */
+
+:root[data-yeen-theme='obsidian-purple'] body {
+  color: var(--shell-text);
+  background: var(--shell-canvas);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .browse-page,
+  .media-details-page,
+  .settings-page,
+  .auth-page,
+  .error-boundary-page,
+  .player-page
+) {
+  color: var(--shell-text);
+  background-color: var(--shell-canvas);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .browse-page,
+  .media-details-page,
+  .settings-page,
+  .auth-page
+)::before {
+  background:
+    radial-gradient(circle at 12% -8%, rgba(139, 92, 246, 0.19), transparent 35rem),
+    radial-gradient(circle at 88% 3%, rgba(192, 132, 252, 0.11), transparent 32rem),
+    linear-gradient(180deg, rgba(7, 6, 10, 0.18), #050507 76%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .muted,
+  .subline,
+  .section-subtitle,
+  .settings-tab-subtitle,
+  .player-details-description
+) {
+  color: var(--shell-text-muted);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='button']
+):focus-visible {
+  outline: 3px solid var(--shell-focus);
+  outline-offset: 3px;
+}
+
+:root[data-yeen-theme='obsidian-purple'] ::selection {
+  color: #fff;
+  background: rgba(139, 92, 246, 0.72);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .error-text {
+  color: #ffb9c2;
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.success-text, .scan-success) {
+  color: #8de5b9;
+}
+
+/* Navigation and shared controls */
+
+:root[data-yeen-theme='obsidian-purple'] .top-nav {
+  border-bottom-color: var(--shell-border);
+  background:
+    linear-gradient(180deg, rgba(7, 6, 10, 0.97), rgba(7, 6, 10, 0.84)),
+    #08070c;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(20px) saturate(118%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.brand-mark, .phone-page-header .brand-mark) {
+  color: #c4b5fd;
+  background: linear-gradient(112deg, #eeeaff 8%, #a78bfa 48%, #d8b4fe 88%);
+  background-clip: text;
+  text-shadow: 0 8px 28px rgba(139, 92, 246, 0.32);
+  -webkit-text-fill-color: transparent;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .browse-link {
+  color: var(--shell-text-muted);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .browse-link:is(:hover, :focus-visible) {
+  border-color: rgba(216, 180, 254, 0.28);
+  color: #fff;
+  background: rgba(216, 180, 254, 0.09);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .browse-link.active {
+  border-color: rgba(196, 181, 253, 0.35);
+  color: #fff;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.28), rgba(192, 132, 252, 0.13));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .search-row {
+  border-color: var(--shell-border);
+  background: rgba(10, 9, 14, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .search-row:focus-within {
+  border-color: rgba(196, 181, 253, 0.72);
+  background: rgba(17, 15, 23, 0.98);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .search-row input {
+  color: var(--shell-text);
+  background: transparent;
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .accent-button,
+  .search-row button[type='submit']
+) {
+  border-color: rgba(238, 234, 255, 0.28);
+  color: #0a0710;
+  background: linear-gradient(120deg, #c4b5fd, #a78bfa 52%, #d8b4fe);
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.3);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .ghost-button,
+  .profile-avatar-button,
+  .library-clear-button
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: rgba(224, 219, 234, 0.055);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .ghost-button,
+  .profile-avatar-button,
+  .library-clear-button
+):is(:hover, :focus-visible) {
+  border-color: rgba(216, 180, 254, 0.48);
+  color: #fff;
+  background: rgba(167, 139, 250, 0.14);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .profile-avatar {
+  color: #0a0710;
+  background: linear-gradient(135deg, #d8b4fe, #a78bfa);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .profile-dropdown {
+  border-color: var(--shell-border-strong);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.11), transparent 46%),
+    rgba(10, 9, 14, 0.98);
+  box-shadow: var(--shell-shadow-soft);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .profile-dropdown-item:is(:hover, :focus-visible) {
+  color: #fff;
+  background: rgba(196, 181, 253, 0.11);
+}
+
+/* Home, library, and cards */
+
+:root[data-yeen-theme='obsidian-purple'] .browse-page {
+  background-image:
+    radial-gradient(circle at 18% -4%, rgba(124, 58, 237, 0.17), transparent 34rem),
+    linear-gradient(180deg, #0b0910 0%, #050507 42rem);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .hero-banner {
+  border-color: var(--shell-border);
+  background-color: #0d0c12;
+  box-shadow: 0 36px 94px rgba(0, 0, 0, 0.72);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .home-page .hero-banner::before {
+  background:
+    radial-gradient(circle at 22% 20%, rgba(196, 181, 253, 0.2), transparent 36%),
+    radial-gradient(circle at 78% 23%, rgba(126, 34, 206, 0.22), transparent 42%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .hero-overlay {
+  background:
+    linear-gradient(90deg, rgba(4, 3, 7, 0.95) 4%, rgba(5, 4, 8, 0.58) 54%, rgba(5, 4, 8, 0.15)),
+    linear-gradient(180deg, rgba(5, 4, 8, 0.05) 26%, rgba(5, 5, 8, 0.96) 100%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.hero-kicker, .settings-section-kicker) {
+  color: #d8b4fe;
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.hero-meta-strip span, .details-meta-strip span) {
+  border-color: var(--shell-border);
+  color: #eeeaf5;
+  background: rgba(8, 7, 12, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .hero-actions .accent-button,
+  .hero-actions-row .accent-button
+) {
+  color: #09060e;
+  background: linear-gradient(120deg, #d8b4fe, #a78bfa 58%, #c4b5fd);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .hero-actions .ghost-button,
+  .hero-actions-row .ghost-button
+) {
+  border-color: var(--shell-border-strong);
+  color: #f8f6fc;
+  background: rgba(18, 16, 25, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .home-page .browse-section .section-title::after {
+  background: linear-gradient(90deg, #8b5cf6, #d8b4fe);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .media-thumb {
+  border-color: var(--shell-border);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.23), rgba(192, 132, 252, 0.08)),
+    #0e0d14;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .media-tile:is(:hover, :focus-visible) .media-thumb {
+  border-color: rgba(216, 180, 254, 0.58);
+  box-shadow:
+    0 0 0 2px rgba(238, 234, 255, 0.92),
+    0 0 0 5px rgba(139, 92, 246, 0.42),
+    0 24px 54px rgba(0, 0, 0, 0.72);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .media-hover-panel {
+  color: var(--shell-text);
+  background: linear-gradient(180deg, rgba(11, 10, 15, 0), rgba(11, 10, 15, 0.94) 40%, #0b0a0f);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .media-tile:is(:hover, :focus-visible) .media-hover-panel {
+  border-color: rgba(216, 211, 228, 0.3);
+  background: linear-gradient(180deg, #17141f, #0c0b11);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .progress-bar div,
+  .media-progress-inline-track > div,
+  .episode-progress div,
+  .storage-usage-track div
+) {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa 58%, #d8b4fe);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .storage-usage-meter,
+  .library-toolbar,
+  .library-empty,
+  .library-loading-more,
+  .library-manage-bar
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: var(--shell-surface);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.library-chip, .library-select) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: rgba(10, 9, 14, 0.88);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .library-chip.is-active {
+  border-color: rgba(196, 181, 253, 0.48);
+  color: #fff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.32), rgba(192, 132, 252, 0.15));
+}
+
+:root[data-yeen-theme='obsidian-purple'] .library-stat-value {
+  color: #d8b4fe;
+}
+
+/* Media details */
+
+:root[data-yeen-theme='obsidian-purple'] .details-page-v2 .details-backdrop::after {
+  background:
+    linear-gradient(90deg, rgba(5, 5, 8, 0.86), rgba(5, 5, 8, 0.28) 66%),
+    linear-gradient(180deg, rgba(5, 5, 8, 0.08), #050507 94%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .details-hero-v2 {
+  border-color: var(--shell-border);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.09), transparent 42%),
+    rgba(12, 11, 17, 0.8);
+  box-shadow: var(--shell-shadow);
+  backdrop-filter: blur(18px) saturate(112%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .details-hero-v2::before {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.2), transparent 68%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .details-poster-shell {
+  border-color: var(--shell-border-strong);
+  box-shadow: 0 26px 64px rgba(0, 0, 0, 0.68);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .season-tabs,
+  .show-stats-strip,
+  .series-tracker-panel,
+  .technical-details-card,
+  .download-progress-panel,
+  .series-card,
+  .subtitle-pill
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: var(--shell-surface);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.season-tab, .episode-card) {
+  border-color: var(--shell-border);
+  color: var(--shell-text-muted);
+  background: rgba(15, 14, 21, 0.84);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(.season-tab.is-active, .series-card.is-current) {
+  border-color: rgba(196, 181, 253, 0.46);
+  color: #fff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(192, 132, 252, 0.12));
+  box-shadow: inset 3px 0 0 #a78bfa;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .episode-card:is(:hover, :focus-within) {
+  border-color: rgba(216, 180, 254, 0.42);
+  color: #fff;
+  background: var(--shell-surface-hover);
+}
+
+/* Settings and administrative workspaces */
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) {
+  --settings-card-border: var(--shell-border);
+  --settings-card-bg: var(--shell-surface);
+  --settings-panel-bg: rgba(14, 13, 20, 0.84);
+  --settings-panel-muted: var(--shell-text-muted);
+  --settings-title: var(--shell-text);
+  --settings-tab-bg: rgba(15, 14, 21, 0.88);
+  --settings-tab-border: var(--shell-border);
+  --settings-tab-subtitle: var(--shell-text-muted);
+  --settings-pill-bg: rgba(216, 180, 254, 0.09);
+  --settings-pill-text: #eeeaff;
+  --settings-input-bg: rgba(8, 7, 12, 0.9);
+  --settings-input-border: var(--shell-border);
+  --settings-input-focus: rgba(196, 181, 253, 0.72);
+  --settings-input-focus-bg: rgba(16, 14, 22, 0.98);
+  background:
+    radial-gradient(circle at 12% -6%, rgba(124, 58, 237, 0.18), transparent 35rem),
+    #050507;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) :where(
+  .settings-hero-card,
+  .settings-hero-stat,
+  .settings-sidebar-note,
+  .settings-surface,
+  .settings-category,
+  .admin-page-header,
+  .addon-card
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.09), transparent 44%),
+    var(--shell-surface);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) :where(
+  .settings-hero-icon,
+  .settings-tab-icon
+) {
+  color: #09060e;
+  background: linear-gradient(140deg, #d8b4fe, #8b5cf6);
+  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.28);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) .settings-tab-pill.active {
+  border-color: rgba(196, 181, 253, 0.4);
+  background:
+    linear-gradient(105deg, rgba(124, 58, 237, 0.26), rgba(192, 132, 252, 0.08) 60%),
+    rgba(15, 14, 21, 0.94);
+  box-shadow: inset 3px 0 0 #a78bfa;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) .settings-category-toggle:hover {
+  background: rgba(167, 139, 250, 0.1);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) :where(
+  input,
+  select,
+  textarea
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: rgba(8, 7, 12, 0.9);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-page-v2:not(.settings-theme-light) :where(
+  input,
+  select,
+  textarea
+):focus {
+  border-color: rgba(196, 181, 253, 0.72);
+  background: rgba(16, 14, 22, 0.98);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.16);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .settings-pill {
+  border-color: rgba(196, 181, 253, 0.3);
+  color: #e9e2ff;
+  background: rgba(124, 58, 237, 0.15);
+}
+
+/* Add-on routes and host-owned extension surfaces */
+
+:root[data-yeen-theme='obsidian-purple'] .addon-admin-route-page {
+  color: var(--shell-text);
+  background:
+    radial-gradient(circle at 14% -8%, rgba(124, 58, 237, 0.18), transparent 36rem),
+    var(--shell-canvas);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .addon-admin-route-page > .settings-content-grid > .addon-route-surface {
+  color: var(--shell-text);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .addon-host-surface,
+  .addon-settings-surfaces .settings-surface,
+  .addon-settings-categories .settings-category,
+  [data-addon-surface^='settings:']
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.1), transparent 46%),
+    var(--shell-surface);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .addon-host-surface-header {
+  border-bottom-color: var(--shell-border);
+  color: var(--shell-text);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  [data-addon-surface^='route:'],
+  [data-addon-surface^='settings:']
+) :where(input, select, textarea) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: rgba(8, 7, 12, 0.9);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  [data-addon-surface^='route:'],
+  [data-addon-surface^='settings:']
+) :where(input, select, textarea):focus {
+  border-color: rgba(196, 181, 253, 0.72);
+  background: rgba(16, 14, 22, 0.98);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.16);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .download-progress-panel,
+  .player-download-progress,
+  [data-addon-surface^='media-item:'] .settings-surface
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.12), transparent 48%),
+    rgba(13, 12, 19, 0.94);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .progress-bar.is-download div,
+  .download-progress-bar-fill,
+  .player-download-progress-bar-fill
+) {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa 55%, #e9d5ff);
+}
+
+:root[data-yeen-theme='obsidian-purple'] [data-addon-surface] :where(.settings-pill, .settings-category-badge) {
+  border-color: rgba(196, 181, 253, 0.32);
+  color: #eeeaff;
+  background: rgba(124, 58, 237, 0.17);
+}
+
+/* Player chrome; video rendering remains untouched. */
+
+:root[data-yeen-theme='obsidian-purple'] .player-page {
+  background:
+    radial-gradient(circle at 50% -18%, rgba(124, 58, 237, 0.16), transparent 42rem),
+    #030305;
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .player-details,
+  .player-download-progress,
+  .prepare-stream-panel,
+  .player-menu,
+  .player-episode-link
+) {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.1), transparent 46%),
+    rgba(11, 10, 15, 0.94);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .video-shell {
+  border-color: rgba(216, 211, 228, 0.22);
+  background: #000;
+  box-shadow: 0 28px 74px rgba(0, 0, 0, 0.78);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-overlay-scrim {
+  background:
+    linear-gradient(180deg, rgba(3, 2, 5, 0.8), transparent 35%),
+    linear-gradient(0deg, rgba(3, 2, 5, 0.9), transparent 44%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .player-inline-badges span,
+  .player-status-chip,
+  .player-time-readout
+) {
+  border-color: var(--shell-border);
+  color: #f4f0ff;
+  background: rgba(8, 7, 12, 0.76);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-seekbar-played,
+:root[data-yeen-theme='obsidian-purple'] .player-download-progress-bar-fill,
+:root[data-yeen-theme='obsidian-purple'] .prepare-stream-progress-bar-fill {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa 54%, #d8b4fe);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-seekbar-buffered {
+  background: rgba(216, 211, 228, 0.42);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-seekbar-input::-webkit-slider-thumb {
+  background: #d8b4fe;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.34);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-seekbar-input::-moz-range-thumb {
+  background: #d8b4fe;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.34);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-icon-button {
+  color: #f7f5fb;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-icon-button:is(:hover, :focus-visible),
+:root[data-yeen-theme='obsidian-purple'] .player-icon-button.is-active {
+  color: #eeeaff;
+  background: rgba(139, 92, 246, 0.24);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-menu-item:is(:hover, .is-active) {
+  border-color: rgba(196, 181, 253, 0.34);
+  color: #fff;
+  background: rgba(139, 92, 246, 0.18);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .player-skip-segment-cta {
+  border-color: rgba(216, 180, 254, 0.5);
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(124, 58, 237, 0.32), rgba(192, 132, 252, 0.18)),
+    rgba(7, 6, 10, 0.92);
+}
+
+/* Authentication, phone, and TV experiences */
+
+:root[data-yeen-theme='obsidian-purple'] .auth-page {
+  background:
+    radial-gradient(circle at 14% -4%, rgba(124, 58, 237, 0.24), transparent 36rem),
+    radial-gradient(circle at 88% 8%, rgba(192, 132, 252, 0.13), transparent 32rem),
+    linear-gradient(180deg, #0c0912, #050507);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .auth-panel {
+  border-color: var(--shell-border-strong);
+  color: var(--shell-text);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.15), transparent 45%),
+    rgba(12, 11, 17, 0.94);
+  box-shadow: var(--shell-shadow);
+  backdrop-filter: blur(22px) saturate(116%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .auth-panel .eyebrow {
+  color: #d8b4fe;
+}
+
+:root[data-yeen-theme='obsidian-purple'] .auth-form input {
+  border-color: var(--shell-border);
+  color: var(--shell-text);
+  background: rgba(8, 7, 12, 0.9);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .phone-page-header {
+  border-color: var(--shell-border);
+  background:
+    linear-gradient(150deg, rgba(124, 58, 237, 0.13), transparent 44%),
+    rgba(10, 9, 14, 0.94);
+  box-shadow: 0 15px 38px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px) saturate(118%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .phone-bottom-nav {
+  border-top-color: var(--shell-border);
+  background: rgba(8, 7, 12, 0.96);
+  box-shadow: 0 -16px 38px rgba(0, 0, 0, 0.56);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .phone-bottom-nav-link {
+  color: rgba(226, 222, 235, 0.72);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .phone-bottom-nav-link.is-active {
+  color: #fff;
+  background: rgba(139, 92, 246, 0.16);
+}
+
+:root[data-yeen-theme='obsidian-purple'] .phone-bottom-nav-link.is-active::before {
+  background: linear-gradient(90deg, #8b5cf6, #d8b4fe);
+}
+
+:root[data-yeen-theme='obsidian-purple'] :where(
+  .phone-featured-hero,
+  .phone-details-card,
+  .phone-settings-card
+) {
+  border-color: var(--shell-border);
+  background:
+    linear-gradient(145deg, rgba(139, 92, 246, 0.13), transparent 48%),
+    var(--shell-surface);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+:root[data-yeen-theme='obsidian-purple'][data-yeen-experience='tv'] :where(
+  button,
+  a,
+  [role='button'],
+  input,
+  select
+):focus-visible {
+  outline: 4px solid #e9d5ff;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 8px rgba(124, 58, 237, 0.46);
+}
+
+:root[data-yeen-theme='obsidian-purple'][data-yeen-experience='tv'] .top-nav {
+  border-bottom-color: rgba(226, 221, 238, 0.24);
+  background: rgba(6, 5, 9, 0.97);
+}
+
+:root[data-yeen-theme='obsidian-purple'][data-yeen-experience='tv'] .media-tile:focus-visible .media-thumb {
+  border-color: #eeeaff;
+  box-shadow:
+    0 0 0 4px #eeeaff,
+    0 0 0 9px rgba(139, 92, 246, 0.7),
+    0 28px 62px rgba(0, 0, 0, 0.76);
+}
+
+@media (max-width: 760px) {
+  :root[data-yeen-theme='obsidian-purple'] :where(.hero-banner, .details-hero-v2) {
+    border-color: rgba(216, 211, 228, 0.2);
+    box-shadow: 0 22px 54px rgba(0, 0, 0, 0.62);
+  }
+
+  :root[data-yeen-theme='obsidian-purple'] :where(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    [role='button']
+  ):focus-visible {
+    outline-width: 3px;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root[data-yeen-theme='obsidian-purple'] {
+    --shell-border: rgba(244, 240, 250, 0.34);
+    --shell-border-strong: rgba(250, 248, 255, 0.54);
+    --shell-text-muted: rgba(244, 240, 250, 0.88);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-yeen-theme='obsidian-purple'] *,
+  :root[data-yeen-theme='obsidian-purple'] *::before,
+  :root[data-yeen-theme='obsidian-purple'] *::after {
+    scroll-behavior: auto;
+  }
+}

@@ -1,5 +1,4 @@
-import { useCallback, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import { listMedia } from '../../shared/services/api';
 import {

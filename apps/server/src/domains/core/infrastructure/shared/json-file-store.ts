@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 export abstract class JsonFileStore<TState> {
@@ -44,10 +44,10 @@ export abstract class JsonFileStore<TState> {
   protected abstract defaultState(): TState;
 
   private async writeCurrentState(): Promise<void> {
-    await writeFile(
-      this.filePath,
-      `${JSON.stringify(this.state, null, 2)}\n`,
-      'utf8',
-    );
+    await writeFile(this.filePath, `${JSON.stringify(this.state, null, 2)}\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    await chmod(this.filePath, 0o600);
   }
 }

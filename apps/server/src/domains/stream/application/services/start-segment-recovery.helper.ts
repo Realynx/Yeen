@@ -213,6 +213,10 @@ export async function tryRecoverStartSegmentViaProxyValue(
 
     try {
       await segmentTranscoder.ensureSegment({
+        mediaKind: session.mediaKind,
+        videoEncoder: session.videoEncoder,
+        softwareVideoPipeline:
+          session.videoEncoder === 'nvidia' && session.inputArgs.length === 0,
         sessionId: session.sessionId,
         segmentIndex: 0,
         segmentPath,
@@ -221,6 +225,7 @@ export async function tryRecoverStartSegmentViaProxyValue(
         startSeconds,
         durationSeconds,
         audioMapSpecifier: session.audioMapSpecifier,
+        inputArgs: session.inputArgs,
         videoArgs: session.videoArgs,
         audioArgs: session.audioArgs,
       });

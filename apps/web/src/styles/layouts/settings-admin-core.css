@@ -37,9 +37,9 @@ select optgroup {
   border-radius: 12px;
   border: 1px solid var(--settings-card-border);
   background:
-    linear-gradient(145deg, rgba(229, 67, 55, 0.18), rgba(229, 67, 55, 0) 56%),
-    linear-gradient(305deg, rgba(47, 163, 255, 0.2), rgba(47, 163, 255, 0) 62%),
-    rgba(9, 14, 23, 0.84);
+    linear-gradient(145deg, var(--settings-primary-soft), transparent 56%),
+    linear-gradient(305deg, var(--settings-accent-soft), transparent 62%),
+    var(--settings-panel-bg);
   padding: 0.56rem;
   display: grid;
   gap: 0.45rem;
@@ -87,9 +87,9 @@ select optgroup {
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  border: 1px solid rgba(221, 149, 132, 0.44);
-  background: rgba(24, 18, 24, 0.86);
-  color: #ffd8c8;
+  border: 1px solid hsl(var(--primary) / 0.38);
+  background: hsl(var(--muted) / 0.86);
+  color: hsl(var(--primary));
   display: inline-grid;
   place-items: center;
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
@@ -106,31 +106,31 @@ select optgroup {
 }
 
 .system-settings-nav-button:hover {
-  border-color: rgba(223, 157, 138, 0.45);
+  border-color: hsl(var(--primary) / 0.45);
   background:
-    linear-gradient(125deg, rgba(226, 91, 72, 0.2), rgba(226, 91, 72, 0) 58%),
-    linear-gradient(295deg, rgba(47, 163, 255, 0.14), rgba(47, 163, 255, 0) 62%),
-    rgba(18, 21, 31, 0.86);
+    linear-gradient(125deg, var(--settings-primary-soft), transparent 58%),
+    linear-gradient(295deg, var(--settings-accent-soft), transparent 62%),
+    hsl(var(--muted) / 0.86);
   transform: translateX(1px);
 }
 
 .system-settings-nav-button:focus-visible {
-  outline: 2px solid rgba(79, 186, 255, 0.75);
+  outline: 2px solid hsl(var(--ring) / 0.75);
   outline-offset: 1px;
 }
 
 .system-settings-nav-button.is-active {
-  border-color: rgba(236, 172, 150, 0.56);
+  border-color: hsl(var(--primary) / 0.56);
   background:
-    linear-gradient(125deg, rgba(255, 123, 95, 0.26), rgba(255, 123, 95, 0) 55%),
-    linear-gradient(285deg, rgba(68, 176, 255, 0.24), rgba(68, 176, 255, 0) 60%),
-    rgba(14, 18, 28, 0.92);
+    linear-gradient(125deg, hsl(var(--primary) / 0.2), transparent 55%),
+    linear-gradient(285deg, hsl(var(--accent) / 0.16), transparent 60%),
+    hsl(var(--card) / 0.92);
 }
 
 .system-settings-nav-button.is-active .system-settings-nav-icon {
-  border-color: rgba(249, 191, 168, 0.72);
-  background: rgba(42, 22, 26, 0.9);
-  color: #ffe5db;
+  border-color: hsl(var(--primary) / 0.68);
+  background: hsl(var(--primary) / 0.16);
+  color: hsl(var(--primary));
 }
 
 .system-settings-nav-label {
@@ -148,7 +148,7 @@ select optgroup {
 .system-settings-sections {
   min-width: 0;
   display: grid;
-  gap: 0.72rem;
+  gap: var(--settings-section-gap);
 }
 
 .system-settings-sections .settings-category {
@@ -162,7 +162,7 @@ select optgroup {
 
 .system-settings-media-runtime-categories {
   display: grid;
-  gap: 0.72rem;
+  gap: var(--settings-section-gap);
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
@@ -171,7 +171,7 @@ select optgroup {
   display: grid;
   align-items: center;
   gap: 0.56rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   border-radius: 12px;
   border: 1px solid var(--settings-card-border);
   background: rgba(10, 14, 22, 0.76);
@@ -197,316 +197,27 @@ select optgroup {
   font-size: 0.9rem;
 }
 
-.torrent-control-categories {
-  margin-top: 0.15rem;
-  display: grid;
-  gap: 0.72rem;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  align-items: start;
-}
-
-.torrent-control-field-compact {
-  align-self: start;
-}
-
-.torrent-control-intake-field {
-  gap: 0.5rem;
-}
-
-.torrent-control-intake-shell {
-  border-radius: 12px;
-  border: 1px dashed rgba(110, 152, 214, 0.46);
-  background: rgba(8, 12, 20, 0.4);
-  padding: 0.56rem 0.62rem;
-  display: grid;
-  gap: 0.52rem;
-  transition: border-color 0.16s ease, background 0.16s ease;
-}
-
-.torrent-control-intake-shell.is-drop-active {
-  border-color: rgba(47, 163, 255, 0.8);
-  background: rgba(21, 35, 56, 0.5);
-}
-
-.torrent-control-intake-divider {
-  color: var(--settings-panel-muted);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.torrent-control-drop-zone {
-  display: grid;
-  gap: 0.48rem;
-}
-
-.torrent-control-file-input-hidden {
-  display: none;
-}
-
-.torrent-control-drop-copy {
-  margin: 0;
-  color: var(--settings-title);
-  font-size: 0.82rem;
-  overflow-wrap: anywhere;
-}
-
-.torrent-control-drop-actions {
-  margin-top: 0;
-  gap: 0.4rem;
-}
-
-.torrent-control-categories .settings-category-content .torrent-control-toolbar,
-.torrent-control-categories .settings-category-content .torrent-control-groups {
-  margin-top: 0;
-}
-
-.torrent-control-toolbar {
-  margin-top: 0.75rem;
-  border-radius: 12px;
-  border: 1px solid var(--settings-card-border);
-  background: rgba(8, 12, 20, 0.52);
-  padding: 0.56rem 0.62rem;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.torrent-control-toolbar-head {
-  display: grid;
-  gap: 0.16rem;
-}
-
-.torrent-control-selection-summary {
-  margin: 0;
-  color: var(--settings-title);
-  font-size: 0.82rem;
-}
-
-.torrent-control-selection-hint {
-  margin: 0;
-  font-size: 0.74rem;
-}
-
-.torrent-control-search-field {
-  margin-top: 0;
-  gap: 0.35rem;
-}
-
-.torrent-control-empty-search {
-  margin-top: 0.72rem;
-}
-
-.torrent-control-selection-actions {
-  margin-top: 0;
-  gap: 0.4rem;
-}
-
-.torrent-control-batch-actions {
-  margin-top: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.torrent-control-action-button {
-  margin-top: 0;
-  width: auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.36rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.torrent-control-action-icon {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.9;
-}
-
-.torrent-control-action-icon-fill {
-  fill: currentColor;
-  stroke: none;
-}
-
-.torrent-control-groups {
-  margin-top: 0.75rem;
-  display: grid;
-  gap: 0.64rem;
-}
-
-.torrent-control-group {
-  border-radius: 12px;
-  border: 1px solid var(--settings-card-border);
-  background: rgba(8, 12, 20, 0.52);
-  padding: 0.52rem 0.6rem;
-}
-
-.torrent-control-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.65rem;
-}
-
-.torrent-control-group-title {
-  margin: 0;
-}
-
-.torrent-control-group-title-button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font: inherit;
-  color: var(--settings-title);
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-}
-
-.torrent-control-group-title-button:hover {
-  color: #8cc8ff;
-}
-
-.torrent-control-group-title-button:focus-visible {
-  outline: 2px solid rgba(79, 186, 255, 0.75);
-  outline-offset: 3px;
-  border-radius: 8px;
-}
-
-.torrent-control-group-chevron {
-  color: var(--settings-panel-muted);
-  font-size: 0.74rem;
-  transform: rotate(0deg);
-  transition: transform 0.16s ease;
-}
-
-.torrent-control-group-chevron.is-hidden {
-  transform: rotate(-90deg);
-}
-
-.torrent-control-group-count {
-  min-width: 20px;
-  height: 20px;
+.settings-library-type-badge {
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 999px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 0.36rem;
-  color: #e9f2ff;
+  padding: 0.25rem 0.55rem;
+  color: var(--settings-title);
   font-size: 0.7rem;
   font-weight: 700;
-  background: linear-gradient(
-    140deg,
-    rgba(255, 138, 31, 0.88),
-    rgba(47, 163, 255, 0.86)
-  );
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
-.torrent-control-group-hidden-note {
-  margin: 0.65rem 0 0;
-  font-size: 0.82rem;
+.settings-library-type-badge-music {
+  border-color: rgba(30, 215, 96, 0.44);
+  background: rgba(30, 215, 96, 0.12);
+  color: #70f19d;
 }
 
-.torrent-control-list {
-  margin-top: 0.5rem;
-  gap: 0.42rem;
-}
-
-.settings-location-item.torrent-control-item {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.42rem 0.52rem;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.14s ease;
-}
-
-.settings-location-item.torrent-control-item:hover {
-  border-color: rgba(90, 136, 197, 0.55);
-}
-
-.settings-location-item.torrent-control-item.is-selected {
-  border-color: rgba(47, 163, 255, 0.74);
-  box-shadow: inset 0 0 0 1px rgba(47, 163, 255, 0.34);
-}
-
-.torrent-control-item-select {
-  margin-top: 0;
-  display: flex;
-  align-items: center;
-}
-
-.torrent-control-item-select input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: #2fa3ff;
-}
-
-.torrent-control-item-text {
-  min-width: 0;
-  display: grid;
-  gap: 0.28rem;
-}
-
-.torrent-control-item-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-}
-
-.torrent-control-item-text strong {
-  display: block;
-  overflow-wrap: anywhere;
-  font-size: 0.86rem;
-  line-height: 1.18;
-}
-
-.torrent-control-item-state {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  border: 1px solid rgba(110, 152, 214, 0.38);
-  background: rgba(36, 55, 85, 0.35);
-  padding: 0.08rem 0.44rem;
-  color: var(--settings-title);
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-
-.torrent-control-item-meta {
-  margin-top: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.26rem 0.42rem;
-  color: var(--settings-panel-muted);
-  font-size: 0.75rem;
-}
-
-.torrent-control-meta-chip {
-  border-radius: 999px;
-  border: 1px solid rgba(110, 152, 214, 0.25);
-  background: rgba(18, 29, 46, 0.42);
-  padding: 0.08rem 0.45rem;
-  white-space: nowrap;
-}
-
-.settings-location-item.torrent-control-item .settings-scan-progress-bar {
-  height: 5px;
+.settings-library-type-badge-video {
+  border-color: rgba(96, 165, 250, 0.44);
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
 }
 
 .settings-profile-list {
@@ -566,9 +277,9 @@ select optgroup {
   border-radius: 12px;
   border: 1px solid var(--settings-card-border);
   background:
-    linear-gradient(140deg, rgba(229, 67, 55, 0.1), rgba(229, 67, 55, 0) 56%),
-    linear-gradient(310deg, rgba(47, 163, 255, 0.12), rgba(47, 163, 255, 0) 62%),
-    rgba(8, 12, 20, 0.44);
+    linear-gradient(140deg, var(--settings-primary-soft), transparent 56%),
+    linear-gradient(310deg, var(--settings-accent-soft), transparent 62%),
+    var(--settings-panel-bg);
   padding: 0.72rem 0.78rem;
 }
 
@@ -638,8 +349,8 @@ select optgroup {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 200, 180, 0.66);
-  background: linear-gradient(140deg, rgba(255, 138, 94, 0.94), rgba(91, 188, 255, 0.88));
+  border: 1px solid hsl(var(--primary) / 0.55);
+  background: linear-gradient(140deg, hsl(var(--primary)), hsl(var(--accent)));
 }
 
 .user-settings-avatar-panel {
@@ -654,7 +365,7 @@ select optgroup {
   height: 76px;
   border-radius: 18px;
   border: 1px solid var(--settings-card-border);
-  background: rgba(10, 15, 24, 0.66);
+  background: hsl(var(--muted) / 0.72);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -695,7 +406,7 @@ select optgroup {
 .user-settings-upload-box {
   border: 1px dashed var(--settings-card-border);
   border-radius: 12px;
-  background: rgba(8, 12, 20, 0.34);
+  background: hsl(var(--muted) / 0.46);
   padding: 0.72rem 0.78rem;
 }
 
@@ -704,10 +415,10 @@ select optgroup {
 }
 
 .user-settings-upload-box input[type='file']::file-selector-button {
-  border: 1px solid rgba(171, 196, 241, 0.28);
+  border: 1px solid var(--settings-input-border);
   border-radius: 9px;
-  background: rgba(15, 20, 32, 0.68);
-  color: var(--text-main);
+  background: hsl(var(--secondary) / 0.8);
+  color: hsl(var(--secondary-foreground));
   padding: 0.38rem 0.62rem;
   margin-right: 0.64rem;
   cursor: pointer;

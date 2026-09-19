@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../../shared/services/types';
 import { pickRandomItem, toLibrarySearchPath } from '../../library/services/librarySearchUtils';
@@ -49,6 +55,7 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
     loading,
     loadingMore,
     error,
+    retry,
     scrollTop,
     setScrollTop,
     resetExploreForTag: resetBaseExploreForTag,
@@ -169,6 +176,12 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
   }, [catalogMode, hasMore, loading, loadingMore, tagFilter]);
 
   useEffect(() => {
+    if (!loading && !loadingMore) {
+      loadMoreLockedRef.current = false;
+    }
+  }, [loading, loadingMore, remoteItems.length]);
+
+  useEffect(() => {
     const viewport = resultsViewportRef.current;
     if (!viewport) {
       return;
@@ -272,12 +285,6 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
   ]);
 
   const showLoadingMoreIndicator = loadingMore || waitingForRateLimit;
-  const canLoadMore = hasMore && !loading && !loadingMore && !waitingForRateLimit && tagFilter.trim().length >= 2;
-  const handleLoadMore = useCallback(() => {
-    if (!canLoadMore) return;
-    nextLoadMoreAllowedAtRef.current = Date.now() + (catalogMode === 'anime' ? 2600 : 850);
-    setPage((previous) => previous + 1);
-  }, [canLoadMore, catalogMode, setPage]);
 
   const {
     handleModeChange,
@@ -320,6 +327,7 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
 
       <MediaExploreControls
         catalogMode={catalogMode}
+        collapsible={experience === 'tv'}
         typeFilter={typeFilter}
         typeCounts={typeCounts}
         tagFilter={tagFilter}
@@ -355,8 +363,7 @@ export function MediaExplorePage({ token, user, onLogout }: MediaExplorePageProp
         waitingForRateLimit={waitingForRateLimit}
         tagFilter={tagFilter}
         hasMore={hasMore}
-        canLoadMore={canLoadMore}
-        onLoadMore={handleLoadMore}
+        onRetry={retry}
         onOpenDetails={openDetails}
       />
     </main>

@@ -28,10 +28,34 @@ import {
   getErrorResponseStatus,
   shouldRestartForPersistentSegment503,
 } from './publicBroadcastPlaybackController.helpers';
+import type { PublicBroadcastPageHlsRecoveryState } from './publicBroadcastPage.types';
+import { resolvePublicBroadcastHlsLoadPlan } from '../services/publicBroadcastHlsLoadPlan';
+import { resumePublicBroadcastHlsLoading } from '../services/publicBroadcastHlsRecovery';
+
+function shouldRetrySegment503(
+  statusCode: number | null,
+  data: ErrorData,
+  recovery: PublicBroadcastPageHlsRecoveryState,
+): boolean {
+  return statusCode === 503 && shouldRestartForPersistentSegment503(data, recovery);
+}
 
 interface UsePublicBroadcastPlaybackControllerOptions {
   statusSnapshot: BroadcastStatusSnapshot | null;
   setError: Dispatch<SetStateAction<string | null>>;
+}
+
+function tryResumeHlsLoading(video: HTMLVideoElement | null, hls: Hls): boolean {
+  if (!video) {
+    return false;
+  }
+
+  try {
+    resumePublicBroadcastHlsLoading(video, hls);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function usePublicBroadcastPlaybackController({
@@ -83,7 +107,9 @@ export function usePublicBroadcastPlaybackController({
     resetHlsRecoveryState();
 
     hls.on(Hls.Events.FRAG_LOADED, () => {
-      // Successful fragment fetch means retry ladder can safely reset.
+      // A successful fetch resets network retry state. Stall recovery is reset
+      // only by observed currentTime progress; prefetch can continue while the
+      // decoder remains frozen.
       hlsRecoveryStateRef.current.attemptedNetworkRecovery = false;
       hlsRecoveryStateRef.current.restartedSession = false;
       hlsRecoveryStateRef.current.segment503WindowStartedAtMs = 0;
@@ -93,31 +119,17 @@ export function usePublicBroadcastPlaybackController({
       if (playbackWatchdogRef.current.lastPlaybackProgressAtMs === 0) {
         playbackWatchdogRef.current.lastPlaybackProgressAtMs = nowMs;
       }
-      playbackWatchdogRef.current.consecutiveWeakProgressSamples = 0;
-      playbackWatchdogRef.current.recoveryStage = 0;
-      setError(null);
     });
 
     hls.on(Hls.Events.ERROR, (_event, data: ErrorData) => {
       const statusCode = getErrorResponseStatus(data);
 
-      if (
-        statusCode === 503
-        && shouldRestartForPersistentSegment503(data, hlsRecoveryStateRef.current)
-      ) {
-        const currentManifestUrl = manifestUrlRef.current;
-        if (currentManifestUrl) {
-          try {
-            setError('Stream is buffering. Retrying segment fetch...');
-            resetHlsRecoveryState();
-            resetPlaybackWatchdog();
-            hls.stopLoad();
-            hls.loadSource(currentManifestUrl);
-            hls.startLoad(-1);
-            return;
-          } catch {
-            // Fall through to fatal escalation handling below.
-          }
+      if (shouldRetrySegment503(statusCode, data, hlsRecoveryStateRef.current)) {
+        setError('Stream is buffering. Retrying segment fetch...');
+        resetHlsRecoveryState();
+        resetPlaybackWatchdog();
+        if (tryResumeHlsLoading(videoRef.current, hls)) {
+          return;
         }
       }
 
@@ -149,30 +161,31 @@ export function usePublicBroadcastPlaybackController({
           return;
         }
 
-        if (!recovery.restartedSession) {
-          recovery.restartedSession = true;
-          const currentManifestUrl = manifestUrlRef.current;
+        recovery.restartedSession = true;
+        const currentManifestUrl = manifestUrlRef.current;
 
-          if (currentManifestUrl) {
-            try {
-              hls.stopLoad();
-              hls.loadSource(currentManifestUrl);
-              hls.startLoad(-1);
-              return;
-            } catch {
-              // Escalate to full hls instance reset below.
-            }
-          }
+        if (currentManifestUrl && tryResumeHlsLoading(videoRef.current, hls)) {
+          return;
         }
       }
 
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-        try {
-          hls.recoverMediaError();
+        setError('Playback decoder stalled. Resuming the attached stream...');
+        resetPlaybackWatchdog();
+        if (tryResumeHlsLoading(videoRef.current, hls)) {
+          runPlaybackSyncRef.current();
           return;
-        } catch {
-          // If media recovery throws, escalate to full reset below.
         }
+      }
+
+      if (
+        manifestUrlRef.current
+        && tryResumeHlsLoading(videoRef.current, hls)
+      ) {
+        setError('Playback stalled. Retrying the attached stream...');
+        resetPlaybackWatchdog();
+        runPlaybackSyncRef.current();
+        return;
       }
 
       syncStateRef.current = 'recover_manifest';
@@ -193,6 +206,10 @@ export function usePublicBroadcastPlaybackController({
     }
 
     const manifestChanged = manifestUrlRef.current !== nextManifestUrl;
+    if (!manifestChanged && hlsRef.current) {
+      return;
+    }
+
     if (manifestChanged) {
       resetHlsRecoveryState();
       resetPlaybackWatchdog();
@@ -204,22 +221,26 @@ export function usePublicBroadcastPlaybackController({
     );
 
     if (!supportsNativeHls && Hls.isSupported()) {
+      const loadPlan = resolvePublicBroadcastHlsLoadPlan(statusRef.current);
       let activeHls = hlsRef.current;
       if (!activeHls) {
-        activeHls = createHlsInstance();
+        activeHls = createHlsInstance(loadPlan);
         attachHlsRecovery(activeHls);
         hlsRef.current = activeHls;
         activeHls.attachMedia(video);
+      } else if (manifestChanged) {
+        activeHls.stopLoad();
       }
 
       activeHls.loadSource(nextManifestUrl);
+      activeHls.startLoad(loadPlan.startPosition);
       manifestUrlRef.current = nextManifestUrl;
       return;
     }
 
     destroyHlsInstance();
 
-    if (video.src !== nextManifestUrl) {
+    if (manifestChanged || video.src !== nextManifestUrl) {
       video.src = nextManifestUrl;
       video.load();
     }
@@ -317,6 +338,28 @@ export function usePublicBroadcastPlaybackController({
   useEffect(() => {
     runPlaybackSyncRef.current = runPlaybackSync;
   }, [runPlaybackSync]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const resyncAfterMediaReset = () => {
+      runPlaybackSyncRef.current();
+    };
+
+    video.addEventListener('loadedmetadata', resyncAfterMediaReset);
+    video.addEventListener('loadeddata', resyncAfterMediaReset);
+    video.addEventListener('canplay', resyncAfterMediaReset);
+    video.addEventListener('timeupdate', resyncAfterMediaReset);
+    return () => {
+      video.removeEventListener('loadedmetadata', resyncAfterMediaReset);
+      video.removeEventListener('loadeddata', resyncAfterMediaReset);
+      video.removeEventListener('canplay', resyncAfterMediaReset);
+      video.removeEventListener('timeupdate', resyncAfterMediaReset);
+    };
+  }, []);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

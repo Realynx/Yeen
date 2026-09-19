@@ -30,10 +30,10 @@ export function resolveSourceEpochTransition(
   previousSourceEpoch: number | null,
   status: BroadcastPublicSession | null,
 ): SourceEpochTransition {
-  if (!status?.enabled || !status.isLive || !status.manifestUrl) {
+  if (!status?.enabled) {
     return {
       nextSourceEpoch: null,
-      shouldResetManifest: false,
+      shouldResetManifest: previousSourceEpoch !== null,
     };
   }
 

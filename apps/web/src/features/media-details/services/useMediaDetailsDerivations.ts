@@ -95,7 +95,7 @@ export function useMediaDetailsDerivations(
     }
 
     if (current.isRemote) {
-      return 'movie';
+      return current.type === 'show' ? 'show' : 'movie';
     }
 
     if (current.type === 'show') {

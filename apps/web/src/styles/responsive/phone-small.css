@@ -181,24 +181,6 @@
     padding: 0.56rem 0.58rem;
   }
 
-  .phone-download-control-page .settings-surface {
-    padding: 0.74rem 0.68rem;
-  }
-
-  .phone-download-control-page .torrent-control-title-panel {
-    padding: 0.52rem 0.56rem;
-    gap: 0.42rem;
-  }
-
-  .phone-download-control-page .torrent-control-title-description {
-    font-size: 0.78rem;
-  }
-
-  .phone-download-control-page .torrent-control-title-meta {
-    font-size: 0.71rem;
-    padding: 0.42rem 0.5rem;
-  }
-
   .phone-bottom-nav-link {
     min-height: 2.62rem;
     border-radius: 0.58rem;

@@ -8,6 +8,7 @@ import { UserSecuritySection } from './UserSecuritySection';
 import { UserPlaybackPreferencesSection } from './UserPlaybackPreferencesSection';
 import { UserTvDisplayPreferencesSection } from './UserTvDisplayPreferencesSection';
 import { UserTvPairingSection } from './UserTvPairingSection';
+import { UserAppearanceSection } from './UserAppearanceSection';
 
 interface UserSettingsSectionsProps {
   user: User;
@@ -113,6 +114,12 @@ export function UserSettingsSections({
       className="settings-categories user-settings-categories"
       data-tv-focus-lane-id="user-settings-categories"
     >
+      <UserAppearanceSection
+        accountId={user.id}
+        isOpen={expandedCategories.appearance}
+        onToggle={() => onToggleCategory('appearance')}
+      />
+
       <UserProfileDetailsSection
         isOpen={expandedCategories.profile}
         hasProfileChanges={hasProfileChanges}
@@ -143,6 +150,11 @@ export function UserSettingsSections({
         onUploadSubmit={onUploadAvatar}
         onClearSelection={onClearAvatarSelection}
         onRemoveCurrentPhoto={onRemoveCurrentPhoto}
+      />
+
+      <UserPlaybackPreferencesSection
+        isOpen={expandedCategories.playback}
+        onToggle={() => onToggleCategory('playback')}
       />
 
       <UserInvitesSection
@@ -184,8 +196,10 @@ export function UserSettingsSections({
         onSubmit={onApproveTvCode}
       />
 
-      <UserTvDisplayPreferencesSection />
-      <UserPlaybackPreferencesSection />
+      <UserTvDisplayPreferencesSection
+        isOpen={expandedCategories.tvDisplay}
+        onToggle={() => onToggleCategory('tvDisplay')}
+      />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { copyFile, mkdir, rename, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, rename, stat, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import {
   ChainRollbackCommitResult,
@@ -137,6 +137,13 @@ export class MediaFsRollbackService {
   ): Promise<number> {
     if (op.type === 'rename') {
       if (await this.fileOps.pathExists(op.from)) {
+        if (
+          (await this.fileOps.pathExists(op.to)) &&
+          (await this.pathsShareFileIdentity(op.from, op.to))
+        ) {
+          await unlink(op.to);
+          return 1;
+        }
         throw new Error(`Original path already occupied: ${op.from}`);
       }
 
@@ -187,5 +194,13 @@ export class MediaFsRollbackService {
 
   private toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  private async pathsShareFileIdentity(
+    leftPath: string,
+    rightPath: string,
+  ): Promise<boolean> {
+    const [left, right] = await Promise.all([stat(leftPath), stat(rightPath)]);
+    return left.dev === right.dev && left.ino === right.ino;
   }
 }

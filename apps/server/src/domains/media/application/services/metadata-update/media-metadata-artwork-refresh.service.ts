@@ -45,47 +45,7 @@ export class MediaMetadataArtworkRefreshService {
       .findPreviewImagePath(input.resolvedFilePath)
       .catch(() => null);
 
-    let chapterThumbnails: MediaItem['chapterThumbnails'] = [];
-    try {
-      const fileStats = await stat(input.resolvedFilePath);
-      if (fileStats.isFile()) {
-        const settings = await this.systemSettingsService.getSettings();
-
-        let chapterMarkers: ChapterThumbnailCapturePoint[] | undefined;
-        try {
-          const parsed = await this.mediaProbeAdapter.probeFile(
-            input.resolvedFilePath,
-            settings.ffprobePath || 'ffprobe',
-          );
-
-          chapterMarkers = normalizeFfprobeChapterMarkers(
-            parsed.chapters,
-            Math.max(0, input.item.durationSeconds),
-          );
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          this.logger.debug(
-            `Chapter probe skipped for ${input.item.filePath}; using random fallback: ${message}`,
-          );
-        }
-
-        chapterThumbnails =
-          await this.mediaPreviewResolver.generateChapterThumbnails(
-            input.resolvedFilePath,
-            Math.max(0, input.item.durationSeconds),
-            fileStats.mtimeMs,
-            settings.ffmpegPath,
-            settings.thumbnailCaptureCount,
-            chapterMarkers,
-          );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.debug(
-        `Chapter thumbnail refresh skipped for ${input.item.filePath}: ${message}`,
-      );
-    }
+    const chapterThumbnails = await this.generateChapterThumbnails(input);
 
     const posterSourceUrl = this.normalizeOptionalString(
       input.preferredPosterUrl,
@@ -96,20 +56,16 @@ export class MediaMetadataArtworkRefreshService {
 
     const [downloadedPosterImagePath, downloadedBackdropImagePath] =
       await Promise.all([
-        posterSourceUrl
-          ? this.mediaPreviewResolver.downloadPosterThumbnail(
-              posterSourceUrl,
-              input.resolvedFilePath,
-              input.forceDownload,
-            )
-          : Promise.resolve<string | null>(null),
-        backdropSourceUrl
-          ? this.mediaPreviewResolver.downloadBackdropThumbnail(
-              backdropSourceUrl,
-              input.resolvedFilePath,
-              input.forceDownload,
-            )
-          : Promise.resolve<string | null>(null),
+        this.downloadPoster(
+          posterSourceUrl,
+          input.resolvedFilePath,
+          input.forceDownload,
+        ),
+        this.downloadBackdrop(
+          backdropSourceUrl,
+          input.resolvedFilePath,
+          input.forceDownload,
+        ),
       ]);
 
     const metadataPosterImagePath =
@@ -136,6 +92,83 @@ export class MediaMetadataArtworkRefreshService {
       chapterThumbnails:
         chapterThumbnails.length > 0 ? chapterThumbnails : existingChapters,
     };
+  }
+
+  private async generateChapterThumbnails(input: {
+    item: MediaItem;
+    resolvedFilePath: string;
+  }): Promise<MediaItem['chapterThumbnails']> {
+    try {
+      const fileStats = await stat(input.resolvedFilePath);
+      if (!fileStats.isFile()) return [];
+      const settings = await this.systemSettingsService.getSettings();
+      const chapterMarkers = await this.probeChapterMarkers(
+        input,
+        settings.ffprobePath || 'ffprobe',
+      );
+      return await this.mediaPreviewResolver.generateChapterThumbnails(
+        input.resolvedFilePath,
+        Math.max(0, input.item.durationSeconds),
+        fileStats.mtimeMs,
+        settings.ffmpegPath,
+        settings.thumbnailCaptureCount,
+        chapterMarkers,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Chapter thumbnail refresh skipped for ${input.item.filePath}: ${message}`,
+      );
+      return [];
+    }
+  }
+
+  private async probeChapterMarkers(
+    input: { item: MediaItem; resolvedFilePath: string },
+    ffprobePath: string,
+  ): Promise<ChapterThumbnailCapturePoint[] | undefined> {
+    try {
+      const parsed = await this.mediaProbeAdapter.probeFile(
+        input.resolvedFilePath,
+        ffprobePath,
+      );
+      return normalizeFfprobeChapterMarkers(
+        parsed.chapters,
+        Math.max(0, input.item.durationSeconds),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(
+        `Chapter probe skipped for ${input.item.filePath}; using random fallback: ${message}`,
+      );
+      return undefined;
+    }
+  }
+
+  private downloadPoster(
+    sourceUrl: string | null,
+    filePath: string,
+    forceDownload: boolean,
+  ): Promise<string | null> {
+    if (!sourceUrl) return Promise.resolve(null);
+    return this.mediaPreviewResolver.downloadPosterThumbnail(
+      sourceUrl,
+      filePath,
+      forceDownload,
+    );
+  }
+
+  private downloadBackdrop(
+    sourceUrl: string | null,
+    filePath: string,
+    forceDownload: boolean,
+  ): Promise<string | null> {
+    if (!sourceUrl) return Promise.resolve(null);
+    return this.mediaPreviewResolver.downloadBackdropThumbnail(
+      sourceUrl,
+      filePath,
+      forceDownload,
+    );
   }
 
   private normalizeOptionalString(

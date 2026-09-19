@@ -10,10 +10,12 @@ import { SubtitleLookupService } from './application/services/subtitle-lookup.se
 import { SubtitleOnlineLookupService } from './application/services/subtitle-online-lookup.service';
 import { SubtitleStorageService } from './application/services/subtitle-storage.service';
 import { SubtitleTracksService } from './application/services/subtitle-tracks.service';
+import { SubtitlePreExtractionJobService } from './application/services/subtitle-pre-extraction-job.service';
+import { AdminSubtitleMaintenanceController } from './presentation/controllers/admin-subtitle-maintenance.controller';
 
 @Module({
   imports: [MediaModule, SystemSettingsModule],
-  controllers: [SubtitleController],
+  controllers: [SubtitleController, AdminSubtitleMaintenanceController],
   providers: [
     SubtitleCommandService,
     SubtitleLookupService,
@@ -23,6 +25,7 @@ import { SubtitleTracksService } from './application/services/subtitle-tracks.se
     SubtitleExtractionService,
     SubtitleFileStreamService,
     SubtitleOnlineLookupService,
+    SubtitlePreExtractionJobService,
   ],
   exports: [SubtitleListingService, SubtitleFileStreamService],
 })

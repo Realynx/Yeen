@@ -16,7 +16,7 @@ Navigation and depth rules:
 
 - Keep domain layers shallow and predictable.
 - Place single runtime files directly in `application/services` or `infrastructure`.
-- Use a subfolder only when it groups 2+ closely related files (for example `remote-metadata`, `torrent-intake`, `filesystem`, `stores`, `resolvers`, `hls`).
+- Use a subfolder only when it groups 2+ closely related files (for example `remote-metadata`, `filesystem`, `stores`, `resolvers`, `hls`).
 - Avoid one-file wrapper folders that add an extra click with no grouping value.
 - Keep cross-domain imports anchored from each domain root, not through compatibility shim paths.
 
@@ -30,7 +30,8 @@ Current domains:
 - domains/subtitle
 - domains/progress
 - domains/system-settings
-- domains/torrent
+- domains/addons
+- domains/lifecycle
 
 Grouped domain paths now contain the real service/controller implementation files.
 

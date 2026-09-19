@@ -1,10 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import type { SeriesEpisodeTrackerResult } from '../../../shared/services/types';
 
 interface SeriesCompletenessSectionProps {
   tracker: SeriesEpisodeTrackerResult | null;
   loading: boolean;
   error: string | null;
+  onOpenMissing?: (
+    source: 'jikan' | 'tmdb',
+    providerId: string,
+    seasonNumber: number,
+    episodeNumber?: number,
+  ) => void;
 }
 
 const MISSING_PREVIEW_BATCH_SIZE = 24;
@@ -22,10 +28,81 @@ type MissingPreviewRow =
       title: string;
     };
 
+function MissingRow({
+  row,
+  onOpen,
+}: {
+  row: MissingPreviewRow;
+  onOpen?: (seasonNumber: number, episodeNumber?: number) => void;
+}) {
+  const content = row.kind === 'season' ? (
+    <>
+      <span className="series-tracker-episode-code">S{String(row.seasonNumber).padStart(2, '0')}</span>
+      <span className="series-tracker-episode-title">
+        Entire season missing
+        {row.episodeCount > 0
+          ? ` (${row.episodeCount} ${row.episodeCount === 1 ? 'episode' : 'episodes'})`
+          : ''}
+      </span>
+    </>
+  ) : (
+    <>
+      <span className="series-tracker-episode-code">
+        S{String(row.seasonNumber).padStart(2, '0')}E{String(row.episodeNumber).padStart(2, '0')}
+      </span>
+      <span className="series-tracker-episode-title">{row.title}</span>
+    </>
+  );
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className={`series-tracker-missing-row is-link${row.kind === 'season' ? ' is-season-aggregate' : ''}`}
+        title={row.kind === 'episode' ? row.title : undefined}
+        onClick={() =>
+          onOpen(
+            row.seasonNumber,
+            row.kind === 'episode' ? row.episodeNumber : undefined,
+          )
+        }
+      >
+        {content}
+      </button>
+    );
+  }
+
+  if (row.kind === 'season') {
+    return (
+      <span className="series-tracker-missing-row is-season-aggregate">
+        {content}
+      </span>
+    );
+  }
+  return (
+    <span className="series-tracker-missing-row" title={row.title}>
+      {content}
+    </span>
+  );
+}
+
+function trackerStatusPanel(
+  tracker: SeriesEpisodeTrackerResult | null,
+  loading: boolean,
+  error: string | null,
+): ReactElement | null | undefined {
+  if (loading) return <section className="series-tracker-panel" aria-live="polite"><div className="series-tracker-header"><h3 className="section-title">Series Completeness</h3><span className="series-tracker-badge">Loading</span></div><p className="series-tracker-copy muted">Checking indexed episodes against the linked series catalog...</p></section>;
+  if (error) return <section className="series-tracker-panel" aria-live="polite"><div className="series-tracker-header"><h3 className="section-title">Series Completeness</h3><span className="series-tracker-badge is-error">Unavailable</span></div><p className="error-text">{error}</p></section>;
+  if (!tracker) return null;
+  if (tracker.status === 'unavailable') return <section className="series-tracker-panel" aria-live="polite"><div className="series-tracker-header"><h3 className="section-title">Series Completeness</h3><span className="series-tracker-badge is-muted">Not Linked</span></div><p className="series-tracker-copy">{tracker.reason}</p></section>;
+  return undefined;
+}
+
 export function SeriesCompletenessSection({
   tracker,
   loading,
   error,
+  onOpenMissing,
 }: SeriesCompletenessSectionProps) {
   const trackerIdentity =
     tracker && tracker.status === 'ready'
@@ -120,47 +197,9 @@ export function SeriesCompletenessSection({
   const hiddenRowCount = Math.max(0, missingRows.length - missingPreview.length);
   const nextBatchSize = Math.min(MISSING_PREVIEW_BATCH_SIZE, hiddenRowCount);
 
-  if (loading) {
-    return (
-      <section className="series-tracker-panel" aria-live="polite">
-        <div className="series-tracker-header">
-          <h3 className="section-title">Series Completeness</h3>
-          <span className="series-tracker-badge">Loading</span>
-        </div>
-        <p className="series-tracker-copy muted">
-          Checking indexed episodes against the linked series catalog...
-        </p>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="series-tracker-panel" aria-live="polite">
-        <div className="series-tracker-header">
-          <h3 className="section-title">Series Completeness</h3>
-          <span className="series-tracker-badge is-error">Unavailable</span>
-        </div>
-        <p className="error-text">{error}</p>
-      </section>
-    );
-  }
-
-  if (!tracker) {
-    return null;
-  }
-
-  if (tracker.status === 'unavailable') {
-    return (
-      <section className="series-tracker-panel" aria-live="polite">
-        <div className="series-tracker-header">
-          <h3 className="section-title">Series Completeness</h3>
-          <span className="series-tracker-badge is-muted">Not Linked</span>
-        </div>
-        <p className="series-tracker-copy">{tracker.reason}</p>
-      </section>
-    );
-  }
+  const statusPanel = trackerStatusPanel(tracker, loading, error);
+  if (statusPanel !== undefined) return statusPanel;
+  const readyTracker = tracker as Extract<SeriesEpisodeTrackerResult, { status: 'ready' }>;
 
   return (
     <section className="series-tracker-panel" aria-live="polite">
@@ -168,29 +207,29 @@ export function SeriesCompletenessSection({
         <h3 className="section-title">Series Completeness</h3>
         <span
           className={`series-tracker-badge${
-            tracker.isComplete ? ' is-complete' : ' is-incomplete'
+            readyTracker.isComplete ? ' is-complete' : ' is-incomplete'
           }`}
         >
-          {tracker.isComplete ? 'Complete Set' : 'Missing Episodes'}
+          {readyTracker.isComplete ? 'Complete Set' : 'Missing Episodes'}
         </span>
       </div>
 
       <p className="series-tracker-copy">
-        Linked source: {tracker.sourceLabel} #{tracker.providerId}
+        Linked source: {readyTracker.sourceLabel} #{readyTracker.providerId}
       </p>
 
       <div className="series-tracker-progress" aria-hidden="true">
-        <div style={{ width: `${tracker.completionPercent}%` }} />
+        <div style={{ width: `${readyTracker.completionPercent}%` }} />
       </div>
 
       <p className="series-tracker-progress-copy">
-        {tracker.collectedEpisodeCount} of {tracker.expectedEpisodeCount} episodes indexed (
-        {tracker.completionPercent}% complete)
+        {readyTracker.collectedEpisodeCount} of {readyTracker.expectedEpisodeCount} episodes indexed (
+        {readyTracker.completionPercent}% complete)
       </p>
 
-      {tracker.missingSeasons.length > 0 ? (
+      {readyTracker.missingSeasons.length > 0 ? (
         <div className="series-tracker-chip-row" aria-label="Missing seasons">
-          {tracker.missingSeasons.map((season) => (
+          {readyTracker.missingSeasons.map((season) => (
             <span
               key={`missing-season-${season}`}
               className="series-tracker-chip is-missing-season"
@@ -204,38 +243,23 @@ export function SeriesCompletenessSection({
       {missingPreview.length > 0 ? (
         <div className="series-tracker-missing-wrap">
           <div className="series-tracker-missing-list" aria-label="Missing episodes">
-            {missingPreview.map((row) =>
-              row.kind === 'season' ? (
-                <span
-                  key={`missing-season-summary-${row.seasonNumber}`}
-                  className="series-tracker-missing-row is-season-aggregate"
-                >
-                  <span className="series-tracker-episode-code">
-                    S{String(row.seasonNumber).padStart(2, '0')}
-                  </span>
-                  <span className="series-tracker-episode-title">
-                    Entire season missing
-                    {row.episodeCount > 0
-                      ? ` (${row.episodeCount} ${
-                          row.episodeCount === 1 ? 'episode' : 'episodes'
-                        })`
-                      : ''}
-                  </span>
-                </span>
-              ) : (
-                <span
-                  key={`missing-episode-${row.seasonNumber}-${row.episodeNumber}`}
-                  className="series-tracker-missing-row"
-                  title={row.title}
-                >
-                  <span className="series-tracker-episode-code">
-                    S{String(row.seasonNumber).padStart(2, '0')}E
-                    {String(row.episodeNumber).padStart(2, '0')}
-                  </span>
-                  <span className="series-tracker-episode-title">{row.title}</span>
-                </span>
-              ),
-            )}
+            {missingPreview.map((row) => (
+              <MissingRow
+                key={`${row.kind}-${row.seasonNumber}-${row.kind === 'episode' ? row.episodeNumber : 'all'}`}
+                row={row}
+                onOpen={
+                  onOpenMissing
+                    ? (seasonNumber, episodeNumber) =>
+                        onOpenMissing(
+                          readyTracker.source,
+                          readyTracker.providerId,
+                          seasonNumber,
+                          episodeNumber,
+                        )
+                    : undefined
+                }
+              />
+            ))}
           </div>
           {hiddenRowCount > 0 ? (
             <button
@@ -266,7 +290,7 @@ export function SeriesCompletenessSection({
         </div>
       ) : null}
 
-      {tracker.note ? <p className="series-tracker-note">{tracker.note}</p> : null}
+      {readyTracker.note ? <p className="series-tracker-note">{readyTracker.note}</p> : null}
     </section>
   );
 }

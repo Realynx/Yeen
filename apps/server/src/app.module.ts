@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { Module } from '@nestjs/common';
+import { DynamicModule, Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppService } from './domains/core/application/services/app.service';
@@ -13,8 +13,15 @@ import { StreamModule } from './domains/stream/stream.module';
 import { BroadcastModule } from './domains/broadcast/broadcast.module';
 import { SubtitleModule } from './domains/subtitle/subtitle.module';
 import { SystemSettingsModule } from './domains/system-settings/system-settings.module';
-import { TorrentModule } from './domains/torrent/torrent.module';
 import { DashboardModule } from './domains/dashboard/dashboard.module';
+import { AddonsModule } from './domains/addons/addons.module';
+import { LifecycleModule } from './domains/lifecycle/lifecycle.module';
+import { OptionalIntegrationsModule } from './domains/core/optional-integrations.module';
+// CORE_ONLY_VERIFICATION:BEGIN downloader-builtin import
+// CORE_ONLY_VERIFICATION:END downloader-builtin import
+import { LocalMediaIntegrationModule } from './domains/media/local-media-integration.module';
+import { UpdatesModule } from './domains/updates/updates.module';
+import { setWebStaticCacheHeaders } from './domains/core/infrastructure/http/web-static-cache-headers';
 
 @Module({
   imports: [
@@ -24,6 +31,9 @@ import { DashboardModule } from './domains/dashboard/dashboard.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '../../web/dist'),
       exclude: ['/api{/*path}', '/invite{/*path}'],
+      serveStaticOptions: {
+        setHeaders: setWebStaticCacheHeaders,
+      },
     }),
     AuthModule,
     MediaModule,
@@ -33,9 +43,22 @@ import { DashboardModule } from './domains/dashboard/dashboard.module';
     BroadcastModule,
     SubtitleModule,
     ProgressModule,
-    TorrentModule,
+    OptionalIntegrationsModule,
+    LocalMediaIntegrationModule,
+    LifecycleModule,
+    // CORE_ONLY_VERIFICATION:BEGIN downloader-builtin registration
+    // CORE_ONLY_VERIFICATION:END downloader-builtin registration
+    AddonsModule,
+    UpdatesModule,
   ],
   controllers: [AppController, InvitePageController, InstallAssetsController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+  static register(addonModules: Type<unknown>[] = []): DynamicModule {
+    return {
+      module: AppModule,
+      imports: addonModules,
+    };
+  }
+}

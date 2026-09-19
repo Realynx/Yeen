@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import type { ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 export type ClientExperience = 'desktop' | 'phone' | 'tv';
@@ -13,9 +12,19 @@ export interface PageVariants<TProps> {
 const QUERY_PARAM_NAME = 'ui';
 const STORAGE_KEY = 'yeen:ui-experience';
 const FORCE_NATIVE_ANDROID_TV_EXPERIENCE =
-  (import.meta.env.VITE_FORCE_NATIVE_ANDROID_TV_EXPERIENCE as string | undefined)?.trim() !== '0';
+  (import.meta.env.VITE_FORCE_NATIVE_ANDROID_TV_EXPERIENCE as string | undefined)?.trim() === '1';
 const TV_USER_AGENT_PATTERN =
   /(aft[a-z0-9]+|android tv|google tv|googletv|fire tv|firetv|smart-tv|smarttv|hbbtv|viera|web0s|webos|tizen|netcast|roku|appletv|bravia|xbox|playstation)/i;
+
+export interface ClientExperienceSignals {
+  width: number;
+  height: number;
+  userAgent: string;
+  coarsePointer: boolean;
+  hoverNone: boolean;
+  isNativeAndroid: boolean;
+  forceNativeAndroidTv: boolean;
+}
 
 function normalizeExperience(value: string | null | undefined): ClientExperience | null {
   const normalized = value?.trim().toLowerCase() ?? '';
@@ -41,30 +50,27 @@ function readExperienceOverride(target: Window): ClientExperience | null {
   }
 }
 
-function detectClientExperience(target: Window): ClientExperience {
-  const override = readExperienceOverride(target);
-  if (override) {
-    return override;
-  }
-
+export function resolveClientExperience({
+  width,
+  height,
+  userAgent,
+  coarsePointer,
+  hoverNone,
+  isNativeAndroid,
+  forceNativeAndroidTv,
+}: ClientExperienceSignals): ClientExperience {
   if (
-    FORCE_NATIVE_ANDROID_TV_EXPERIENCE &&
-    Capacitor.isNativePlatform() &&
-    Capacitor.getPlatform() === 'android'
+    forceNativeAndroidTv
+    && isNativeAndroid
   ) {
     return 'tv';
   }
 
-  const userAgent = target.navigator.userAgent.toLowerCase();
   if (TV_USER_AGENT_PATTERN.test(userAgent)) {
     return 'tv';
   }
 
-  const width = target.innerWidth;
-  const height = target.innerHeight;
   const shortestSide = Math.min(width, height);
-  const coarsePointer = target.matchMedia('(pointer: coarse)').matches;
-  const hoverNone = target.matchMedia('(hover: none)').matches;
   const touchPrimaryInput = coarsePointer || hoverNone;
 
   if (shortestSide <= 820 || (touchPrimaryInput && width <= 1024)) {
@@ -72,6 +78,27 @@ function detectClientExperience(target: Window): ClientExperience {
   }
 
   return 'desktop';
+}
+
+function detectClientExperience(target: Window): ClientExperience {
+  const override = readExperienceOverride(target);
+  if (override) {
+    return override;
+  }
+
+  const isNativeAndroid =
+    Capacitor.isNativePlatform()
+    && Capacitor.getPlatform() === 'android';
+
+  return resolveClientExperience({
+    width: target.innerWidth,
+    height: target.innerHeight,
+    userAgent: target.navigator.userAgent,
+    coarsePointer: target.matchMedia('(pointer: coarse)').matches,
+    hoverNone: target.matchMedia('(hover: none)').matches,
+    isNativeAndroid,
+    forceNativeAndroidTv: FORCE_NATIVE_ANDROID_TV_EXPERIENCE,
+  });
 }
 
 function addMediaListener(query: MediaQueryList, onChange: () => void) {

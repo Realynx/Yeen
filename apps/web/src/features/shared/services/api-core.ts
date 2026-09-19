@@ -20,11 +20,7 @@ export function jsonBody(payload: unknown): string {
   return JSON.stringify(payload);
 }
 
-export async function request<T>(
-  path: string,
-  options: RequestInit = {},
-  token?: string,
-): Promise<T> {
+function createRequestHeaders(options: RequestInit, token?: string): Headers {
   const headers = new Headers(options.headers ?? {});
   const isMultipartBody =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -37,21 +33,33 @@ export async function request<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  return headers;
+}
+
+async function readApiError(response: Response): Promise<ApiError> {
+  const fallback = `${response.status} ${response.statusText}`;
+  const payload = await response.json().catch(() => null) as {
+    message?: string | string[];
+    error?: string;
+  } | null;
+  const message = Array.isArray(payload?.message)
+    ? payload.message.join(', ')
+    : payload?.message ?? payload?.error ?? fallback;
+  return new ApiError(message, response.status);
+}
+
+export async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string,
+): Promise<T> {
   const response = await fetch(resolveApiUrl(path), {
     ...options,
-    headers,
+    headers: createRequestHeaders(options, token),
   });
 
   if (!response.ok) {
-    const fallback = `${response.status} ${response.statusText}`;
-    const payload = await response.json().catch(() => null) as {
-      message?: string | string[];
-      error?: string;
-    } | null;
-    const message = Array.isArray(payload?.message)
-      ? payload.message.join(', ')
-      : payload?.message ?? payload?.error ?? fallback;
-    throw new ApiError(message, response.status);
+    throw await readApiError(response);
   }
 
   if (response.status === 204) {
@@ -71,6 +79,19 @@ export function getConfiguredApiBaseUrl() {
 
 export function getRuntimeApiBaseUrl() {
   return readRuntimeApiBase();
+}
+
+export function readStoredAccessToken(
+  storage?: Pick<Storage, 'getItem'>,
+): string {
+  try {
+    const target = storage ?? (
+      typeof window === 'undefined' ? null : window.localStorage
+    );
+    return target?.getItem(TOKEN_STORAGE_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function setRuntimeApiBaseUrl(nextApiBase: string | null | undefined) {
@@ -105,11 +126,14 @@ export function withAccessToken(path: string, token: string) {
   }
 
   try {
-    const url = new URL(candidateUrl);
+    const browserBaseUrl =
+      typeof window === 'undefined' ? undefined : window.location.href;
+    const url = new URL(candidateUrl, browserBaseUrl);
     url.searchParams.set('access_token', token);
     return url.toString();
   } catch {
-    return candidateUrl;
+    const separator = candidateUrl.includes('?') ? '&' : '?';
+    return `${candidateUrl}${separator}access_token=${encodeURIComponent(token)}`;
   }
 }
 

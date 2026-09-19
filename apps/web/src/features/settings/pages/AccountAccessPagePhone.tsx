@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminAccountsPanel } from '../components/AdminAccountsPanel';
 import { listMedia } from '../../shared/services/api';
@@ -14,6 +13,7 @@ import {
 import { useAdminAccounts } from '../services/useAdminAccounts';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
+import { SettingsAppShell } from '../components/SettingsAppShell';
 
 interface AccountAccessPagePhoneProps {
 	token: string;
@@ -126,7 +126,14 @@ export function AccountAccessPagePhone({
 					randomDisabled={randomDetailsCandidates.length === 0}
 				/>
 
-				<AdminAccountsPanel adminAccountsState={adminAccountsState} />
+				<SettingsAppShell
+					user={user}
+					experience="phone"
+					title="Accounts & access"
+					description="Manage Account Roles, invitations, limits, and activity."
+				>
+					<AdminAccountsPanel adminAccountsState={adminAccountsState} />
+				</SettingsAppShell>
 			</main>
 		</PhonePageShell>
 	);

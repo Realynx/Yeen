@@ -128,36 +128,13 @@ export class MediaMetadataPatchEnrichmentService {
       };
     }
 
-    if (
-      !this.hasPatchKey(effectivePatch, 'posterUrl') &&
-      hasNonEmptyString(remoteCandidate.posterUrl)
-    ) {
-      effectivePatch.posterUrl = remoteCandidate.posterUrl;
-    }
-
-    if (
-      !this.hasPatchKey(effectivePatch, 'backdropUrl') &&
-      hasNonEmptyString(remoteCandidate.backdropUrl)
-    ) {
-      effectivePatch.backdropUrl = remoteCandidate.backdropUrl;
-    }
-
-    if (
-      remoteSelectionChanged &&
-      !this.hasPatchKey(effectivePatch, 'releaseYear') &&
-      typeof remoteCandidate.releaseYear === 'number' &&
-      Number.isFinite(remoteCandidate.releaseYear)
-    ) {
-      effectivePatch.releaseYear = Math.floor(remoteCandidate.releaseYear);
-    }
-
-    if (
-      remoteSelectionChanged &&
-      shouldHydrateDescriptionFromRemote(existing, patch) &&
-      hasNonEmptyString(remoteCandidate.overview)
-    ) {
-      effectivePatch.description = remoteCandidate.overview;
-    }
+    this.hydrateRemoteCandidateFields(
+      effectivePatch,
+      existing,
+      patch,
+      remoteCandidate,
+      remoteSelectionChanged,
+    );
 
     return {
       effectivePatch,
@@ -189,28 +166,13 @@ export class MediaMetadataPatchEnrichmentService {
       return;
     }
 
-    const seasonNumber = this.hasPatchKey(effectivePatch, 'seasonNumber')
-      ? (effectivePatch.seasonNumber ?? null)
-      : existing.seasonNumber;
-    if (
-      typeof seasonNumber === 'number' &&
-      Number.isFinite(seasonNumber) &&
-      Math.floor(seasonNumber) < 0
-    ) {
-      return;
-    }
-
-    const normalizedSeasonNumber =
-      typeof seasonNumber === 'number' && Number.isFinite(seasonNumber)
-        ? Math.floor(seasonNumber)
-        : 1;
-
-    const episodeNumber = this.hasPatchKey(effectivePatch, 'episodeNumber')
-      ? coercePositiveEpisodeNumber(effectivePatch.episodeNumber ?? null)
-      : coercePositiveEpisodeNumber(existing.episodeNumber);
-    if (!episodeNumber) {
-      return;
-    }
+    const normalizedSeasonNumber = this.resolveSeasonNumber(
+      existing,
+      effectivePatch,
+    );
+    if (normalizedSeasonNumber === null) return;
+    const episodeNumber = this.resolveEpisodeNumber(existing, effectivePatch);
+    if (!episodeNumber) return;
 
     const catalog = await this.loadSeriesEpisodeCatalog({
       source: nextSelection.provider,
@@ -220,36 +182,16 @@ export class MediaMetadataPatchEnrichmentService {
       return;
     }
 
-    const episodeDetails =
-      catalog.source === 'jikan'
-        ? catalog.episodes.find(
-            (episode) => episode.episodeNumber === episodeNumber,
-          )
-        : normalizedSeasonNumber < 1
-          ? null
-          : catalog.episodes.find(
-              (episode) =>
-                episode.seasonNumber === normalizedSeasonNumber &&
-                episode.episodeNumber === episodeNumber,
-            );
+    const episodeDetails = this.findEpisodeDetails(
+      catalog,
+      normalizedSeasonNumber,
+      episodeNumber,
+    );
     if (!episodeDetails) {
       return;
     }
 
-    const incomingEpisodeTitle = normalizeOptionalString(
-      this.hasPatchKey(originalPatch, 'episodeTitle')
-        ? (originalPatch.episodeTitle ?? null)
-        : null,
-    );
-
-    const shouldReplaceEpisodeTitle =
-      remoteSelectionChanged ||
-      this.hasPatchKey(originalPatch, 'episodeNumber') ||
-      this.hasPatchKey(originalPatch, 'seasonNumber') ||
-      !this.hasPatchKey(originalPatch, 'episodeTitle') ||
-      !incomingEpisodeTitle;
-
-    if (shouldReplaceEpisodeTitle) {
+    if (this.shouldReplaceEpisodeTitle(originalPatch, remoteSelectionChanged)) {
       effectivePatch.episodeTitle = episodeDetails.title;
     }
 
@@ -258,27 +200,139 @@ export class MediaMetadataPatchEnrichmentService {
       return;
     }
 
-    const incomingDescription = normalizeOptionalString(
-      this.hasPatchKey(originalPatch, 'description')
-        ? (originalPatch.description ?? null)
-        : null,
+    if (
+      this.shouldReplaceEpisodeDescription(
+        existing,
+        originalPatch,
+        remoteCandidate,
+        remoteSelectionChanged,
+      )
+    ) {
+      effectivePatch.description = episodeSynopsis;
+    }
+  }
+
+  private hydrateRemoteCandidateFields(
+    effectivePatch: MediaMetadataPatch,
+    existing: MediaItem,
+    originalPatch: MediaMetadataPatch,
+    candidate: RemoteMediaCandidate,
+    selectionChanged: boolean,
+  ): void {
+    if (
+      !this.hasPatchKey(effectivePatch, 'posterUrl') &&
+      hasNonEmptyString(candidate.posterUrl)
+    ) {
+      effectivePatch.posterUrl = candidate.posterUrl;
+    }
+    if (
+      !this.hasPatchKey(effectivePatch, 'backdropUrl') &&
+      hasNonEmptyString(candidate.backdropUrl)
+    ) {
+      effectivePatch.backdropUrl = candidate.backdropUrl;
+    }
+    if (
+      selectionChanged &&
+      !this.hasPatchKey(effectivePatch, 'releaseYear') &&
+      typeof candidate.releaseYear === 'number' &&
+      Number.isFinite(candidate.releaseYear)
+    ) {
+      effectivePatch.releaseYear = Math.floor(candidate.releaseYear);
+    }
+    if (
+      selectionChanged &&
+      shouldHydrateDescriptionFromRemote(existing, originalPatch) &&
+      hasNonEmptyString(candidate.overview)
+    ) {
+      effectivePatch.description = candidate.overview;
+    }
+  }
+
+  private resolveSeasonNumber(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): number | null {
+    const value = this.hasPatchKey(patch, 'seasonNumber')
+      ? (patch.seasonNumber ?? null)
+      : existing.seasonNumber;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const normalized = Math.floor(value);
+      return normalized < 0 ? null : normalized;
+    }
+    return 1;
+  }
+
+  private resolveEpisodeNumber(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+  ): number | null {
+    const value = this.hasPatchKey(patch, 'episodeNumber')
+      ? (patch.episodeNumber ?? null)
+      : existing.episodeNumber;
+    return coercePositiveEpisodeNumber(value);
+  }
+
+  private findEpisodeDetails(
+    catalog: NormalizedSeriesEpisodeCatalog,
+    seasonNumber: number,
+    episodeNumber: number,
+  ): NormalizedSeriesCatalogEpisode | null {
+    if (catalog.source === 'jikan') {
+      return (
+        catalog.episodes.find(
+          (episode) => episode.episodeNumber === episodeNumber,
+        ) ?? null
+      );
+    }
+    if (seasonNumber < 1) return null;
+    return (
+      catalog.episodes.find(
+        (episode) =>
+          episode.seasonNumber === seasonNumber &&
+          episode.episodeNumber === episodeNumber,
+      ) ?? null
     );
+  }
+
+  private shouldReplaceEpisodeTitle(
+    patch: MediaMetadataPatch,
+    selectionChanged: boolean,
+  ): boolean {
+    const incoming = this.hasPatchKey(patch, 'episodeTitle')
+      ? normalizeOptionalString(patch.episodeTitle ?? null)
+      : null;
+    return (
+      selectionChanged ||
+      this.hasPatchKey(patch, 'episodeNumber') ||
+      this.hasPatchKey(patch, 'seasonNumber') ||
+      !this.hasPatchKey(patch, 'episodeTitle') ||
+      !incoming
+    );
+  }
+
+  private shouldReplaceEpisodeDescription(
+    existing: MediaItem,
+    patch: MediaMetadataPatch,
+    remoteCandidate: RemoteMediaCandidate | null,
+    selectionChanged: boolean,
+  ): boolean {
+    const incoming = this.hasPatchKey(patch, 'description')
+      ? normalizeOptionalString(patch.description ?? null)
+      : null;
     const remoteOverview = normalizeOptionalString(
       remoteCandidate?.overview ?? null,
     );
-
-    const shouldReplaceDescription =
-      remoteSelectionChanged ||
-      this.hasPatchKey(originalPatch, 'episodeNumber') ||
-      this.hasPatchKey(originalPatch, 'seasonNumber') ||
-      !this.hasPatchKey(originalPatch, 'description') ||
-      !incomingDescription ||
-      shouldHydrateDescriptionFromRemote(existing, originalPatch) ||
-      (!!remoteOverview && incomingDescription === remoteOverview);
-
-    if (shouldReplaceDescription) {
-      effectivePatch.description = episodeSynopsis;
-    }
+    const episodeChanged =
+      this.hasPatchKey(patch, 'episodeNumber') ||
+      this.hasPatchKey(patch, 'seasonNumber');
+    return (
+      selectionChanged ||
+      episodeChanged ||
+      !this.hasPatchKey(patch, 'description') ||
+      !incoming ||
+      shouldHydrateDescriptionFromRemote(existing, patch) ||
+      Boolean(remoteOverview && incoming === remoteOverview)
+    );
   }
 
   private async fetchRemoteCandidate(

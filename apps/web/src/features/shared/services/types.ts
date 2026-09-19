@@ -4,6 +4,7 @@ export type {
   BroadcastPlaybackUpdate,
   BroadcastSourceUpdate,
   BroadcastViewerHeartbeatResponse,
+  BroadcastViewerStatus,
   BroadcastOwnerSessionStatus as BroadcastOwnerSession,
   BroadcastPublicSessionStatus as BroadcastPublicSession,
   CreatedInvite,
@@ -17,30 +18,30 @@ export type {
   TvPairingStatus,
   User,
   UserRole,
-} from '@yeen/shared-contracts';
+} from "@yeen/shared-contracts";
+import type {
+  DigitalMediaType,
+  MediaLibraryLocation,
+  MediaLibraryType,
+  MusicMetadata,
+} from "@yeen/shared-contracts";
 export type {
-  IptorrentsSearchItem,
-  IptorrentsSearchResponse,
-  NyaaSearchResponse,
-  NyaaSortDirection,
-  NyaaSortField,
-} from './types-torrent-search';
+  DigitalMediaType,
+  MediaLibraryLocation,
+  MediaLibraryType,
+  MusicMetadata,
+} from "@yeen/shared-contracts";
 export type {
   AdminAccountActivityItem,
   AdminAccountMediaActivityItem,
   AdminAccountsActivityOverview,
   AdminDownloadActivityItem,
-} from './types-admin-activity';
-export type {
-  MediaScanProgress,
-  QbittorrentPathMapping,
-  SystemSettings,
-} from './types-settings';
-
-export type DigitalMediaType = 'video' | 'audio' | 'image' | 'other';
+} from "./types-admin-activity";
+export type { MediaScanProgress, SystemSettings } from "./types-settings";
+export type { CoreUpdateStatus, CoreUpdatePhase } from "./types-updates";
 
 export interface MediaSubtitleDetail {
-  kind: 'embedded' | 'external';
+  kind: "embedded" | "external";
   label: string;
   language: string | null;
   source: string;
@@ -94,8 +95,10 @@ export interface MediaItem {
   filePath: string;
   extension: string;
   container: string | null;
-  type: 'movie' | 'show' | 'other';
+  type: "movie" | "show" | "other";
   digitalMediaType: DigitalMediaType;
+  libraryType?: MediaLibraryType;
+  musicMetadata?: MusicMetadata | null;
   sizeBytes: number;
   durationSeconds: number;
   width: number | null;
@@ -111,10 +114,10 @@ export interface MediaItem {
   metadataRefreshedAt: string;
   updatedAt: string;
   isRemote?: boolean;
-  remoteSource?: 'tmdb' | 'jikan';
+  remoteSource?: "tmdb" | "jikan";
   remoteSourceId?: string | null;
   remoteSourceLabel?: string | null;
-  episodeCatalogSource?: 'tmdb' | 'jikan' | null;
+  episodeCatalogSource?: "tmdb" | "jikan" | null;
   episodeCatalogSourceId?: string | null;
   seriesAssignmentRules?: SeriesAssignmentRules | null;
 }
@@ -132,10 +135,8 @@ export interface PlaybackPlan {
   subtitles: {
     listUrl: string;
   };
-  torrent: {
-    hash: string;
-    statusUrl: string;
-  } | null;
+  /** Optional host-neutral fields contributed by installed playback adapters. */
+  [key: string]: unknown;
 }
 
 export interface PlaybackAudioTrack {
@@ -150,6 +151,7 @@ export interface PlaybackAudioTrack {
 export interface HlsStartResponse {
   sessionId: string;
   manifestUrl: string;
+  totalDurationSeconds: number;
   selectedAudioStreamIndex: number | null;
   maxVideoBitrateKbps: number;
   audioBitrateKbps: number;
@@ -161,6 +163,7 @@ export interface HlsSessionStats {
   mediaId: string;
   startedAt: string;
   ffmpegPath: string;
+  videoEncoder: "cpu" | "nvidia";
   sourceFilePath: string;
   segmentSeconds: number;
   totalDurationSeconds: number;
@@ -170,7 +173,6 @@ export interface HlsSessionStats {
   audioBitrateKbps: number;
   maxOutputHeight: number;
   keyFrameInterval: number;
-  torrentHash: string | null;
   readySegments: number;
   contiguousReadySegments: number;
   readyThroughSeconds: number;
@@ -182,27 +184,9 @@ export interface HlsSessionStats {
   recoverableStartFailures: number;
 }
 
-export type TorrentOrderMode = 'sequential' | 'random';
-export type TorrentIntent = 'stream' | 'background';
-
-export interface TorrentItem {
-  hash: string;
-  name: string;
-  state: string;
-  progress: number;
-  etaSeconds: number;
-  downloadRate: number;
-  uploadRate: number;
-  sizeBytes: number;
-  completedBytes: number;
-  savePath: string | null;
-  sequentialDownload: boolean | null;
-  firstLastPiecePriority: boolean | null;
-}
-
 export interface SubtitleTrack {
   id: string;
-  kind: 'embedded' | 'external';
+  kind: "embedded" | "external";
   label: string;
   language: string | null;
   format: string;
@@ -226,16 +210,10 @@ export interface ProgressEntry {
   updatedAt: string;
 }
 
-export interface MediaTorrentDownloadProgressEntry {
-  mediaId: string;
-  hash: string;
-  progressPercent: number;
-  state: string;
-}
-
 export interface MediaLocationsResponse {
   locations: string[];
-  source: 'settings' | 'env';
+  libraryLocations: MediaLibraryLocation[];
+  source: "settings" | "env";
 }
 
 export interface MediaStorageSummary {
@@ -266,13 +244,13 @@ export interface SeriesEpisodeTrackerMissingEpisode {
 
 export type SeriesEpisodeTrackerResult =
   | {
-      status: 'unavailable';
+      status: "unavailable";
       reason: string;
       source: null;
     }
   | {
-      status: 'ready';
-      source: 'jikan' | 'tmdb';
+      status: "ready";
+      source: "jikan" | "tmdb";
       sourceLabel: string;
       providerId: string;
       isComplete: boolean;
@@ -287,6 +265,35 @@ export type SeriesEpisodeTrackerResult =
       missingEpisodes: SeriesEpisodeTrackerMissingEpisode[];
       updatedAt: string;
       note: string | null;
+    };
+
+export interface RemoteSeriesEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  synopsis: string | null;
+  airedAt: string | null;
+}
+
+export interface RemoteSeriesSeason {
+  seasonNumber: number;
+  episodes: RemoteSeriesEpisode[];
+}
+
+export type RemoteSeriesEpisodeCatalogResult =
+  | {
+      status: 'unavailable';
+      reason: string;
+      source: null;
+    }
+  | {
+      status: 'ready';
+      source: 'jikan' | 'tmdb';
+      sourceLabel: string;
+      providerId: string;
+      totalEpisodeCount: number;
+      seasons: RemoteSeriesSeason[];
+      updatedAt: string;
     };
 
 export interface MediaMetadataClearResult {
@@ -328,7 +335,7 @@ export interface PurgeRecycleDeletionsResult {
   message: string;
 }
 
-export type MetadataImportMode = 'replace' | 'upsert';
+export type MetadataImportMode = "replace" | "upsert";
 
 export interface MetadataExportImageAsset {
   mimeType: string;
@@ -350,4 +357,4 @@ export interface MediaMetadataImportResult {
   message: string;
 }
 
-
+export * from "./types-addons";

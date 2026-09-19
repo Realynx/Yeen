@@ -36,9 +36,31 @@ interface UseExploreCatalogStateResult {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  retry: () => void;
   scrollTop: number;
   setScrollTop: (nextScrollTop: number) => void;
   resetExploreForTag: (nextTag: string, options?: { resetScrollTop?: boolean }) => void;
+}
+
+function restoredScrollTop(restored: ExploreSessionState | null, trackScrollTop: boolean): number {
+  if (!trackScrollTop) return 0;
+  return restored?.scrollTop ?? 0;
+}
+
+function initialExploreState(
+  restored: ExploreSessionState | null,
+  trackScrollTop: boolean,
+): ExploreSessionState {
+  const catalogMode = restored?.catalogMode ?? 'non-anime';
+  return {
+    catalogMode,
+    tagFilter: restored?.tagFilter ?? defaultTagForMode(catalogMode),
+    typeFilter: restored?.typeFilter ?? 'all',
+    page: restored?.page ?? 1,
+    hasMore: restored?.hasMore ?? true,
+    remoteItems: restored?.remoteItems ?? [],
+    scrollTop: restoredScrollTop(restored, trackScrollTop),
+  };
 }
 
 export function useExploreCatalogState(
@@ -54,13 +76,13 @@ export function useExploreCatalogState(
   } = options;
 
   const restoredSessionState = useMemo(() => readExploreSessionState(), []);
-  const initialCatalogMode = restoredSessionState?.catalogMode ?? 'non-anime';
-  const initialTagFilter = restoredSessionState?.tagFilter ?? defaultTagForMode(initialCatalogMode);
-  const initialTypeFilter = restoredSessionState?.typeFilter ?? 'all';
-  const initialPage = restoredSessionState?.page ?? 1;
-  const initialHasMore = restoredSessionState?.hasMore ?? true;
-  const initialRemoteItems = restoredSessionState?.remoteItems ?? [];
-  const initialScrollTop = trackScrollTop ? (restoredSessionState?.scrollTop ?? 0) : 0;
+  const initial = useMemo(
+    () => initialExploreState(restoredSessionState, trackScrollTop),
+    [restoredSessionState, trackScrollTop],
+  );
+  const { catalogMode: initialCatalogMode, tagFilter: initialTagFilter,
+    typeFilter: initialTypeFilter, page: initialPage, hasMore: initialHasMore,
+    remoteItems: initialRemoteItems, scrollTop: initialScrollTop } = initial;
 
   const [catalogMode, setCatalogMode] = useState<ExploreCatalogMode>(initialCatalogMode);
   const [tagFilter, setTagFilter] = useState(initialTagFilter);
@@ -77,6 +99,7 @@ export function useExploreCatalogState(
   });
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestAttempt, setRequestAttempt] = useState(0);
   const [scrollTop, setScrollTopState] = useState(initialScrollTop);
 
   const skipInitialFetchRef = useRef(
@@ -127,6 +150,15 @@ export function useExploreCatalogState(
     skipInitialFetchRef.current = false;
   }, [setScrollTop]);
 
+  const retry = useCallback(() => {
+    if (tagFilter.trim().length < 2) return;
+    setError(null);
+    setHasMore(true);
+    if (page <= 1) setLoading(true);
+    else setLoadingMore(true);
+    setRequestAttempt((attempt) => attempt + 1);
+  }, [page, tagFilter]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -163,7 +195,7 @@ export function useExploreCatalogState(
           remotePageSize,
           activeProviders,
           [selectedTag],
-          true,
+          false,
           page,
         );
 
@@ -220,7 +252,7 @@ export function useExploreCatalogState(
     return () => {
       cancelled = true;
     };
-  }, [activeProviders, errorMessage, page, remotePageSize, tagFilter, token]);
+  }, [activeProviders, errorMessage, page, remotePageSize, requestAttempt, tagFilter, token]);
 
   useEffect(() => {
     sessionStateRef.current = {
@@ -259,6 +291,7 @@ export function useExploreCatalogState(
     loading,
     loadingMore,
     error,
+    retry,
     scrollTop: trackScrollTop ? scrollTop : 0,
     setScrollTop,
     resetExploreForTag,

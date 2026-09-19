@@ -5,6 +5,7 @@ import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { lookup } from 'mime-types';
 import { MediaItem } from '../../domain/entities/media-item.entity';
+import { normalizePersistedMediaAssetPath } from '../../infrastructure/helpers/media-persisted-asset-path';
 
 @Injectable()
 export class MediaImageStreamService {
@@ -63,7 +64,9 @@ export class MediaImageStreamService {
     imagePath: string,
     response: Response,
   ): Promise<void> {
-    const resolvedPath = resolve(imagePath);
+    const stableImagePath =
+      normalizePersistedMediaAssetPath(imagePath) ?? imagePath;
+    const resolvedPath = resolve(stableImagePath);
 
     let imageStats;
     try {

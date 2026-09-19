@@ -1,5 +1,6 @@
 import type { MediaStore } from '../../infrastructure/stores/media.store';
 import type { MediaItem } from '../../domain/entities/media-item.entity';
+import type { MediaLibraryType } from '@yeen/shared-contracts';
 
 export interface MediaListOpsContext {
   mediaStore: MediaStore;
@@ -9,22 +10,36 @@ export async function listValue(
   context: MediaListOpsContext,
   search?: string,
   tags?: string[],
+  libraryType?: MediaLibraryType,
 ): Promise<MediaItem[]> {
   const all = await context.mediaStore.all();
   const needle = search?.trim().toLowerCase() ?? '';
   const normalizedTags = normalizeTagFilters(tags);
 
-  if (!needle && normalizedTags.length === 0) {
+  if (!needle && normalizedTags.length === 0 && !libraryType) {
     return all;
   }
 
   return all.filter((item) => {
+    if (libraryType && item.libraryType !== libraryType) {
+      return false;
+    }
+
+    const musicSearchFields = item.musicMetadata
+      ? [
+          item.musicMetadata.artist,
+          item.musicMetadata.album,
+          item.musicMetadata.albumArtist,
+          item.musicMetadata.genre,
+        ]
+      : [];
     const matchesSearch =
       !needle ||
       item.title.toLowerCase().includes(needle) ||
       item.description?.toLowerCase().includes(needle) ||
       item.relativePath.toLowerCase().includes(needle) ||
-      item.tags.some((tag) => tag.toLowerCase().includes(needle));
+      item.tags.some((tag) => tag.toLowerCase().includes(needle)) ||
+      musicSearchFields.some((value) => value?.toLowerCase().includes(needle));
 
     if (!matchesSearch) {
       return false;

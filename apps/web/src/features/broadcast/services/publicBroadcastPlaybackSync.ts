@@ -3,18 +3,16 @@ import {
 } from '../../shared/services/api';
 import type { BroadcastPublicSession } from '../../shared/services/types';
 
-const HARD_SYNC_DRIFT_SECONDS = 2.5;
-const EXTREME_SYNC_DRIFT_SECONDS = 5.5;
-const SOFT_SYNC_DRIFT_SECONDS = 0.5;
-const SOFT_SYNC_HYSTERESIS_SECONDS = 0.12;
-const SOFT_SYNC_RATE_LIMIT = 0.04;
+const HARD_SYNC_DRIFT_SECONDS = 1.25;
+const EXTREME_SYNC_DRIFT_SECONDS = 4;
+const SOFT_SYNC_DRIFT_SECONDS = 0.15;
+const SOFT_SYNC_HYSTERESIS_SECONDS = 0.04;
+const SOFT_SYNC_RATE_LIMIT = 0.08;
 const MAX_PREDICTED_LEAD_SECONDS = 1.2;
 const SEGMENT_READY_SAFETY_SECONDS = 0.35;
-const HARD_SYNC_COOLDOWN_MS = 5000;
+const HARD_SYNC_COOLDOWN_MS = 2000;
 const MANIFEST_SETTLE_MS = 500;
 const DRIFT_SMOOTHING_ALPHA = 0.35;
-const RECENT_HARD_SYNC_WINDOW_MS = 2000;
-const RECENT_HARD_SYNC_LEAD_CAP_SECONDS = 0.6;
 
 export const SEEK_GUARD_WINDOW_MS = 1200;
 
@@ -98,6 +96,79 @@ function resolveSegmentReadyLeadCapSeconds(
   );
 }
 
+function pauseInactiveBroadcast(video: HTMLVideoElement, runtime: PlaybackSyncRuntime): void {
+  if (!video.paused) video.pause();
+  if (video.playbackRate !== 1) video.playbackRate = 1;
+  runtime.smoothedDriftSeconds = 0;
+}
+
+function applyBroadcastManifest(
+  video: HTMLVideoElement,
+  url: string,
+  nowMs: number,
+  runtime: PlaybackSyncRuntime,
+  seekGuard: { current: number },
+  controller?: PlaybackManifestSyncController,
+): void {
+  if (controller) controller.applyManifest(url);
+  else { video.src = url; video.load(); }
+  runtime.lastManifestUrl = url;
+  runtime.lastManifestAppliedAtMs = nowMs;
+  runtime.lastHardSyncAtMs = 0;
+  runtime.smoothedDriftSeconds = 0;
+  seekGuard.current = nowMs + SEEK_GUARD_WINDOW_MS;
+}
+
+function applyPlaybackDrift(
+  video: HTMLVideoElement,
+  status: BroadcastPublicSession,
+  target: number,
+  drift: number,
+  smoothedDrift: number,
+  nowMs: number,
+  runtime: PlaybackSyncRuntime,
+  seekGuard: { current: number },
+): void {
+  const settling = nowMs - runtime.lastManifestAppliedAtMs < MANIFEST_SETTLE_MS;
+  const canHardSync = Math.abs(drift) > EXTREME_SYNC_DRIFT_SECONDS
+    || nowMs - runtime.lastHardSyncAtMs >= HARD_SYNC_COOLDOWN_MS;
+  if (!settling && Math.abs(drift) > HARD_SYNC_DRIFT_SECONDS && canHardSync) {
+    seekGuard.current = nowMs + SEEK_GUARD_WINDOW_MS;
+    runtime.lastHardSyncAtMs = nowMs;
+    runtime.smoothedDriftSeconds = 0;
+    video.currentTime = target;
+    video.playbackRate = 1;
+  } else if (status.playbackIsPlaying
+      && Math.abs(smoothedDrift) > resolveSoftSyncThreshold(video.playbackRate) && !settling) {
+    const adjustment = Math.max(-SOFT_SYNC_RATE_LIMIT, Math.min(SOFT_SYNC_RATE_LIMIT, smoothedDrift * 0.08));
+    video.playbackRate = 1 + adjustment;
+  } else if (video.playbackRate !== 1) video.playbackRate = 1;
+}
+
+async function resumeBroadcastPlayback(video: HTMLVideoElement): Promise<void> {
+  try {
+    await video.play();
+    return;
+  } catch {
+    // Chromium can revoke audible autoplay after the broadcaster pauses. A
+    // muted retry keeps the shared timeline moving; native controls let the
+    // viewer opt back into audio without another playback restart.
+  }
+
+  video.muted = true;
+  try {
+    await video.play();
+  } catch {
+    // Native controls remain available when the browser requires a gesture.
+  }
+}
+
+function syncPlayingState(video: HTMLVideoElement, playing: boolean): void {
+  if (playing && video.paused) {
+    void resumeBroadcastPlayback(video);
+  } else if (!playing && !video.paused) video.pause();
+}
+
 export function syncVideoToBroadcastStatus(
   video: HTMLVideoElement,
   status: BroadcastPublicSession,
@@ -109,16 +180,7 @@ export function syncVideoToBroadcastStatus(
   const nowMs = Date.now();
 
   if (!status.isLive || !status.manifestUrl) {
-    if (!video.paused) {
-      video.pause();
-    }
-
-    if (video.playbackRate !== 1) {
-      video.playbackRate = 1;
-    }
-
-    syncRuntimeRef.current.smoothedDriftSeconds = 0;
-
+    pauseInactiveBroadcast(video, syncRuntimeRef.current);
     return;
   }
 
@@ -128,18 +190,8 @@ export function syncVideoToBroadcastStatus(
     : video.src;
 
   if (activeManifestUrl !== nextManifestUrl) {
-    if (manifestSyncController) {
-      manifestSyncController.applyManifest(nextManifestUrl);
-    } else {
-      video.src = nextManifestUrl;
-      video.load();
-    }
-
-    syncRuntimeRef.current.lastManifestUrl = nextManifestUrl;
-    syncRuntimeRef.current.lastManifestAppliedAtMs = nowMs;
-    syncRuntimeRef.current.lastHardSyncAtMs = 0;
-    syncRuntimeRef.current.smoothedDriftSeconds = 0;
-    suppressSeekGuardUntilRef.current = nowMs + SEEK_GUARD_WINDOW_MS;
+    applyBroadcastManifest(video, nextManifestUrl, nowMs, syncRuntimeRef.current,
+      suppressSeekGuardUntilRef, manifestSyncController);
     return;
   }
 
@@ -154,17 +206,7 @@ export function syncVideoToBroadcastStatus(
   const currentPosition = Number.isFinite(video.currentTime)
     ? video.currentTime
     : 0;
-  let targetPosition = resolveBroadcastTargetPosition(status, statusReceivedAtMs);
-
-  if (
-    status.playbackIsPlaying
-    && nowMs - syncRuntimeRef.current.lastHardSyncAtMs <= RECENT_HARD_SYNC_WINDOW_MS
-  ) {
-    targetPosition = Math.min(
-      targetPosition,
-      currentPosition + RECENT_HARD_SYNC_LEAD_CAP_SECONDS,
-    );
-  }
+  const targetPosition = resolveBroadcastTargetPosition(status, statusReceivedAtMs);
 
   const drift = targetPosition - currentPosition;
   const smoothedDrift = resolveSmoothedDrift(
@@ -173,45 +215,9 @@ export function syncVideoToBroadcastStatus(
   );
   syncRuntimeRef.current.smoothedDriftSeconds = smoothedDrift;
 
-  const absoluteDrift = Math.abs(drift);
-  const absoluteSmoothedDrift = Math.abs(smoothedDrift);
-
-  const inManifestSettleWindow =
-    nowMs - syncRuntimeRef.current.lastManifestAppliedAtMs < MANIFEST_SETTLE_MS;
-
-  const canHardSync =
-    absoluteDrift > EXTREME_SYNC_DRIFT_SECONDS
-    || nowMs - syncRuntimeRef.current.lastHardSyncAtMs >= HARD_SYNC_COOLDOWN_MS;
-
-  if (!inManifestSettleWindow && absoluteDrift > HARD_SYNC_DRIFT_SECONDS && canHardSync) {
-    suppressSeekGuardUntilRef.current = nowMs + SEEK_GUARD_WINDOW_MS;
-    syncRuntimeRef.current.lastHardSyncAtMs = nowMs;
-    syncRuntimeRef.current.smoothedDriftSeconds = 0;
-    video.currentTime = targetPosition;
-    video.playbackRate = 1;
-  } else if (
-    status.playbackIsPlaying
-    && absoluteSmoothedDrift > resolveSoftSyncThreshold(video.playbackRate)
-    && !inManifestSettleWindow
-  ) {
-    const adjustment = Math.max(
-      -SOFT_SYNC_RATE_LIMIT,
-      Math.min(SOFT_SYNC_RATE_LIMIT, smoothedDrift * 0.08),
-    );
-    video.playbackRate = 1 + adjustment;
-  } else if (video.playbackRate !== 1) {
-    video.playbackRate = 1;
-  }
-
-  if (status.playbackIsPlaying) {
-    if (video.paused) {
-      void video.play().catch(() => {
-        // Native controls still allow the viewer to start playback manually.
-      });
-    }
-  } else if (!video.paused) {
-    video.pause();
-  }
+  applyPlaybackDrift(video, status, targetPosition, drift, smoothedDrift, nowMs,
+    syncRuntimeRef.current, suppressSeekGuardUntilRef);
+  syncPlayingState(video, status.playbackIsPlaying);
 }
 
 function resolveSmoothedDrift(previous: number, next: number): number {

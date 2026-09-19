@@ -1,4 +1,14 @@
-export type DigitalMediaType = 'video' | 'audio' | 'image' | 'other';
+import type {
+  DigitalMediaType,
+  MediaLibraryType,
+  MusicMetadata,
+} from '@yeen/shared-contracts';
+
+export type {
+  DigitalMediaType,
+  MediaLibraryType,
+  MusicMetadata,
+} from '@yeen/shared-contracts';
 
 export interface MediaSubtitleDetail {
   kind: 'embedded' | 'external';
@@ -57,6 +67,8 @@ export interface MediaItem {
   container: string | null;
   type: 'movie' | 'show' | 'other';
   digitalMediaType: DigitalMediaType;
+  libraryType: MediaLibraryType;
+  musicMetadata: MusicMetadata | null;
   sizeBytes: number;
   durationSeconds: number;
   width: number | null;

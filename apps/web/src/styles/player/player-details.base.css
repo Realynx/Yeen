@@ -41,7 +41,11 @@
 .player-status-chip-error {
   border-color: rgba(255, 155, 155, 0.52);
   color: #ffd8d8;
-  background: linear-gradient(140deg, rgba(72, 15, 22, 0.9), rgba(27, 8, 13, 0.94));
+  background: linear-gradient(
+    140deg,
+    rgba(72, 15, 22, 0.9),
+    rgba(27, 8, 13, 0.94)
+  );
 }
 
 @media (max-width: 680px) {
@@ -57,15 +61,49 @@
 }
 
 .player-download-progress {
-  width: min(780px, 100%);
+  position: relative;
+  isolation: isolate;
+  width: min(920px, 100%);
   margin: 0 auto;
-  padding: 0.8rem 0.95rem;
-  border-radius: 12px;
-  border: 1px solid rgba(149, 181, 230, 0.26);
-  background: rgba(8, 12, 21, 0.78);
-  backdrop-filter: blur(8px);
+  padding: 0.72rem 0.86rem 0.72rem 1rem;
+  overflow: hidden;
+  border: 1px solid var(--shell-border-strong, rgba(149, 181, 230, 0.26));
+  border-radius: 16px;
+  background:
+    linear-gradient(110deg, rgba(255, 138, 76, 0.09), transparent 36%),
+    rgba(10, 14, 23, 0.9);
+  box-shadow: 0 14px 34px rgba(1, 4, 10, 0.3);
+  backdrop-filter: blur(16px) saturate(130%);
   display: grid;
-  gap: 0.55rem;
+  grid-template-columns: minmax(10.5rem, auto) minmax(11rem, 1fr) auto;
+  align-items: center;
+  gap: 0.68rem 1rem;
+}
+
+.player-download-progress::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--shell-accent, #ff8a4c),
+    var(--shell-accent-bright, #ff6b96)
+  );
+  content: "";
+}
+
+.player-download-progress::after {
+  position: absolute;
+  z-index: -1;
+  top: -3.8rem;
+  left: -2rem;
+  width: 11rem;
+  height: 7rem;
+  border-radius: 50%;
+  background: var(--shell-accent, #ff8a4c);
+  opacity: 0.07;
+  filter: blur(28px);
+  content: "";
 }
 
 .player-download-progress-header {
@@ -77,27 +115,65 @@
 
 .player-download-progress-header .eyebrow {
   margin: 0;
-  color: rgba(241, 246, 255, 0.82);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--shell-text, #f1f6ff);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.player-download-progress-header .eyebrow::before {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: 0 0 1.7rem;
+  place-items: center;
+  border: 1px solid
+    color-mix(in srgb, var(--shell-accent, #ff8a4c) 46%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--shell-accent, #ff8a4c) 14%, transparent);
+  color: var(--shell-accent, #ff8a4c);
+  font-size: 0.9rem;
+  line-height: 1;
+  content: "\2193";
 }
 
 .player-download-progress-percent {
   margin: 0;
-  color: #f1f6ff;
-  font-size: 0.92rem;
+  padding: 0.2rem 0.44rem;
+  border: 1px solid var(--shell-border, rgba(149, 181, 230, 0.2));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--shell-text, #f1f6ff);
+  font-size: 0.78rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .player-download-progress-bar {
   width: 100%;
-  height: 8px;
+  height: 6px;
+  padding: 1px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32);
 }
 
 .player-download-progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #5e9bff, #8a6bff);
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--shell-accent, #ff8a4c),
+    var(--shell-accent-bright, #ff6b96)
+  );
+  box-shadow: 0 0 12px
+    color-mix(in srgb, var(--shell-accent-bright, #ff6b96) 38%, transparent);
   transition: width 400ms ease;
 }
 
@@ -106,10 +182,18 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  font-size: 0.86rem;
-  color: rgba(228, 238, 252, 0.84);
+  justify-content: flex-end;
+  gap: 0.38rem 0.7rem;
+  color: var(--shell-text-muted, rgba(228, 238, 252, 0.84));
+  font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.player-download-progress-meta span + span::before {
+  margin-right: 0.7rem;
+  color: color-mix(in srgb, var(--shell-text-muted, #cbd8eb) 40%, transparent);
+  content: "\2022";
 }
 
 .player-details {
@@ -162,14 +246,22 @@
   text-transform: uppercase;
   line-height: 1;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-  transition: border-color 170ms ease, background 170ms ease, transform 170ms ease, box-shadow 170ms ease;
+  transition:
+    border-color 170ms ease,
+    background 170ms ease,
+    transform 170ms ease,
+    box-shadow 170ms ease;
 }
 
 .player-details-open-link:hover,
 .player-details-open-link:focus-visible {
   border-color: rgba(255, 194, 198, 0.64);
   background:
-    linear-gradient(130deg, rgba(240, 24, 36, 0.46), rgba(240, 24, 36, 0.14) 64%),
+    linear-gradient(
+      130deg,
+      rgba(240, 24, 36, 0.46),
+      rgba(240, 24, 36, 0.14) 64%
+    ),
     rgba(16, 19, 30, 0.94);
   transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
@@ -205,6 +297,95 @@
   line-height: 1.55;
 }
 
+.player-broadcast-viewers {
+  margin-top: 0.9rem;
+  border: 1px solid var(--shell-border, rgba(186, 213, 247, 0.16));
+  border-radius: 12px;
+  background: var(--shell-surface, rgba(8, 12, 21, 0.42));
+  padding: 0.72rem 0.8rem;
+}
+
+.player-broadcast-viewers-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.player-broadcast-viewers h3,
+.player-broadcast-viewers p {
+  margin: 0;
+}
+
+.player-broadcast-viewers h3 {
+  color: var(--shell-text, #f1f7ff);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.player-broadcast-viewers-heading > span,
+.player-broadcast-viewers p {
+  color: var(--shell-text-muted, rgba(200, 218, 244, 0.72));
+  font-size: 0.75rem;
+}
+
+.player-broadcast-viewers ul {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player-broadcast-viewers li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto minmax(4.5rem, auto);
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--shell-text, rgba(220, 233, 252, 0.88));
+  font-size: 0.77rem;
+}
+
+.player-broadcast-viewer-ip {
+  overflow: hidden;
+  font-family: "JetBrains Mono", "Cascadia Code", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-broadcast-viewer-client {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--shell-accent, #795cff) 16%, transparent);
+  padding: 0.14rem 0.45rem;
+  color: var(--shell-accent-bright, rgba(226, 220, 255, 0.96));
+}
+
+.player-broadcast-viewer-speed {
+  color: var(--shell-accent-bright, #b9f6d2);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.player-broadcast-viewer-location {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--shell-text-muted, rgba(200, 218, 244, 0.72));
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .player-broadcast-viewers li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .player-broadcast-viewer-client {
+    display: none;
+  }
+}
+
 .player-details-shortcuts {
   border-left: 1px solid rgba(186, 213, 247, 0.16);
   padding-left: 1rem;
@@ -234,7 +415,7 @@
 
 .player-details-shortcuts dt {
   color: #f1f7ff;
-  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-family: "JetBrains Mono", "Cascadia Code", monospace;
   font-size: 0.74rem;
   background: rgba(7, 10, 18, 0.8);
   border: 1px solid rgba(167, 197, 237, 0.22);

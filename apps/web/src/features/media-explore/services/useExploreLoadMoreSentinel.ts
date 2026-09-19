@@ -1,6 +1,11 @@
-import { useEffect } from 'react';
-import type { Dispatch, RefObject, SetStateAction } from 'react';
+import {
+  useEffect,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import type { ExploreCatalogMode } from './exploreCatalog';
+import { shouldAutoLoadExplorePage } from './exploreAutoLoad';
 
 interface UseExploreLoadMoreSentinelOptions {
   catalogMode: ExploreCatalogMode;
@@ -49,19 +54,16 @@ export function useExploreLoadMoreSentinel({
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry?.isIntersecting) {
-          return;
-        }
-
-        if (entry.intersectionRatio < 0.2) {
-          return;
-        }
-
-        if (loading || loadingMore || !hasMore || loadMoreLockedRef.current) {
-          return;
-        }
-
-        if (tagFilter.trim().length < 2) {
+        if (!shouldAutoLoadExplorePage({
+          isIntersecting: entry?.isIntersecting ?? false,
+          intersectionRatio: entry?.intersectionRatio ?? 0,
+          minimumIntersectionRatio: 0.2,
+          loading,
+          loadingMore,
+          hasMore,
+          locked: loadMoreLockedRef.current,
+          tagFilter,
+        })) {
           return;
         }
 

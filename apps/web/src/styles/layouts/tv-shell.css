@@ -113,6 +113,46 @@
   padding: 0.58rem 0.72rem;
 }
 
+:root[data-yeen-experience='tv'] .tv-page-shell-library .tv-library-toolbar {
+  display: block;
+}
+
+:root[data-yeen-experience='tv'] .tv-library-toolbar-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-library-toolbar-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.34rem;
+  color: var(--shell-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:root[data-yeen-experience='tv'] .tv-library-toolbar-count strong {
+  color: var(--shell-text);
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+:root[data-yeen-experience='tv'] .tv-library-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.38rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-library-toolbar.is-open .library-filters {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--shell-border);
+}
+
 :root[data-yeen-experience='tv'] .tv-page-shell-library .library-filters {
   gap: 0.52rem 0.8rem;
 }
@@ -233,6 +273,16 @@
 
 :root[data-yeen-experience='tv'] .media-row .media-tile:focus-visible {
   transform: scale(1.07);
+}
+
+:root[data-yeen-experience='tv'] .continue-watching-dismiss {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+:root[data-yeen-experience='tv'] .continue-watching-tile:focus-within .continue-watching-dismiss {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 :root[data-yeen-experience='tv'] .home-page .media-row .media-tile:hover:not(:focus-visible) {
@@ -425,6 +475,21 @@
   min-height: 100dvh;
 }
 
+:root[data-yeen-experience='tv'] .player-download-progress {
+  width: min(920px, calc(100vw - 4rem));
+  padding: 0.9rem 1rem 0.9rem 1.15rem;
+  font-size: 1rem;
+}
+
+:root[data-yeen-experience='tv'] .player-download-progress-header .eyebrow {
+  font-size: 0.78rem;
+}
+
+:root[data-yeen-experience='tv'] .player-download-progress-percent,
+:root[data-yeen-experience='tv'] .player-download-progress-meta {
+  font-size: 0.86rem;
+}
+
 :root[data-yeen-experience='tv'] .player-page.tv-player-page .video-shell {
   min-height: 100dvh;
   height: 100dvh;
@@ -530,6 +595,27 @@
   font-size: 0.78rem;
 }
 
+:root[data-yeen-experience='tv'] .tv-explore-toolbar:not(.is-open) {
+  padding: 0.52rem 0.7rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-explore-toolbar:not(.is-open) .library-stat-block {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-explore-toolbar:not(.is-open) .library-stat-value {
+  font-size: 1.05rem;
+}
+
+:root[data-yeen-experience='tv'] .tv-explore-toolbar:not(.is-open) .library-stat-label {
+  margin-right: auto;
+}
+
 :root[data-yeen-experience='tv'] .tv-page-shell-details .details-hero-v2 {
   gap: clamp(1rem, 2.5vw, 1.8rem);
   padding: clamp(1rem, 2vw, 1.55rem);
@@ -568,10 +654,10 @@
 :root[data-yeen-experience='tv'] .tv-page-shell-details .episode-card:focus-visible,
 :root[data-yeen-experience='tv'] .tv-page-shell-details .series-card:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(255, 176, 94, 0.82);
-  background: rgba(18, 23, 34, 0.92);
+  border-color: hsl(var(--primary) / 0.82);
+  background: hsl(var(--secondary) / 0.92);
   box-shadow:
-    0 0 0 2px rgba(255, 176, 94, 0.24),
+    0 0 0 2px hsl(var(--primary) / 0.24),
     0 18px 46px rgba(0, 0, 0, 0.48);
 }
 
@@ -631,7 +717,6 @@
   transition-duration: 0.01ms !important;
 }
 
-:root[data-yeen-experience='tv'] .home-shelf-view-all,
 :root[data-yeen-experience='tv'] .library-load-more-button {
   min-height: 44px;
   padding-inline: 1rem;
@@ -698,7 +783,7 @@
 
 :root[data-yeen-experience='tv'] .player-skip-segment-cta {
   right: 1.42rem;
-  bottom: 5.2rem;
+  bottom: 6.75rem;
   min-height: 44px;
 }
 
@@ -735,6 +820,32 @@
   margin-top: 0.5rem;
   font-size: 0.88rem;
   line-height: 1.34;
+}
+
+:root[data-yeen-experience='tv'] .native-auth-panel {
+  width: min(820px, 92vw);
+  overflow: hidden;
+}
+
+:root[data-yeen-experience='tv'] .native-auth-panel .auth-panel-content {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 0.9rem;
+  margin-top: 0.8rem;
+}
+
+:root[data-yeen-experience='tv'] .native-auth-panel .auth-panel-content > .auth-form {
+  min-width: 0;
+  margin-top: 0;
+  padding: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(5, 7, 11, 0.42);
+}
+
+:root[data-yeen-experience='tv'] .native-auth-panel .native-server-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 :root[data-yeen-experience='tv'] .auth-page .auth-form {
@@ -818,6 +929,16 @@
 
   :root[data-yeen-experience='tv'] .tv-pairing-server-actions,
   :root[data-yeen-experience='tv'] .tv-pairing-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  :root[data-yeen-experience='tv'] .native-auth-panel {
+    overflow-y: auto;
+  }
+
+  :root[data-yeen-experience='tv'] .native-auth-panel .auth-panel-content {
     grid-template-columns: 1fr;
   }
 }

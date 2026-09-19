@@ -1,7 +1,11 @@
-import type { TmdbRemoteCandidate } from '../remote-metadata/tmdb-metadata.service';
-import type { JikanRemoteCandidate } from '../remote-metadata/jikan-metadata.service';
-import type { JikanMetadataService } from '../remote-metadata/jikan-metadata.service';
-import type { TmdbMetadataService } from '../remote-metadata/tmdb-metadata.service';
+import type {
+  JikanMetadataService,
+  JikanRemoteCandidate,
+} from '../remote-metadata/jikan-metadata.service';
+import type {
+  TmdbMetadataService,
+  TmdbRemoteCandidate,
+} from '../remote-metadata/tmdb-metadata.service';
 
 export function buildRemoteSearchProbesValue(
   query: string,

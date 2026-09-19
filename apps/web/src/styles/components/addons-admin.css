@@ -1,0 +1,415 @@
+.addons-admin-layout {
+  gap: 1rem;
+}
+
+.addons-admin-grid,
+.addons-admin-notice {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.addons-admin-notice {
+  margin: 0;
+}
+
+.addons-hero-card,
+.addon-card-header,
+.installed-addon-title-row,
+.addon-restart-card,
+.addon-policy-toggle,
+.addon-confirm-actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.addons-hero-card {
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.addons-hero-card > div,
+.addon-card-header > div,
+.addon-restart-card > div,
+.addon-policy-toggle > span,
+.addons-admin-grid > * {
+  min-width: 0;
+}
+
+.addons-hero-card h1,
+.addon-admin-card h2,
+.addon-admin-card h3,
+.addon-restart-card h2,
+.addon-confirm-dialog h2 {
+  margin: 0;
+}
+
+.addons-hero-card .muted,
+.addon-admin-card > .muted,
+.addon-restart-card .muted {
+  margin: 0.5rem 0 0;
+}
+
+.addons-admin-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+}
+
+.addons-admin-grid > .settings-surface {
+  grid-column: auto;
+  min-width: 0;
+}
+
+.addon-admin-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.addon-card-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.addon-upload-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.addon-package-picker {
+  align-items: center;
+  background: rgb(255 255 255 / 4%);
+  border: 1px dashed rgb(255 255 255 / 20%);
+  border-radius: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 1rem;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.addon-package-picker:hover,
+.addon-package-picker:focus-within {
+  background: rgb(255 255 255 / 7%);
+  border-color: rgb(129 140 248 / 75%);
+}
+
+.addon-package-picker > span {
+  font-weight: 700;
+}
+
+.addon-package-picker input[type='file'] {
+  max-width: min(100%, 18rem);
+  min-width: 0;
+  width: 100%;
+}
+
+.addon-package-picker input[type='file']::file-selector-button {
+  background: rgb(99 102 241 / 18%);
+  border: 1px solid rgb(129 140 248 / 35%);
+  border-radius: 0.65rem;
+  color: inherit;
+  cursor: pointer;
+  margin-right: 0.75rem;
+  padding: 0.55rem 0.8rem;
+}
+
+.addon-package-summary {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-height: 1.5rem;
+}
+
+.addon-package-summary strong {
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.addon-policy-toggle {
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 0.9rem;
+  cursor: pointer;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.addon-policy-toggle span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.addon-policy-toggle small {
+  color: var(--text-muted);
+}
+
+.addon-policy-toggle input {
+  accent-color: #818cf8;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+  inline-size: 1.25rem;
+}
+
+.addon-risk-warning {
+  background: rgb(245 158 11 / 11%);
+  border: 1px solid rgb(245 158 11 / 30%);
+  border-radius: 0.8rem;
+  color: #fcd58a;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+}
+
+.settings-pill.is-safe {
+  background: rgb(52 211 153 / 12%);
+  border-color: rgb(52 211 153 / 26%);
+  color: #9cf4d2;
+}
+
+.settings-pill.is-warning {
+  background: rgb(245 158 11 / 12%);
+  border-color: rgb(245 158 11 / 28%);
+  color: #fcd58a;
+}
+
+.addons-empty-state {
+  align-items: center;
+  border: 1px dashed rgb(255 255 255 / 14%);
+  border-radius: 0.9rem;
+  color: var(--text-muted);
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  padding: 2.5rem 1rem;
+  text-align: center;
+}
+
+.addons-empty-state strong {
+  color: var(--text-main);
+}
+
+.installed-addon-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.installed-addon-card {
+  align-items: center;
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 0.95rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem;
+}
+
+.installed-addon-main {
+  min-width: 0;
+}
+
+.installed-addon-main > p {
+  color: var(--text-muted);
+  margin: 0.45rem 0 0;
+}
+
+.installed-addon-title-row {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.addon-state-badge {
+  background: rgb(148 163 184 / 12%);
+  border: 1px solid rgb(148 163 184 / 24%);
+  border-radius: 999px;
+  color: #d4dced;
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 0.25rem 0.55rem;
+}
+
+.addon-state-badge.is-active {
+  background: rgb(52 211 153 / 12%);
+  border-color: rgb(52 211 153 / 25%);
+  color: #9cf4d2;
+}
+
+.addon-state-badge.is-staged {
+  background: rgb(99 102 241 / 14%);
+  border-color: rgb(129 140 248 / 28%);
+  color: #c7d2fe;
+}
+
+.addon-state-badge.is-failed {
+  background: rgb(248 113 113 / 12%);
+  border-color: rgb(248 113 113 / 28%);
+  color: #fecaca;
+}
+
+.addon-facts {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+  margin: 0.9rem 0 0;
+}
+
+.addon-facts div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.addon-facts dt {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.addon-facts dd {
+  font-size: 0.85rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.addon-restart-card {
+  background:
+    linear-gradient(115deg, rgb(99 102 241 / 14%), transparent 55%),
+    var(--bg-card);
+  gap: 1rem;
+}
+
+.addon-restart-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.core-update-card {
+  background:
+    linear-gradient(118deg, color-mix(in srgb, var(--shell-accent, #ff8a4c) 12%, transparent), transparent 58%),
+    var(--bg-card);
+}
+
+.core-update-facts {
+  margin-top: 0;
+}
+
+.core-update-message {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.core-update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.core-update-operator-note {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+  border: 1px solid var(--shell-border, rgb(255 255 255 / 12%));
+  border-radius: 0.8rem;
+  background: rgb(0 0 0 / 18%);
+}
+
+.core-update-operator-note span {
+  color: var(--text-muted);
+}
+
+.core-update-operator-note code {
+  padding: 0.58rem 0.68rem;
+  border-radius: 0.55rem;
+  color: var(--shell-text, #f5f8ff);
+  background: rgb(0 0 0 / 32%);
+  overflow-wrap: anywhere;
+}
+
+.addon-confirm-backdrop {
+  align-items: center;
+  background: rgb(0 0 0 / 72%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 1100;
+}
+
+.addon-confirm-dialog {
+  background: #111522;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 1.1rem;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 55%);
+  color: #f7f8fc;
+  max-width: 31rem;
+  padding: 1.35rem;
+  width: 100%;
+}
+
+.addon-confirm-dialog > p:not(.settings-section-kicker) {
+  color: #bdc5d6;
+  line-height: 1.55;
+}
+
+.addon-confirm-actions {
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 780px) {
+  .addons-hero-card,
+  .addon-card-header,
+  .addon-restart-card,
+  .installed-addon-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .addons-hero-card,
+  .addon-card-header,
+  .addon-restart-card {
+    flex-direction: column;
+  }
+
+  .addon-card-header,
+  .addons-hero-card {
+    align-items: flex-start;
+  }
+
+  .addon-package-picker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .addon-package-picker input[type='file'] {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .addon-restart-actions,
+  .addon-restart-actions button,
+  .core-update-actions,
+  .core-update-actions button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addon-package-picker {
+    transition: none;
+  }
+}

@@ -1,5 +1,6 @@
-import { SettingsCategorySection } from './SettingsCategorySection';
-import { RecycleDeletionPanel } from './RecycleDeletionPanel';
+import { SettingsCategorySection } from "./SettingsCategorySection";
+import { RecycleDeletionPanel } from "./RecycleDeletionPanel";
+import { SubtitlePreExtractionPanel } from "./SubtitlePreExtractionPanel";
 
 interface MaintenanceCategoryProps {
   token: string;
@@ -41,7 +42,7 @@ export function MaintenanceCategory({
             clearingMetadataIndex || savingSystemSettings || clearingApiCaches
           }
         >
-          {clearingMetadataIndex ? 'Clearing Metadata...' : 'Clear Metadata'}
+          {clearingMetadataIndex ? "Clearing Metadata..." : "Clear Metadata"}
         </button>
 
         <button
@@ -52,9 +53,16 @@ export function MaintenanceCategory({
             clearingApiCaches || savingSystemSettings || clearingMetadataIndex
           }
         >
-          {clearingApiCaches ? 'Clearing API Cache...' : 'Clear API Cache'}
+          {clearingApiCaches ? "Clearing API Cache..." : "Clear API Cache"}
         </button>
       </div>
+
+      <SubtitlePreExtractionPanel
+        token={token}
+        disabled={
+          clearingApiCaches || savingSystemSettings || clearingMetadataIndex
+        }
+      />
 
       <RecycleDeletionPanel
         token={token}

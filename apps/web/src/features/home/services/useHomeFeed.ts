@@ -1,8 +1,18 @@
-import { useEffect, useState } from 'react';
-import { listMedia, listProgress, toApiErrorMessage } from '../../shared/services/api';
-import type { MediaItem, ProgressEntry } from '../../shared/services/types';
+import { useEffect, useState } from "react";
+import {
+  listMedia,
+  listProgress,
+  toApiErrorMessage,
+} from "../../shared/services/api";
+import type { MediaItem, ProgressEntry } from "../../shared/services/types";
+import { subscribeToProgressUpdates } from "../../shared/services/progressUpdates";
+import {
+  HomeFeedRefreshCoordinator,
+  mergeProgressEntries,
+} from "./homeFeedRefresh";
 
 interface UseHomeFeedOptions {
+  accountId: string;
   refreshIntervalMs?: number;
   initialErrorMessage: string;
 }
@@ -14,8 +24,11 @@ interface UseHomeFeedResult {
   error: string | null;
 }
 
-export function useHomeFeed(token: string, options: UseHomeFeedOptions): UseHomeFeedResult {
-  const { refreshIntervalMs = 5000, initialErrorMessage } = options;
+export function useHomeFeed(
+  token: string,
+  options: UseHomeFeedOptions,
+): UseHomeFeedResult {
+  const { accountId, refreshIntervalMs = 5000, initialErrorMessage } = options;
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +37,21 @@ export function useHomeFeed(token: string, options: UseHomeFeedOptions): UseHome
   useEffect(() => {
     let cancelled = false;
     let hasLoadedOnce = false;
+    const refreshCoordinator = new HomeFeedRefreshCoordinator<{
+      media: MediaItem[];
+      progress: ProgressEntry[];
+    }>();
+
+    const unsubscribeProgress = subscribeToProgressUpdates(
+      accountId,
+      (entry) => {
+        if (!cancelled) {
+          setProgressItems((current) =>
+            mergeProgressEntries(current, [entry], accountId),
+          );
+        }
+      },
+    );
 
     async function refreshHomeFeed() {
       if (!hasLoadedOnce) {
@@ -32,18 +60,26 @@ export function useHomeFeed(token: string, options: UseHomeFeedOptions): UseHome
       }
 
       try {
-        const [media, progress] = await Promise.all([
-          listMedia(token),
-          listProgress(token),
-        ]);
+        await refreshCoordinator.run(
+          async () => {
+            const [media, progress] = await Promise.all([
+              listMedia(token),
+              listProgress(token),
+            ]);
+            return { media, progress };
+          },
+          ({ media, progress }) => {
+            if (cancelled) {
+              return;
+            }
 
-        if (cancelled) {
-          return;
-        }
-
-        setMediaItems(media);
-        setProgressItems(progress);
-        setError(null);
+            setMediaItems(media);
+            setProgressItems((current) =>
+              mergeProgressEntries(current, progress, accountId),
+            );
+            setError(null);
+          },
+        );
       } catch (loadError) {
         if (!cancelled && !hasLoadedOnce) {
           setError(toApiErrorMessage(loadError, initialErrorMessage));
@@ -64,9 +100,11 @@ export function useHomeFeed(token: string, options: UseHomeFeedOptions): UseHome
 
     return () => {
       cancelled = true;
+      refreshCoordinator.invalidate();
+      unsubscribeProgress();
       window.clearInterval(intervalId);
     };
-  }, [initialErrorMessage, refreshIntervalMs, token]);
+  }, [accountId, initialErrorMessage, refreshIntervalMs, token]);
 
   return {
     mediaItems,

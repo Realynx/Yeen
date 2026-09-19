@@ -90,6 +90,7 @@ export function resetBroadcastSourceAndPlayback(
 export function toOwnerStatus(
   session: BroadcastSession,
   viewerCount: number,
+  viewers: BroadcastOwnerSessionStatus['viewers'] = [],
 ): BroadcastOwnerSessionStatus {
   return {
     enabled: session.enabled,
@@ -107,6 +108,7 @@ export function toOwnerStatus(
     audioBitrateKbps: session.audioBitrateKbps,
     maxOutputHeight: session.maxOutputHeight,
     viewerCount,
+    viewers,
     updatedAt: session.updatedAt,
   };
 }
@@ -148,7 +150,7 @@ export function toPublicStatus(
       ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/hls/${sourceEpoch}/master.m3u8${streamQuery}`
       : null,
     subtitleUrl:
-      isLive && session.subtitleFileName
+      session.enabled && session.mediaId && session.subtitleFileName
         ? `/api/broadcast/public/${encodeURIComponent(session.shareToken)}/subtitles/${encodeURIComponent(session.subtitleFileName)}${subtitleStreamQuery}`
         : null,
     subtitleFontPreset: session.subtitleFontPreset,
@@ -181,6 +183,7 @@ export function emptyOwnerStatus(): BroadcastOwnerSessionStatus {
     audioBitrateKbps: null,
     maxOutputHeight: null,
     viewerCount: 0,
+    viewers: [],
     updatedAt: null,
   };
 }

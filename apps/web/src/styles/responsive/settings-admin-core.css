@@ -71,15 +71,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .torrent-control-action-button {
-    padding-left: 0.65rem;
-    padding-right: 0.65rem;
-  }
-
-  .torrent-control-categories {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .settings-path-mapping-row {
     grid-template-columns: 1fr;
     gap: 0.44rem;
@@ -147,42 +138,5 @@
     display: none;
   }
 
-  .torrent-control-toolbar-head {
-    align-items: flex-start;
-  }
-
-  .torrent-control-selection-hint {
-    width: 100%;
-  }
-
-  .torrent-control-selection-actions {
-    width: 100%;
-  }
-
-  .torrent-control-selection-actions,
-  .torrent-control-batch-actions {
-    gap: 0.34rem;
-  }
-
-  .torrent-control-drop-actions {
-    gap: 0.34rem;
-  }
-
-  .torrent-control-drop-actions .torrent-control-action-button,
-  .torrent-control-selection-actions .torrent-control-action-button,
-  .torrent-control-batch-actions .torrent-control-action-button {
-    flex: 1 1 calc(50% - 0.34rem);
-  }
-
-  .torrent-control-item-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .torrent-control-item-meta {
-    font-size: 0.72rem;
-    gap: 0.22rem 0.34rem;
-  }
 }
 

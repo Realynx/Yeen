@@ -1,7 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -10,18 +8,7 @@ import {
   Max,
   MaxLength,
   Min,
-  ValidateNested,
 } from 'class-validator';
-
-export class QbittorrentPathMappingDto {
-  @IsString()
-  @MaxLength(512)
-  from!: string;
-
-  @IsString()
-  @MaxLength(512)
-  to!: string;
-}
 
 export class UpdateSystemSettingsDto {
   @IsOptional()
@@ -45,60 +32,6 @@ export class UpdateSystemSettingsDto {
   @IsString()
   @MaxLength(1024)
   mediaMetadataSqlitePath?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(260)
-  qbittorrentBaseUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  qbittorrentUsername?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(256)
-  qbittorrentPassword?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1000)
-  @Max(120000)
-  qbittorrentRequestTimeoutMs?: number;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['sequential', 'random'])
-  qbittorrentDefaultOrderMode?: 'sequential' | 'random';
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(32)
-  @ValidateNested({ each: true })
-  @Type(() => QbittorrentPathMappingDto)
-  qbittorrentPathMappings?: QbittorrentPathMappingDto[];
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  iptorrentsUsername?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(256)
-  iptorrentsPassword?: string;
-
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  iptorrentsSeedingEnabled?: boolean;
-
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  nyaaSeedingEnabled?: boolean;
 
   @IsOptional()
   @Type(() => Boolean)
@@ -146,6 +79,31 @@ export class UpdateSystemSettingsDto {
   @IsString()
   @MaxLength(128)
   openSubtitlesApiKey?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  theAudioDbEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  theAudioDbCustomApiKey?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  clearTheAudioDbCustomApiKey?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  theAudioDbChartCountry?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['auto', 'nvidia', 'cpu'])
+  transcodeHardwareAcceleration?: 'auto' | 'nvidia' | 'cpu';
 
   @IsOptional()
   @IsString()

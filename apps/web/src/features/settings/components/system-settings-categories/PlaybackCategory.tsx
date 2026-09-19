@@ -1,10 +1,10 @@
-import type { SystemSettings } from '../../../shared/services/types';
-import type { SystemSettingsState } from '../../services/useSystemSettings';
-import { SettingsCategorySection } from './SettingsCategorySection';
+import type { SystemSettings } from "../../../shared/services/types";
+import type { SystemSettingsState } from "../../services/useSystemSettings";
+import { SettingsCategorySection } from "./SettingsCategorySection";
 
 interface PlaybackCategoryProps {
   systemSettings: SystemSettings;
-  updateSetting: SystemSettingsState['updateSetting'];
+  updateSetting: SystemSettingsState["updateSetting"];
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -51,7 +51,7 @@ export function PlaybackCategory({
           <p className="settings-inline-meta">
             <strong>{estimatedMaxThroughputLabel} Mbps</strong>
             <span>
-              Video {videoBitrateKbps.toLocaleString()} kbps + Audio{' '}
+              Video {videoBitrateKbps.toLocaleString()} kbps + Audio{" "}
               {audioBitrateKbps.toLocaleString()} kbps
             </span>
           </p>
@@ -64,6 +64,32 @@ export function PlaybackCategory({
         <label className="settings-field">
           <span
             className="settings-field-label"
+            title="Select automatic GPU detection, require NVIDIA NVENC when available, or force CPU transcoding."
+          >
+            Hardware Acceleration
+          </span>
+          <select
+            value={systemSettings.transcodeHardwareAcceleration}
+            onChange={(event) =>
+              updateSetting(
+                "transcodeHardwareAcceleration",
+                event.target.value as "auto" | "nvidia" | "cpu",
+              )
+            }
+          >
+            <option value="auto">Automatic (prefer NVIDIA)</option>
+            <option value="nvidia">NVIDIA NVENC</option>
+            <option value="cpu">CPU (libx264)</option>
+          </select>
+          <small className="settings-field-hint">
+            Automatic uses CUDA decode and scaling with NVENC when its runtime
+            probe succeeds, otherwise it safely falls back to CPU.
+          </small>
+        </label>
+
+        <label className="settings-field">
+          <span
+            className="settings-field-label"
             title="Encoder speed profile. Faster presets use less CPU but may need more bitrate for similar quality."
           >
             Transcode Preset
@@ -71,7 +97,9 @@ export function PlaybackCategory({
           <input
             type="text"
             value={systemSettings.transcodePreset}
-            onChange={(event) => updateSetting('transcodePreset', event.target.value)}
+            onChange={(event) =>
+              updateSetting("transcodePreset", event.target.value)
+            }
             placeholder="veryfast"
           />
           <small className="settings-field-hint">
@@ -93,7 +121,10 @@ export function PlaybackCategory({
             value={systemSettings.transcodeCrf}
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
-              updateSetting('transcodeCrf', Number.isFinite(parsed) ? parsed : 22);
+              updateSetting(
+                "transcodeCrf",
+                Number.isFinite(parsed) ? parsed : 22,
+              );
             }}
           />
           <small className="settings-field-hint">
@@ -116,7 +147,7 @@ export function PlaybackCategory({
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
               updateSetting(
-                'transcodeDefaultMaxBitrateKbps',
+                "transcodeDefaultMaxBitrateKbps",
                 Number.isFinite(parsed) ? parsed : 4500,
               );
             }}
@@ -142,7 +173,7 @@ export function PlaybackCategory({
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
               updateSetting(
-                'transcodeAudioBitrateKbps',
+                "transcodeAudioBitrateKbps",
                 Number.isFinite(parsed) ? parsed : 160,
               );
             }}
@@ -168,7 +199,7 @@ export function PlaybackCategory({
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
               updateSetting(
-                'transcodeMaxOutputHeight',
+                "transcodeMaxOutputHeight",
                 Number.isFinite(parsed) ? parsed : 1080,
               );
             }}
@@ -193,7 +224,7 @@ export function PlaybackCategory({
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
               updateSetting(
-                'transcodeRateControlBufferSeconds',
+                "transcodeRateControlBufferSeconds",
                 Number.isFinite(parsed) ? parsed : 3,
               );
             }}
@@ -218,7 +249,7 @@ export function PlaybackCategory({
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10);
               updateSetting(
-                'hlsSegmentSeconds',
+                "hlsSegmentSeconds",
                 Number.isFinite(parsed) ? parsed : 4,
               );
             }}
@@ -239,7 +270,7 @@ export function PlaybackCategory({
             type="text"
             value={systemSettings.subtitleDefaultLanguage}
             onChange={(event) =>
-              updateSetting('subtitleDefaultLanguage', event.target.value)
+              updateSetting("subtitleDefaultLanguage", event.target.value)
             }
             placeholder="en"
           />

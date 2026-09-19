@@ -1,5 +1,6 @@
 import type {
   MediaItem,
+  PlaybackPlan,
   PlaybackAudioTrack,
   SubtitleTrack,
 } from '../../shared/services/types';
@@ -27,10 +28,19 @@ export interface PlayerTranscodePreferences {
   maxOutputHeight: number | null;
 }
 
+export interface HlsSwitchOptions {
+  forceFresh?: boolean;
+  recoveryAttempt?: boolean;
+  audioStreamIndex?: number | null;
+  maxVideoBitrateKbps?: number | null;
+  audioBitrateKbps?: number | null;
+  maxOutputHeight?: number | null;
+}
+
 export interface PlayerDataState {
   media: MediaItem | null;
   source: PlaybackSource | null;
-  streamTorrentHash: string | null;
+  playbackPlan: PlaybackPlan | null;
   audioTracks: PlaybackAudioTrack[];
   selectedAudioStreamIndex: number | null;
   subtitleTracks: SubtitleTrack[];
@@ -44,11 +54,5 @@ export interface PlayerDataState {
   setSelectedAudioStreamIndex: (audioStreamIndex: number | null) => void;
   setSelectedSubtitleId: (subtitleId: string) => void;
   extractTrack: (track: SubtitleTrack) => Promise<void>;
-  switchToHls: (options?: {
-    forceFresh?: boolean;
-    audioStreamIndex?: number | null;
-    maxVideoBitrateKbps?: number | null;
-    audioBitrateKbps?: number | null;
-    maxOutputHeight?: number | null;
-  }) => Promise<boolean>;
+  switchToHls: (options?: HlsSwitchOptions) => Promise<boolean>;
 }

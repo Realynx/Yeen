@@ -11,8 +11,8 @@
 | medium | JWTs are accepted in URL query string for streaming/subtitle/public media flows | `apps\server\src\domains\auth\infrastructure\jwt.strategy.ts`, `apps\web\src\features\shared\services\api-core.ts`, stream/subtitle controllers | Tokens can leak through browser history, logs, proxies, or referrers | Keep only where required for media element URLs, shorten TTL or move to scoped stream tokens |
 | medium | Frontend stores bearer token in `localStorage` | `apps\web\src\App.tsx`, `apps\web\src\features\shared\services\api-core.ts` | XSS would expose long-lived access token | Consider httpOnly cookies or short-lived access tokens with scoped refresh |
 | medium | No CI/CD pipeline detected | `.github\workflows` glob result, `docs\codebase\.codebase-scan.txt` | Builds/tests/lint may not run automatically before merge/deploy | Add GitHub Actions for install, lint, build, server tests, web tests, and line-budget hard mode; keep Android APK validation local/manual |
-| medium | Current torrent/download implementation is built into core code despite the accepted Downloader Add-on boundary | `docs\adr\0001-keep-downloader-functionality-outside-core-yeen.md`, `apps\server\src\domains\torrent`, `apps\server\src\domains\media\application\services\torrent-search` | Open-source core may expose or depend on downloader functionality by default | Extract torrent/download code into optional Downloader Add-on later |
-| medium | Several media/player/torrent files are just below the 400-line budget | terminal output from `node .\scripts\check-line-budget.mjs --json` | Small feature additions may create oversized mixed-responsibility files | Continue one-file-at-a-time decomposition before adding major behavior |
+| medium | Add-on Packages execute trusted code in the Yeen process | `apps\server\src\domains\addons`, `scripts\addons`, `docs\adr\0001-keep-downloader-functionality-outside-core-yeen.md` | A malicious or compromised publisher can access the server process and its data | Keep signed-only defaults, review trusted publisher keys, quarantine failures, and allow unsigned packages only with explicit acknowledgement |
+| medium | Several media/player files are just below the 400-line budget | terminal output from `node .\scripts\check-line-budget.mjs --json` | Small feature additions may create oversized mixed-responsibility files | Continue one-file-at-a-time decomposition before adding major behavior |
 
 ### 2) Technical Debt
 
@@ -60,7 +60,8 @@
 4. Broadcast is its own Core Yeen feature boundary.
 5. Stale temporary Playwright artifacts were removed; Playwright is not currently configured.
 6. Cloudflared is an optional deployment recipe, not a Core Yeen requirement.
-7. Core Yeen excludes torrent/download tooling by default; that code belongs to a future optional Downloader Add-on.
+7. Core Yeen excludes torrent/download tooling; the separately maintained Downloader Add-on supplies it through the generic add-on host seams.
+8. `npm run verify:core-only` is the deletion test for the Downloader implementation.
 
 ### 7) Evidence
 

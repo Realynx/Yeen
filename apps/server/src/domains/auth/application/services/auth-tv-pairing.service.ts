@@ -66,7 +66,8 @@ export class AuthTvPairingService {
       code: pairing.code,
       pollToken: pairing.pollToken,
       expiresAt: pairing.expiresAt,
-      pollIntervalSeconds: AuthTvPairingService.TV_PAIRING_POLL_INTERVAL_SECONDS,
+      pollIntervalSeconds:
+        AuthTvPairingService.TV_PAIRING_POLL_INTERVAL_SECONDS,
       pollTimeoutSeconds: AuthTvPairingService.TV_PAIRING_POLL_TIMEOUT_SECONDS,
     };
   }
@@ -266,7 +267,8 @@ export class AuthTvPairingService {
       code: pairing.code,
       status,
       expiresAt: pairing.expiresAt,
-      pollIntervalSeconds: AuthTvPairingService.TV_PAIRING_POLL_INTERVAL_SECONDS,
+      pollIntervalSeconds:
+        AuthTvPairingService.TV_PAIRING_POLL_INTERVAL_SECONDS,
       ...(message ? { message } : {}),
     };
   }
@@ -294,10 +296,14 @@ export class AuthTvPairingService {
     recentAttempts.push(now);
     this.tvPairingStartAttempts.set(normalizedKey, recentAttempts);
 
-    for (const [attemptKey, attempts] of this.tvPairingStartAttempts.entries()) {
+    for (const [
+      attemptKey,
+      attempts,
+    ] of this.tvPairingStartAttempts.entries()) {
       const activeAttempts = attempts.filter(
         (timestamp) =>
-          now - timestamp <= AuthTvPairingService.TV_PAIRING_RATE_LIMIT_WINDOW_MS,
+          now - timestamp <=
+          AuthTvPairingService.TV_PAIRING_RATE_LIMIT_WINDOW_MS,
       );
 
       if (activeAttempts.length === 0) {
@@ -345,7 +351,11 @@ export class AuthTvPairingService {
       const code = this.createTvPairingCode();
       const existing = await this.tvPairingsStore.findByCode(code);
 
-      if (!existing || existing.consumedAt || this.isTvPairingExpired(existing)) {
+      if (
+        !existing ||
+        existing.consumedAt ||
+        this.isTvPairingExpired(existing)
+      ) {
         return code;
       }
     }

@@ -73,16 +73,12 @@ export class ProgressService {
     requestedCompleted: boolean,
     existingCompleted: boolean,
   ): boolean {
-    if (existingCompleted || requestedCompleted) {
+    if (requestedCompleted) {
       return true;
     }
 
-    if (durationSeconds <= 0) {
-      return false;
-    }
-
-    if (positionSeconds <= 0) {
-      return false;
+    if (durationSeconds <= 0 || positionSeconds <= 0) {
+      return existingCompleted;
     }
 
     const watchedRatio = positionSeconds / durationSeconds;
@@ -98,15 +94,55 @@ export class ProgressService {
     existing: ProgressEntry | undefined,
     next: Omit<ProgressEntry, 'updatedAt'>,
   ): Promise<ProgressEntry> {
-    if (
-      existing &&
+    if (existing && this.progressMatches(existing, next)) {
+      return existing;
+    }
+
+    return this.progressStore.upsert({
+      ...next,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private progressMatches(
+    existing: ProgressEntry,
+    next: Omit<ProgressEntry, 'updatedAt'>,
+  ): boolean {
+    return (
+      this.identityMatches(existing, next) &&
+      this.playbackMatches(existing, next) &&
+      this.preferencesMatch(existing, next)
+    );
+  }
+
+  private identityMatches(
+    existing: ProgressEntry,
+    next: Omit<ProgressEntry, 'updatedAt'>,
+  ): boolean {
+    return (
       (existing.accountId ?? existing.userId ?? '') === next.accountId &&
       (existing.userId ?? next.accountId) === next.userId &&
-      existing.mediaId === next.mediaId &&
+      existing.mediaId === next.mediaId
+    );
+  }
+
+  private playbackMatches(
+    existing: ProgressEntry,
+    next: Omit<ProgressEntry, 'updatedAt'>,
+  ): boolean {
+    return (
       existing.positionSeconds === next.positionSeconds &&
       existing.durationSeconds === next.durationSeconds &&
       (existing.syncTimestampMs ?? null) === (next.syncTimestampMs ?? null) &&
-      existing.completed === next.completed &&
+      existing.completed === next.completed
+    );
+  }
+
+  private preferencesMatch(
+    existing: ProgressEntry,
+    next: Omit<ProgressEntry, 'updatedAt'>,
+  ): boolean {
+    return (
       (existing.seriesPreferenceKey ?? null) ===
         (next.seriesPreferenceKey ?? null) &&
       (existing.preferredAudioLanguage ?? null) ===
@@ -115,14 +151,7 @@ export class ProgressService {
         (next.preferredSubtitleLanguage ?? null) &&
       (existing.subtitlePreferenceEnabled ?? null) ===
         (next.subtitlePreferenceEnabled ?? null)
-    ) {
-      return existing;
-    }
-
-    return this.progressStore.upsert({
-      ...next,
-      updatedAt: new Date().toISOString(),
-    });
+    );
   }
 
   list(user: AuthUser) {
@@ -173,16 +202,6 @@ export class ProgressService {
       durationSeconds,
     );
 
-    const nextSeriesPreferenceKey = this.normalizeNullableText(
-      dto.seriesPreferenceKey,
-    );
-    const nextPreferredAudioLanguage = this.normalizeNullableText(
-      dto.preferredAudioLanguage,
-    );
-    const nextPreferredSubtitleLanguage = this.normalizeNullableText(
-      dto.preferredSubtitleLanguage,
-    );
-
     const completed = this.shouldMarkCompleted(
       positionSeconds,
       durationSeconds,
@@ -192,30 +211,68 @@ export class ProgressService {
     const persistedPositionSeconds =
       completed && durationSeconds > 0 ? durationSeconds : positionSeconds;
 
-    return this.persistProgress(existing, {
+    const next = this.buildProgressEntry({
       accountId,
-      userId: accountId,
       mediaId,
-      positionSeconds: persistedPositionSeconds,
       durationSeconds,
+      positionSeconds: persistedPositionSeconds,
       syncTimestampMs: nextSyncTimestampMs ?? existingSyncTimestampMs,
       completed,
-      seriesPreferenceKey:
-        nextSeriesPreferenceKey === undefined
-          ? (existing?.seriesPreferenceKey ?? null)
-          : nextSeriesPreferenceKey,
-      preferredAudioLanguage:
-        nextPreferredAudioLanguage === undefined
-          ? (existing?.preferredAudioLanguage ?? null)
-          : nextPreferredAudioLanguage,
-      preferredSubtitleLanguage:
-        nextPreferredSubtitleLanguage === undefined
-          ? (existing?.preferredSubtitleLanguage ?? null)
-          : nextPreferredSubtitleLanguage,
-      subtitlePreferenceEnabled:
-        dto.subtitlePreferenceEnabled === undefined
-          ? (existing?.subtitlePreferenceEnabled ?? null)
-          : dto.subtitlePreferenceEnabled,
+      dto,
+      existing,
     });
+    return this.persistProgress(existing, next);
+  }
+
+  private buildProgressEntry(input: {
+    accountId: string;
+    mediaId: string;
+    positionSeconds: number;
+    durationSeconds: number;
+    syncTimestampMs: number | null;
+    completed: boolean;
+    dto: UpdateProgressDto;
+    existing: ProgressEntry | undefined;
+  }): Omit<ProgressEntry, 'updatedAt'> {
+    return {
+      accountId: input.accountId,
+      userId: input.accountId,
+      mediaId: input.mediaId,
+      positionSeconds: input.positionSeconds,
+      durationSeconds: input.durationSeconds,
+      syncTimestampMs: input.syncTimestampMs,
+      completed: input.completed,
+      seriesPreferenceKey: this.resolveOptionalPreference(
+        input.dto.seriesPreferenceKey,
+        input.existing?.seriesPreferenceKey,
+      ),
+      preferredAudioLanguage: this.resolveOptionalPreference(
+        input.dto.preferredAudioLanguage,
+        input.existing?.preferredAudioLanguage,
+      ),
+      preferredSubtitleLanguage: this.resolveOptionalPreference(
+        input.dto.preferredSubtitleLanguage,
+        input.existing?.preferredSubtitleLanguage,
+      ),
+      subtitlePreferenceEnabled: this.resolveNullableBoolean(
+        input.dto.subtitlePreferenceEnabled,
+        input.existing?.subtitlePreferenceEnabled,
+      ),
+    };
+  }
+
+  private resolveOptionalPreference(
+    value: string | null | undefined,
+    existing: string | null | undefined,
+  ): string | null {
+    const normalized = this.normalizeNullableText(value);
+    return normalized === undefined ? (existing ?? null) : normalized;
+  }
+
+  private resolveNullableBoolean(
+    value: boolean | null | undefined,
+    existing: boolean | null | undefined,
+  ): boolean | null {
+    return value === undefined ? (existing ?? null) : value;
   }
 }

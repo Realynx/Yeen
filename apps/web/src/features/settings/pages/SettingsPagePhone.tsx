@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserSettingsTab } from '../components/UserSettingsTab';
 import { listMedia } from '../../shared/services/api';
@@ -13,6 +12,7 @@ import {
 } from '../../library/services/librarySearchUtils';
 import { PhonePageHeader } from '../../navigation/components/PhonePageHeader';
 import { PhonePageShell } from '../../navigation/components/PhonePageShell';
+import { SettingsAppShell } from '../components/SettingsAppShell';
 
 interface SettingsPagePhoneProps {
 	token: string;
@@ -120,11 +120,18 @@ export function SettingsPagePhone({
 					randomDisabled={randomDetailsCandidates.length === 0}
 				/>
 
-				<UserSettingsTab
-					token={token}
+				<SettingsAppShell
 					user={user}
-					onUserUpdated={onUserUpdated}
-				/>
+					experience="phone"
+					title="Profile & preferences"
+					description="Manage your account, playback, security, and devices."
+				>
+					<UserSettingsTab
+						token={token}
+						user={user}
+						onUserUpdated={onUserUpdated}
+					/>
+				</SettingsAppShell>
 			</main>
 		</PhonePageShell>
 	);

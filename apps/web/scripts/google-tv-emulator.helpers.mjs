@@ -70,6 +70,21 @@ function resolveNpmRuntime() {
     };
   }
 
+  const installedNpmCli = path.resolve(
+    path.dirname(process.execPath),
+    'node_modules',
+    'npm',
+    'bin',
+    'npm-cli.js',
+  );
+  if (existsSync(installedNpmCli)) {
+    return {
+      npmCommand: process.execPath,
+      npmBaseArgs: [installedNpmCli],
+      canUseNpmExec: true,
+    };
+  }
+
   return {
     npmCommand: process.platform === 'win32' ? 'npm.cmd' : 'npm',
     npmBaseArgs: [],

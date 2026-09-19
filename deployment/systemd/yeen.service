@@ -4,14 +4,21 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/yeen
-ExecStart=/usr/bin/npm start
+WorkingDirectory=/opt/yeen/current
+ExecStart=/usr/bin/node apps/server/dist/main.js
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
 User=www-data
 Group=www-data
 Environment=NODE_ENV=production
-EnvironmentFile=/var/www/yeen/.env
+Environment=YEEN_ADDONS_ROOT=/opt/yeen/shared/addons
+Environment=YEEN_UPDATE_REPOSITORY=Realynx/Yeen
+Environment=YEEN_UPDATE_STATUS_ROOT=/opt/yeen/shared/update-status
+Environment=YEEN_DEPLOYMENT_MODE=systemd
+Environment=YEEN_SUPERVISED_RESTART=true
+EnvironmentFile=/opt/yeen/shared/yeen.env
 
 [Install]
 WantedBy=multi-user.target

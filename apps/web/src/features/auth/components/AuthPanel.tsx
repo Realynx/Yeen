@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   confirmPasswordReset,
+  getConfiguredApiBaseUrl,
+  getRuntimeApiBaseUrl,
   login,
   requestPasswordReset,
+  setRuntimeApiBaseUrl,
   toApiErrorMessage,
 } from '../../shared/services/api';
 import type { AuthResponse } from '../../shared/services/types';
@@ -13,6 +15,35 @@ interface AuthPanelProps {
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   initialResetToken?: string | null;
+  showServerConfiguration?: boolean;
+}
+
+type AuthMode = 'login' | 'request-reset' | 'confirm-reset';
+const AUTH_COPY: Record<AuthMode, { title: string; subline: string }> = {
+  login: { title: 'Welcome Back', subline: 'Sign in with your existing account. New accounts require an invite link from an existing user.' },
+  'request-reset': { title: 'Reset Password', subline: 'Enter your account email and Yeen will generate a short-lived reset link.' },
+  'confirm-reset': { title: 'Choose New Password', subline: 'Enter the reset token from your link and choose a new password.' },
+};
+
+function AuthMessages({ notice, error }: { notice?: string | null; error: string | null }) {
+  return <>{notice ? <p className="success-text">{notice}</p> : null}
+    {error ? <p className="error-text">{error}</p> : null}</>;
+}
+
+function ServerConfiguration({ show, apiBaseInput, activeApiBase, notice, onInput, onSave, onDefault }: {
+  show: boolean; apiBaseInput: string; activeApiBase: string; notice: string | null;
+  onInput: (value: string) => void; onSave: (event: FormEvent<HTMLFormElement>) => void; onDefault: () => void;
+}) {
+  if (!show) return null;
+  return <form className="auth-form native-server-form" onSubmit={onSave} aria-label="Yeen server connection">
+    <label>Yeen Server<input required type="url" inputMode="url" autoCapitalize="none" autoCorrect="off"
+      spellCheck={false} value={apiBaseInput} onChange={(event) => onInput(event.target.value)}
+      placeholder="https://media.example.com/api" /></label>
+    <p className="native-server-active">Connected to: {activeApiBase}</p>
+    {notice ? <p className="auth-server-notice" role="status">{notice}</p> : null}
+    <div className="native-server-actions"><button type="submit" className="ghost-button">Save Server</button>
+      <button type="button" className="ghost-button" onClick={onDefault}>Use Default</button></div>
+  </form>;
 }
 
 export function AuthPanel({
@@ -20,8 +51,9 @@ export function AuthPanel({
   secondaryActionLabel,
   onSecondaryAction,
   initialResetToken = null,
+  showServerConfiguration = false,
 }: AuthPanelProps) {
-  const [mode, setMode] = useState<'login' | 'request-reset' | 'confirm-reset'>(
+  const [mode, setMode] = useState<AuthMode>(
     initialResetToken ? 'confirm-reset' : 'login',
   );
   const [email, setEmail] = useState('');
@@ -33,6 +65,36 @@ export function AuthPanel({
   const [resetPath, setResetPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [apiBaseInput, setApiBaseInput] = useState(() =>
+    getRuntimeApiBaseUrl() ?? getConfiguredApiBaseUrl(),
+  );
+  const [activeApiBase, setActiveApiBase] = useState(() =>
+    getConfiguredApiBaseUrl(),
+  );
+  const [serverNotice, setServerNotice] = useState<string | null>(null);
+
+  function handleSaveServer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalized = setRuntimeApiBaseUrl(apiBaseInput);
+    if (!normalized) {
+      setServerNotice('Enter a valid server URL, including /api.');
+      return;
+    }
+
+    setApiBaseInput(normalized);
+    setActiveApiBase(normalized);
+    setServerNotice('Server saved. You can sign in now.');
+    setError(null);
+  }
+
+  function handleUseDefaultServer() {
+    setRuntimeApiBaseUrl(null);
+    const defaultApiBase = getConfiguredApiBaseUrl();
+    setApiBaseInput(defaultApiBase);
+    setActiveApiBase(defaultApiBase);
+    setServerNotice('Default server restored.');
+    setError(null);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,25 +182,18 @@ export function AuthPanel({
 
   return (
     <main className="auth-page">
-      <section className="auth-panel">
+      <section className={`auth-panel${showServerConfiguration ? ' native-auth-panel' : ''}`}>
         <p className="eyebrow">Yeen Streaming</p>
-        <h1>
-          {mode === 'login'
-            ? 'Welcome Back'
-            : mode === 'request-reset'
-              ? 'Reset Password'
-              : 'Choose New Password'}
-        </h1>
-        <p className="subline">
-          {mode === 'login'
-            ? 'Sign in with your existing account. New accounts require an invite link from an existing user.'
-            : mode === 'request-reset'
-              ? 'Enter your account email and Yeen will generate a short-lived reset link.'
-              : 'Enter the reset token from your link and choose a new password.'}
-        </p>
+        <h1>{AUTH_COPY[mode].title}</h1>
+        <p className="subline">{AUTH_COPY[mode].subline}</p>
 
-        {mode === 'login' ? (
-          <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-panel-content">
+          <ServerConfiguration show={showServerConfiguration} apiBaseInput={apiBaseInput}
+            activeApiBase={activeApiBase} notice={serverNotice} onInput={setApiBaseInput}
+            onSave={handleSaveServer} onDefault={handleUseDefaultServer} />
+
+          {mode === 'login' ? (
+            <form onSubmit={handleSubmit} className="auth-form">
             <label>
               Email
               <input
@@ -165,10 +220,14 @@ export function AuthPanel({
               />
             </label>
 
-            {notice ? <p className="success-text">{notice}</p> : null}
-            {error ? <p className="error-text">{error}</p> : null}
+            <AuthMessages notice={notice} error={error} />
 
-            <button type="submit" disabled={busy}>
+            <button
+              type="submit"
+              data-tv-initial-focus={showServerConfiguration ? true : undefined}
+              data-tv-focus-key={showServerConfiguration ? 'password-login-submit' : undefined}
+              disabled={busy}
+            >
               {busy ? 'Please wait...' : 'Log In'}
             </button>
 
@@ -191,11 +250,11 @@ export function AuthPanel({
                 {secondaryActionLabel}
               </button>
             ) : null}
-          </form>
-        ) : null}
+            </form>
+          ) : null}
 
-        {mode === 'request-reset' ? (
-          <form onSubmit={handleRequestReset} className="auth-form">
+          {mode === 'request-reset' ? (
+            <form onSubmit={handleRequestReset} className="auth-form">
             <label>
               Email
               <input
@@ -208,14 +267,12 @@ export function AuthPanel({
               />
             </label>
 
-            {notice ? <p className="success-text">{notice}</p> : null}
+            <AuthMessages notice={notice} error={error} />
             {resetPath ? (
               <a className="auth-reset-link" href={resetPath}>
                 Open reset link
               </a>
             ) : null}
-            {error ? <p className="error-text">{error}</p> : null}
-
             <button type="submit" disabled={busy}>
               {busy ? 'Generating...' : 'Generate Reset Link'}
             </button>
@@ -227,11 +284,11 @@ export function AuthPanel({
             >
               Back to sign in
             </button>
-          </form>
-        ) : null}
+            </form>
+          ) : null}
 
-        {mode === 'confirm-reset' ? (
-          <form onSubmit={handleConfirmReset} className="auth-form">
+          {mode === 'confirm-reset' ? (
+            <form onSubmit={handleConfirmReset} className="auth-form">
             <label>
               Reset Token
               <input
@@ -271,7 +328,7 @@ export function AuthPanel({
               />
             </label>
 
-            {error ? <p className="error-text">{error}</p> : null}
+            <AuthMessages error={error} />
 
             <button type="submit" disabled={busy}>
               {busy ? 'Resetting...' : 'Reset Password'}
@@ -284,8 +341,9 @@ export function AuthPanel({
             >
               Back to sign in
             </button>
-          </form>
-        ) : null}
+            </form>
+          ) : null}
+        </div>
       </section>
     </main>
   );

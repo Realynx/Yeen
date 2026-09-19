@@ -1,0 +1,6 @@
+services:
+  yeen:
+    volumes:
+      # Replace the left side with your Linux/macOS path or a Docker Desktop
+      # shared Windows path. Keep media read-only unless Yeen must reorganize it.
+      - /path/to/media:/media:ro

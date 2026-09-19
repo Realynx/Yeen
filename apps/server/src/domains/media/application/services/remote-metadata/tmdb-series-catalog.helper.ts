@@ -210,35 +210,34 @@ function extractSeasonEpisodes(
   const episodes: TmdbSeriesEpisode[] = [];
 
   for (const rawEpisode of rawEpisodes) {
-    if (
-      typeof rawEpisode !== 'object' ||
-      rawEpisode === null ||
-      Array.isArray(rawEpisode)
-    ) {
-      continue;
-    }
-
-    const row = rawEpisode as Record<string, unknown>;
-    const episodeNumber = sharedExtractPositiveInteger(row.episode_number);
-    if (!episodeNumber) continue;
-
-    const title =
-      typeof row.name === 'string' && row.name.trim().length > 0
-        ? row.name.trim()
-        : `Episode ${episodeNumber}`;
-    const airedAt =
-      typeof row.air_date === 'string' && row.air_date.trim().length > 0
-        ? row.air_date.trim()
-        : null;
-    const synopsis =
-      typeof row.overview === 'string' && row.overview.trim().length > 0
-        ? row.overview.trim()
-        : null;
-
-    episodes.push({ seasonNumber, episodeNumber, title, airedAt, synopsis });
+    const episode = toSeasonEpisode(rawEpisode, seasonNumber);
+    if (episode) episodes.push(episode);
   }
 
   return episodes;
+}
+
+function toSeasonEpisode(
+  value: unknown,
+  seasonNumber: number,
+): TmdbSeriesEpisode | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    return null;
+  const row = value as Record<string, unknown>;
+  const episodeNumber = sharedExtractPositiveInteger(row.episode_number);
+  if (!episodeNumber) return null;
+  return {
+    seasonNumber,
+    episodeNumber,
+    title: trimmedString(row.name) ?? `Episode ${episodeNumber}`,
+    airedAt: trimmedString(row.air_date),
+    synopsis: trimmedString(row.overview),
+  };
+}
+
+function trimmedString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return value.trim() || null;
 }
 
 function normalizeSeriesEpisodeCatalog(

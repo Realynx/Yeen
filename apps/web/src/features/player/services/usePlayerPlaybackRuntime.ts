@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import type { Dispatch, RefObject, SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import { upsertProgress } from '../../shared/services/api';
 import type { SubtitleTrack } from '../../shared/services/types';
 import type { PlaybackSource } from './usePlayerData';
+import type { HlsSwitchOptions } from './playerData.types';
 import type { SubtitleFontPreset } from './playerUtils';
 import { usePlayerCasting } from './usePlayerCasting';
 import { usePlayerControlsTimer } from './usePlayerControlsTimer';
@@ -63,13 +70,7 @@ interface UsePlayerPlaybackRuntimeOptions {
   setPlayerError: Dispatch<SetStateAction<string | null>>;
   setQualityMode: Dispatch<SetStateAction<'auto' | number>>;
   setTheaterMode: Dispatch<SetStateAction<boolean>>;
-  switchToHls: (options?: {
-    forceFresh?: boolean;
-    audioStreamIndex?: number | null;
-    maxVideoBitrateKbps?: number | null;
-    audioBitrateKbps?: number | null;
-    maxOutputHeight?: number | null;
-  }) => Promise<boolean>;
+  switchToHls: (options?: HlsSwitchOptions) => Promise<boolean>;
   withAutoAdvance: (handler: () => boolean) => () => void;
 }
 

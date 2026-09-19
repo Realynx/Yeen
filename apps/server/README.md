@@ -9,8 +9,9 @@ NestJS API and runtime host for Core Yeen.
 - Playback planning, Direct Play, Transcoded Playback, HLS segment delivery, subtitles, and watch progress.
 - Broadcast Sessions for share-token synchronized playback.
 - System settings and optional Core Yeen integrations such as remote metadata, subtitle lookup, and AI metadata providers.
+- Add-on Package verification, installation, runtime loading, and Add-on Activation.
 
-Current torrent/download code exists in this app, but the target architecture is to extract it into the optional Downloader Add-on rather than keep it in Core Yeen.
+Torrent and download tooling is not part of Core Yeen. Install the separately maintained Downloader Add-on from the administrator portal when those tools are wanted.
 
 ## Layout
 
@@ -23,7 +24,8 @@ Backend source is organized by domain under `src/domains`:
 - `subtitle`
 - `progress`
 - `system-settings`
-- `torrent`
+- `addons`
+- `lifecycle`
 - `core`
 
 Each domain follows the project convention documented in `src/domains/README.md`: controllers under `presentation`, workflows under `application/services`, domain entities under `domain/entities`, and stores/clients/adapters under `infrastructure`.
@@ -41,6 +43,7 @@ npm run test:cov
 ```
 
 From the repository root, use `npm run dev`, `npm run build`, and `npm run lint` to orchestrate both server and web.
+Use `npm run verify:core-only` to compile the public server with every Downloader implementation path omitted.
 
 ## Environment
 
@@ -49,6 +52,7 @@ Copy `.env.example` to `.env` and set production-safe values before deploying.
 Important variables include:
 
 - `PORT`
+- `YEEN_TLS_CERT_PATH` and `YEEN_TLS_KEY_PATH` (both set enables HTTP and HTTPS on `PORT`)
 - `CORS_ORIGIN`
 - `JWT_SECRET`
 - `DEFAULT_ADMIN_EMAIL`
@@ -58,6 +62,9 @@ Important variables include:
 - `FFMPEG_PATH`
 - `FFPROBE_PATH`
 - `OPENSUBTITLES_API_KEY`
+- `YEEN_ADDONS_ROOT`
+- `YEEN_ADDON_TRUSTED_KEYS`
+- `YEEN_SUPERVISED_RESTART`
 
 Development may use convenient defaults, but production should use explicit non-default security configuration.
 

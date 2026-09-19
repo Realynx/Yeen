@@ -5,9 +5,11 @@ import {
   toApiErrorMessage,
 } from '../../shared/services/api';
 import type { BroadcastStatusSnapshot } from '../services/publicBroadcastPlaybackSync';
+import { openPublicBroadcastStatusStream } from '../services/publicBroadcastStatusStream';
+import { shouldRefreshPublicBroadcastFallback } from '../services/publicBroadcastStatusFallback';
 import {
   HEARTBEAT_INTERVAL_MS,
-  STATUS_AND_SYNC_INTERVAL_MS,
+  STATUS_FALLBACK_INTERVAL_MS,
 } from './publicBroadcastPage.constants';
 
 interface UsePublicBroadcastSessionPollingOptions {
@@ -60,24 +62,26 @@ export function usePublicBroadcastSessionPolling({
     }
 
     let cancelled = false;
+    let lastStreamStatusAtMs = 0;
+
+    function applyStatus(nextStatus: BroadcastStatusSnapshot['status']) {
+      const nextSnapshot: BroadcastStatusSnapshot = {
+        status: nextStatus,
+        receivedAtMs: Date.now(),
+      };
+      statusRef.current = nextSnapshot;
+      setStatusSnapshot(nextSnapshot);
+      setError(null);
+      runPlaybackSyncRef.current();
+    }
 
     async function refreshStatus() {
       try {
         const nextStatus = await getPublicBroadcastSession(resolvedShareToken);
-        const receivedAtMs = Date.now();
         if (cancelled) {
           return;
         }
-
-        const nextSnapshot: BroadcastStatusSnapshot = {
-          status: nextStatus,
-          receivedAtMs,
-        };
-
-        statusRef.current = nextSnapshot;
-        setStatusSnapshot(nextSnapshot);
-        setError(null);
-        runPlaybackSyncRef.current();
+        applyStatus(nextStatus);
       } catch (statusError) {
         if (!cancelled) {
           setError(toApiErrorMessage(statusError, 'Unable to load broadcast status.'));
@@ -91,14 +95,27 @@ export function usePublicBroadcastSessionPolling({
     }
 
     void refreshStatus();
+    const closeStatusStream = openPublicBroadcastStatusStream(
+      resolvedShareToken,
+      (nextStatus) => {
+        if (!cancelled) {
+          lastStreamStatusAtMs = Date.now();
+          applyStatus(nextStatus);
+          setLoading(false);
+        }
+      },
+    );
 
     const intervalId = window.setInterval(() => {
-      void refreshStatus();
-    }, STATUS_AND_SYNC_INTERVAL_MS);
+      if (shouldRefreshPublicBroadcastFallback(lastStreamStatusAtMs, Date.now())) {
+        void refreshStatus();
+      }
+    }, STATUS_FALLBACK_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      closeStatusStream();
     };
   }, [resolvedShareToken, runPlaybackSyncRef, setError, setLoading, setStatusSnapshot, statusRef]);
 
