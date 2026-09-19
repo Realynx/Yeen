@@ -526,6 +526,192 @@ describe('serveHlsSegmentValue', () => {
     expect(session.inputArgs).toEqual([]);
   });
 
+  it('falls back when the filtergraph dies at its input, as production reported', async () => {
+    const sourceFile = join(scratchDir, 'av1-source.mkv');
+    const segmentFile = join(scratchDir, 'segment_00000.ts');
+    await writeFile(sourceFile, Buffer.alloc(1024, 1));
+    const session = createSession({
+      sourceFilePath: sourceFile,
+      videoEncoder: 'nvidia',
+      inputArgs: ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'],
+      videoArgs: ['-c:v', 'h264_nvenc'],
+      softwareNvencFallbackVideoArgs: [
+        '-vf',
+        'scale=-2:1080,format=yuv420p',
+        '-c:v',
+        'h264_nvenc',
+      ],
+      cpuFallbackVideoArgs: ['-c:v', 'libx264'],
+    });
+    // Verbatim from the production journal: the message names the graph input
+    // and the auto scaler, never CUDA or NVENC.
+    const ensureSegment = jest
+      .fn<Promise<void>, [SegmentTranscodeRequest]>()
+      .mockRejectedValueOnce(
+        new Error(
+          'ffmpeg exited 1 for segment 0: Impossible to convert between the ' +
+            "formats supported by the filter 'graph 0 input from stream 0:0' " +
+            "and the filter 'auto_scaler_0'",
+        ),
+      )
+      .mockImplementationOnce(async (request: SegmentTranscodeRequest) => {
+        await writeFile(request.segmentPath, Buffer.alloc(32, 1));
+      });
+    const response = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    }) as Writable & { setHeader: jest.Mock };
+    response.setHeader = jest.fn();
+
+    await serveHlsSegmentValue({
+      session,
+      fileName: 'segment_00000.ts',
+      fullPath: segmentFile,
+      response: response as unknown as import('express').Response,
+      logger: {
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      } as unknown as Logger,
+      progressivePlaybackSources: {
+        prioritize: jest.fn(),
+        assertSegmentReadable: jest.fn().mockResolvedValue(undefined),
+      } as unknown as import('../../../core/application/extensions/progressive-playback-source').ProgressivePlaybackSourceRegistry,
+      segmentTranscoder: {
+        ensureSegment,
+      } as unknown as import('./hls/hls-segment-transcoder.service').HlsSegmentTranscoder,
+      startSegmentRecoverableWindowMs: 30_000,
+      maxStartSegmentRecoverableFailures: 4,
+      resolveReachableSourcePath: jest.fn().mockResolvedValue(sourceFile),
+    });
+
+    expect(ensureSegment).toHaveBeenCalledTimes(2);
+    expect(ensureSegment.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ inputArgs: [] }),
+    );
+    expect(session.inputArgs).toEqual([]);
+  });
+
+  it('leaves transient input errors to the retry path, not the hardware ladder', async () => {
+    const sourceFile = join(scratchDir, 'partial-source.mkv');
+    await writeFile(sourceFile, Buffer.alloc(1024, 1));
+    const responseHeaders = new Map<string, string>();
+    const session = createSession({
+      sourceFilePath: sourceFile,
+      videoEncoder: 'nvidia',
+      inputArgs: ['-hwaccel', 'cuda'],
+      videoArgs: ['-c:v', 'h264_nvenc'],
+      cpuFallbackVideoArgs: ['-c:v', 'libx264'],
+    });
+    const ensureSegment = jest
+      .fn<Promise<void>, [SegmentTranscodeRequest]>()
+      .mockRejectedValue(
+        new Error('ffmpeg exited 1 for segment 3: End of file'),
+      );
+
+    const call = serveHlsSegmentValue({
+      session,
+      fileName: 'segment_00003.ts',
+      fullPath: join(scratchDir, 'segment_00003.ts'),
+      response: {
+        setHeader(name: string, value: string) {
+          responseHeaders.set(name, value);
+        },
+      } as unknown as import('express').Response,
+      logger: {
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      } as unknown as Logger,
+      progressivePlaybackSources: {
+        prioritize: jest.fn(),
+        assertSegmentReadable: jest.fn().mockResolvedValue(undefined),
+      } as unknown as import('../../../core/application/extensions/progressive-playback-source').ProgressivePlaybackSourceRegistry,
+      segmentTranscoder: {
+        ensureSegment,
+      } as unknown as import('./hls/hls-segment-transcoder.service').HlsSegmentTranscoder,
+      startSegmentRecoverableWindowMs: 30_000,
+      maxStartSegmentRecoverableFailures: 4,
+      resolveReachableSourcePath: jest.fn().mockResolvedValue(sourceFile),
+    });
+
+    await expect(call).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+    // The ladder must not burn extra ffmpeg spawns on a not-yet-readable input.
+    expect(ensureSegment).toHaveBeenCalledTimes(1);
+    expect(session.videoEncoder).toBe('nvidia');
+  });
+
+  it('treats fallback backpressure as retryable, not as a dead title', async () => {
+    const sourceFile = join(scratchDir, 'av1-source.mkv');
+    await writeFile(sourceFile, Buffer.alloc(1024, 1));
+    const responseHeaders = new Map<string, string>();
+    const session = createSession({
+      sourceFilePath: sourceFile,
+      videoEncoder: 'nvidia',
+      inputArgs: ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'],
+      videoArgs: ['-c:v', 'h264_nvenc'],
+      softwareNvencFallbackVideoArgs: [
+        '-vf',
+        'scale=-2:1080,format=yuv420p',
+        '-c:v',
+        'h264_nvenc',
+      ],
+      cpuFallbackVideoArgs: ['-c:v', 'libx264'],
+    });
+    // A second AV1 session arrives while the first still holds the single
+    // software-pipeline slot: the CUDA attempt fails, then the fallback is
+    // refused by backpressure.
+    const ensureSegment = jest
+      .fn<Promise<void>, [SegmentTranscodeRequest]>()
+      .mockRejectedValueOnce(
+        new Error(
+          'ffmpeg exited 1 for segment 0: Impossible to convert between the ' +
+            "formats supported by the filter 'graph 0 input from stream 0:0' " +
+            "and the filter 'auto_scaler_0'",
+        ),
+      )
+      .mockRejectedValueOnce(new SegmentTranscodeQueueOverloadedError(2, 1, 0));
+
+    const call = serveHlsSegmentValue({
+      session,
+      fileName: 'segment_00000.ts',
+      fullPath: join(scratchDir, 'segment_00000.ts'),
+      response: {
+        setHeader(name: string, value: string) {
+          responseHeaders.set(name, value);
+        },
+      } as unknown as import('express').Response,
+      logger: {
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      } as unknown as Logger,
+      progressivePlaybackSources: {
+        prioritize: jest.fn(),
+        assertSegmentReadable: jest.fn().mockResolvedValue(undefined),
+      } as unknown as import('../../../core/application/extensions/progressive-playback-source').ProgressivePlaybackSourceRegistry,
+      segmentTranscoder: {
+        ensureSegment,
+      } as unknown as import('./hls/hls-segment-transcoder.service').HlsSegmentTranscoder,
+      startSegmentRecoverableWindowMs: 30_000,
+      maxStartSegmentRecoverableFailures: 4,
+      resolveReachableSourcePath: jest.fn().mockResolvedValue(sourceFile),
+    });
+
+    await expect(call).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+    expect(responseHeaders.get('X-Yeen-Hls-Overloaded')).toBe('1');
+    expect(responseHeaders.get('Retry-After')).toBe('2');
+    // Crucially NOT a permanent failure: the player must be allowed to retry.
+    expect(responseHeaders.has('X-Yeen-Hls-Permanent-Failure')).toBe(false);
+    // And it must not burn the CPU attempt while the queue is already full.
+    expect(ensureSegment).toHaveBeenCalledTimes(2);
+  });
+
   it('propagates audio-only session kind to the segment transcoder', async () => {
     const sourceFile = join(scratchDir, 'source.flac');
     await writeFile(sourceFile, Buffer.alloc(1024, 1));
