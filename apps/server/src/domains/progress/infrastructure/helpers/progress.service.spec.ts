@@ -77,6 +77,27 @@ describe('ProgressService', () => {
     expect(stored?.syncTimestampMs).toBe(4000);
   });
 
+  it('reopens completed media when newer playback restarts away from the end', async () => {
+    await service.upsert(user, 'media-replay', {
+      positionSeconds: 3600,
+      durationSeconds: 3600,
+      syncTimestampMs: 5000,
+      completed: true,
+    });
+
+    const replayed = await service.upsert(user, 'media-replay', {
+      positionSeconds: 45,
+      durationSeconds: 3600,
+      syncTimestampMs: 6000,
+      completed: false,
+    });
+
+    expect(replayed.completed).toBe(false);
+    expect(replayed.positionSeconds).toBe(45);
+    expect(stored?.completed).toBe(false);
+    expect(stored?.positionSeconds).toBe(45);
+  });
+
   it('does not auto-complete short media near the start', async () => {
     const progress = await service.upsert(user, 'media-short-1', {
       positionSeconds: 5,

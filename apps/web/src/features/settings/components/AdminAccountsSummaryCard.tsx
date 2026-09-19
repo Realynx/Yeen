@@ -1,16 +1,14 @@
+import { Activity, Download, ShieldCheck, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 interface AdminAccountsSummaryCardProps {
   accountsCount: number;
   adminCount: number;
   sailerCount: number;
   userCount: number;
-  totalInvites: number;
-  customBitrateCount: number;
-  activeAccountCount: number;
-  activeWatcherCount: number;
   activeDownloadCount: number;
   recentlyActiveCount: number;
-  accountsMessage: string | null;
-  accountsError: string | null;
 }
 
 export function AdminAccountsSummaryCard({
@@ -18,87 +16,69 @@ export function AdminAccountsSummaryCard({
   adminCount,
   sailerCount,
   userCount,
-  totalInvites,
-  customBitrateCount,
-  activeAccountCount,
-  activeWatcherCount,
   activeDownloadCount,
   recentlyActiveCount,
-  accountsMessage,
-  accountsError,
 }: AdminAccountsSummaryCardProps) {
   return (
-    <article className="settings-surface settings-surface-full">
-      <header className="settings-surface-header">
+    <Card className="settings-surface settings-surface-full">
+      <CardHeader className="settings-surface-header p-0">
         <div>
-          <p className="settings-section-kicker">Identity</p>
-          <h2>Account & Access</h2>
+          <p className="settings-section-kicker">Overview</p>
+          <CardTitle>Account Summary</CardTitle>
+          <CardDescription>
+            A compact view of access levels and recent activity.
+          </CardDescription>
         </div>
-        <span className="settings-pill">Admin Only</span>
-      </header>
+        <Badge variant="secondary">Administrator only</Badge>
+      </CardHeader>
 
-      <div className="admin-accounts-summary-grid" aria-live="polite">
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Total Accounts</p>
-          <p className="admin-accounts-summary-value">{accountsCount}</p>
-          <p className="admin-accounts-summary-note">All active profiles</p>
-        </article>
+      <CardContent className="p-0">
+        <div className="admin-accounts-summary-grid" aria-live="polite">
+          <Card className="admin-accounts-summary-card">
+            <CardHeader className="p-0">
+              <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <CardDescription>Total Accounts</CardDescription>
+              <CardTitle className="admin-accounts-summary-value">{accountsCount}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 text-sm text-muted-foreground">
+              {userCount} standard · {sailerCount} downloader
+            </CardContent>
+          </Card>
 
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Admins</p>
-          <p className="admin-accounts-summary-value">{adminCount}</p>
-          <p className="admin-accounts-summary-note">Unlimited invite access</p>
-        </article>
+          <Card className="admin-accounts-summary-card">
+            <CardHeader className="p-0">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <CardDescription>Administrators</CardDescription>
+              <CardTitle className="admin-accounts-summary-value">{adminCount}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 text-sm text-muted-foreground">
+              Full system and Account access
+            </CardContent>
+          </Card>
 
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Sailers</p>
-          <p className="admin-accounts-summary-value">{sailerCount}</p>
-          <p className="admin-accounts-summary-note">
-            Torrent search and downloads
-          </p>
-        </article>
+          <Card className="admin-accounts-summary-card">
+            <CardHeader className="p-0">
+              <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <CardDescription>Recently Active</CardDescription>
+              <CardTitle className="admin-accounts-summary-value">{recentlyActiveCount}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 text-sm text-muted-foreground">
+              Activity recorded in the last 7 days
+            </CardContent>
+          </Card>
 
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Users</p>
-          <p className="admin-accounts-summary-value">{userCount}</p>
-          <p className="admin-accounts-summary-note">Media-only access</p>
-        </article>
-
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Invites Remaining</p>
-          <p className="admin-accounts-summary-value">{totalInvites}</p>
-          <p className="admin-accounts-summary-note">Across user accounts</p>
-        </article>
-
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Bitrate Overrides</p>
-          <p className="admin-accounts-summary-value">{customBitrateCount}</p>
-          <p className="admin-accounts-summary-note">Custom transcode caps</p>
-        </article>
-
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Active Accounts</p>
-          <p className="admin-accounts-summary-value">{activeAccountCount}</p>
-          <p className="admin-accounts-summary-note">Watching or downloading now</p>
-        </article>
-
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Watching Now</p>
-          <p className="admin-accounts-summary-value">{activeWatcherCount}</p>
-          <p className="admin-accounts-summary-note">Users in playback progress</p>
-        </article>
-
-        <article className="admin-accounts-summary-card">
-          <p className="admin-accounts-summary-kicker">Active Downloads</p>
-          <p className="admin-accounts-summary-value">{activeDownloadCount}</p>
-          <p className="admin-accounts-summary-note">
-            Recently active users: {recentlyActiveCount}
-          </p>
-        </article>
-      </div>
-
-      {accountsMessage ? <p className="scan-success">{accountsMessage}</p> : null}
-      {accountsError ? <p className="error-text">{accountsError}</p> : null}
-    </article>
+          <Card className="admin-accounts-summary-card">
+            <CardHeader className="p-0">
+              <Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <CardDescription>Active Downloads</CardDescription>
+              <CardTitle className="admin-accounts-summary-value">{activeDownloadCount}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 text-sm text-muted-foreground">
+              Reported by active add-on sources
+            </CardContent>
+          </Card>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

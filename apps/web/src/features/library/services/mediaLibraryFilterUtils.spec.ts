@@ -6,38 +6,40 @@ import {
 } from './mediaLibraryFilterUtils';
 
 function createMedia(overrides: Partial<MediaItem> & { id: string; title: string }): MediaItem {
-  return {
+  const extension = overrides.extension ?? '.mkv';
+  const defaults: MediaItem = {
     id: overrides.id,
     title: overrides.title,
     normalizedTitle: overrides.title.toLowerCase(),
-    tags: overrides.tags ?? [],
+    tags: [],
     description: null,
-    releaseYear: overrides.releaseYear ?? null,
+    releaseYear: null,
     seasonNumber: null,
     episodeNumber: null,
     episodeTitle: null,
     dedupeKey: overrides.id,
-    relativePath: `${overrides.title}${overrides.extension ?? '.mkv'}`,
-    filePath: `C:\\media\\${overrides.title}${overrides.extension ?? '.mkv'}`,
-    extension: overrides.extension ?? '.mkv',
+    relativePath: `${overrides.title}${extension}`,
+    filePath: `C:\\media\\${overrides.title}${extension}`,
+    extension,
     container: null,
-    type: overrides.type ?? 'movie',
+    type: 'movie',
     digitalMediaType: 'video',
     sizeBytes: 100,
-    durationSeconds: overrides.durationSeconds ?? 5400,
-    width: overrides.width ?? 1920,
-    height: overrides.height ?? 1080,
-    videoCodec: overrides.videoCodec ?? null,
+    durationSeconds: 5400,
+    width: 1920,
+    height: 1080,
+    videoCodec: null,
     audioCodec: null,
-    subtitleStreams: overrides.subtitleStreams ?? 0,
-    subtitleDetails: overrides.subtitleDetails ?? [],
-    previewImagePath: overrides.previewImagePath ?? null,
-    backdropImagePath: overrides.backdropImagePath ?? null,
-    chapterThumbnails: overrides.chapterThumbnails ?? [],
+    subtitleStreams: 0,
+    subtitleDetails: [],
+    previewImagePath: null,
+    backdropImagePath: null,
+    chapterThumbnails: [],
     mediaDetails: { formatName: null, bitRate: null, frameRate: null, audioChannels: null },
     metadataRefreshedAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
+  return { ...defaults, ...overrides };
 }
 
 function defaultState(overrides: Partial<MediaLibraryFilterState>): MediaLibraryFilterState {

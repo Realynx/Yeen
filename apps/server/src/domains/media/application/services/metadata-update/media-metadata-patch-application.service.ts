@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
+import { buildMediaDedupeKey } from '../../../domain/media-dedupe-key';
 import type {
   MediaItem,
   SeriesAssignmentRules,
@@ -14,109 +15,18 @@ export class MediaMetadataPatchApplicationService {
   ) {}
 
   applyPatch(existing: MediaItem, patch: MediaMetadataPatch): MediaItem {
-    const hasOwn = <K extends keyof MediaMetadataPatch>(key: K) =>
-      Object.prototype.hasOwnProperty.call(patch, key);
-
     const next: MediaItem = { ...existing };
+    this.applyIdentityFields(next, patch);
+    this.applyEpisodeFields(next, patch);
+    this.applyRemoteFields(next, patch);
 
-    if (hasOwn('title')) {
-      const cleaned = (patch.title ?? '').trim();
-      if (!cleaned) {
-        throw new BadRequestException('Title cannot be empty.');
-      }
-      next.title = cleaned;
-    }
-
-    if (hasOwn('description')) {
-      const value = patch.description;
-      if (value === null || value === undefined) {
-        next.description = null;
-      } else {
-        const cleaned = value.trim();
-        next.description = cleaned ? cleaned : null;
-      }
-    }
-
-    if (hasOwn('releaseYear')) {
-      next.releaseYear = this.coerceOptionalInt(patch.releaseYear);
-    }
-
-    if (hasOwn('type')) {
-      const value = patch.type;
-      if (value !== 'movie' && value !== 'show' && value !== 'other') {
-        throw new BadRequestException('Invalid media type.');
-      }
-      next.type = value;
-    }
-
-    if (hasOwn('seasonNumber')) {
-      next.seasonNumber = this.coerceOptionalInt(patch.seasonNumber);
-    }
-
-    if (hasOwn('episodeNumber')) {
-      next.episodeNumber = this.coerceOptionalInt(patch.episodeNumber);
-    }
-
-    if (hasOwn('episodeTitle')) {
-      const value = patch.episodeTitle;
-      if (value === null || value === undefined) {
-        next.episodeTitle = null;
-      } else {
-        const cleaned = value.trim();
-        next.episodeTitle = cleaned ? cleaned : null;
-      }
-    }
-
-    if (hasOwn('tags')) {
-      next.tags = this.normalizeEditableTags(patch.tags ?? []);
-    }
-
-    if (hasOwn('remoteSource')) {
-      const value = patch.remoteSource;
-      if (value === null || value === undefined) {
-        next.remoteSource = undefined;
-      } else if (value === 'tmdb' || value === 'jikan') {
-        next.remoteSource = value;
-      } else {
-        throw new BadRequestException('Invalid remote metadata source.');
-      }
-    }
-
-    if (hasOwn('remoteSourceId')) {
-      const value = patch.remoteSourceId;
-      if (value === null || value === undefined) {
-        next.remoteSourceId = null;
-      } else {
-        const cleaned = value.trim();
-        next.remoteSourceId = cleaned ? cleaned : null;
-      }
-    }
-
-    if (!next.remoteSource || !next.remoteSourceId) {
-      next.remoteSource = undefined;
-      next.remoteSourceId = null;
-      next.remoteSourceLabel = null;
-    } else {
-      next.remoteSourceLabel = this.remoteSourceLabel(next.remoteSource);
-    }
-
-    if (hasOwn('seriesAssignmentRules')) {
+    if (this.hasOwn(patch, 'seriesAssignmentRules')) {
       next.seriesAssignmentRules = this.normalizeSeriesAssignmentRules(
         patch.seriesAssignmentRules,
       );
     }
 
-    // Shows always need a season; default to 1 if becoming a show and unset.
-    if (next.type === 'show' && next.seasonNumber === null) {
-      next.seasonNumber = 1;
-    }
-
-    // Movies and others do not carry season/episode fields.
-    if (next.type !== 'show') {
-      next.seasonNumber = null;
-      next.episodeNumber = null;
-      next.episodeTitle = null;
-    }
+    this.normalizeTypeDependentFields(next);
 
     this.mediaEpisodeCatalogService.reconcileEpisodeCatalogLink(
       next,
@@ -127,7 +37,96 @@ export class MediaMetadataPatchApplicationService {
 
     next.normalizedTitle = normalizeForKey(next.title);
     next.dedupeKey = this.buildDedupeKey(next);
+    const now = this.nextMetadataTimestamp(existing);
+    next.updatedAt = now;
+    next.metadataRefreshedAt = now;
+    return next;
+  }
 
+  private applyIdentityFields(
+    next: MediaItem,
+    patch: MediaMetadataPatch,
+  ): void {
+    if (this.hasOwn(patch, 'title')) {
+      const cleaned = (patch.title ?? '').trim();
+      if (!cleaned) {
+        throw new BadRequestException('Title cannot be empty.');
+      }
+      next.title = cleaned;
+    }
+
+    if (this.hasOwn(patch, 'description')) {
+      next.description = this.normalizeOptionalText(patch.description);
+    }
+
+    if (this.hasOwn(patch, 'releaseYear')) {
+      next.releaseYear = this.coerceOptionalInt(patch.releaseYear);
+    }
+
+    if (this.hasOwn(patch, 'type')) {
+      const value = patch.type;
+      if (value !== 'movie' && value !== 'show' && value !== 'other') {
+        throw new BadRequestException('Invalid media type.');
+      }
+      next.type = value;
+    }
+
+    if (this.hasOwn(patch, 'tags')) {
+      next.tags = this.normalizeEditableTags(patch.tags ?? []);
+    }
+  }
+
+  private applyEpisodeFields(next: MediaItem, patch: MediaMetadataPatch): void {
+    if (this.hasOwn(patch, 'seasonNumber')) {
+      next.seasonNumber = this.coerceOptionalInt(patch.seasonNumber);
+    }
+
+    if (this.hasOwn(patch, 'episodeNumber')) {
+      next.episodeNumber = this.coerceOptionalInt(patch.episodeNumber);
+    }
+
+    if (this.hasOwn(patch, 'episodeTitle')) {
+      next.episodeTitle = this.normalizeOptionalText(patch.episodeTitle);
+    }
+  }
+
+  private applyRemoteFields(next: MediaItem, patch: MediaMetadataPatch): void {
+    if (this.hasOwn(patch, 'remoteSource')) {
+      const value = patch.remoteSource;
+      if (value === null || value === undefined) {
+        next.remoteSource = undefined;
+      } else if (value === 'tmdb' || value === 'jikan') {
+        next.remoteSource = value;
+      } else {
+        throw new BadRequestException('Invalid remote metadata source.');
+      }
+    }
+
+    if (this.hasOwn(patch, 'remoteSourceId')) {
+      next.remoteSourceId = this.normalizeOptionalText(patch.remoteSourceId);
+    }
+
+    if (!next.remoteSource || !next.remoteSourceId) {
+      next.remoteSource = undefined;
+      next.remoteSourceId = null;
+      next.remoteSourceLabel = null;
+    } else {
+      next.remoteSourceLabel = this.remoteSourceLabel(next.remoteSource);
+    }
+  }
+
+  private normalizeTypeDependentFields(next: MediaItem): void {
+    if (next.type === 'show' && next.seasonNumber === null) {
+      next.seasonNumber = 1;
+    }
+    if (next.type !== 'show') {
+      next.seasonNumber = null;
+      next.episodeNumber = null;
+      next.episodeTitle = null;
+    }
+  }
+
+  private nextMetadataTimestamp(existing: MediaItem): string {
     const previousTimestamp = Date.parse(
       existing.metadataRefreshedAt || existing.updatedAt,
     );
@@ -138,24 +137,29 @@ export class MediaMetadataPatchApplicationService {
     ) {
       nextTimestamp = previousTimestamp + 1;
     }
+    return new Date(nextTimestamp).toISOString();
+  }
 
-    const now = new Date(nextTimestamp).toISOString();
-    next.updatedAt = now;
-    next.metadataRefreshedAt = now;
+  private normalizeOptionalText(
+    value: string | null | undefined,
+  ): string | null {
+    if (value === null || value === undefined) return null;
+    const cleaned = value.trim();
+    return cleaned ? cleaned : null;
+  }
 
-    return next;
+  private hasOwn<K extends keyof MediaMetadataPatch>(
+    patch: MediaMetadataPatch,
+    key: K,
+  ): boolean {
+    return Object.prototype.hasOwnProperty.call(patch, key);
   }
 
   buildDedupeKey(item: MediaItem): string {
-    const normalizedTitle = item.normalizedTitle || normalizeForKey(item.title);
-    if (item.type === 'show') {
-      return `show:${normalizedTitle}:s${item.seasonNumber ?? 0}:e${item.episodeNumber ?? 0}`;
-    }
-    if (item.type === 'movie') {
-      return `movie:${normalizedTitle}:y${item.releaseYear ?? 0}`;
-    }
-    const durationBucket = Math.max(0, Math.round(item.durationSeconds / 300));
-    return `other:${normalizedTitle}:y${item.releaseYear ?? 0}:d${durationBucket}`;
+    return buildMediaDedupeKey({
+      ...item,
+      normalizedTitle: item.normalizedTitle || normalizeForKey(item.title),
+    });
   }
 
   coerceOptionalInt(value: number | null | undefined): number | null {

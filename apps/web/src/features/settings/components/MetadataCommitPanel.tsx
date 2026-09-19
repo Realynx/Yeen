@@ -1,10 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import type {
-  CommitApplyResponse,
-  CommitChainRollbackResponse,
-  CommitHistoryEntry,
-  CommitPlanResponse,
-} from '../../shared/services/api';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   applyMetadataCommit,
   exportMediaMetadata,
@@ -14,6 +8,10 @@ import {
   rollbackMetadataCommit,
   rollbackToMetadataCommit,
   toApiErrorMessage,
+  type CommitApplyResponse,
+  type CommitChainRollbackResponse,
+  type CommitHistoryEntry,
+  type CommitPlanResponse,
 } from '../../shared/services/api';
 import { MetadataCommitHistorySection } from './MetadataCommitHistorySection';
 import { MetadataCommitBackupSection } from './MetadataCommitBackupSection';
@@ -42,6 +40,26 @@ function triggerJsonDownload(payload: unknown, exportedAt: string): string {
   return fileName;
 }
 
+function MetadataCommitHeader({ embedded }: { embedded: boolean }) {
+  if (embedded) return null;
+  return (
+    <header className="settings-surface-header">
+      <div><p className="settings-section-kicker">Library Maintenance</p><h2>Commit Metadata To Disk</h2></div>
+      <span className="settings-pill">Admin Only</span>
+    </header>
+  );
+}
+
+function MetadataCommitStatus({ message, error }: { message: string | null; error: string | null }) {
+  if (!message && !error) return null;
+  return (
+    <div className="commit-status-row" aria-live="polite">
+      {message ? <p className="commit-status commit-status-ok">{message}</p> : null}
+      {error ? <p className="commit-status commit-status-error">{error}</p> : null}
+    </div>
+  );
+}
+
 export function MetadataCommitPanel({
   token,
   embedded = false,
@@ -63,12 +81,7 @@ export function MetadataCommitPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  async function loadHistory() {
+  const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
       const result = await listMetadataCommitHistory(token);
@@ -78,7 +91,14 @@ export function MetadataCommitPanel({
     } finally {
       setLoadingHistory(false);
     }
-  }
+  }, [token]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadHistory();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadHistory]);
 
   async function handlePlan() {
     setPlanning(true);
@@ -123,10 +143,13 @@ export function MetadataCommitPanel({
         `${result.summary.sidecarsMoved} sidecar(s) moved, ` +
         `${result.summary.nfoFilesWritten} NFO file(s) written.`;
 
-      if (result.summary.errors > 0) {
+      if (result.summary.errors > 0 || result.integrationWarnings?.length) {
+        const integrationText = result.integrationWarnings?.length
+          ? ` ${result.integrationWarnings.length} add-on protection warning(s) require attention.`
+          : '';
         setError(
           `Commit finished with ${result.summary.errors} error(s). ` +
-            `${summaryText} Check the change report below for failed items.`,
+            `${summaryText}${integrationText} Check the change report below for details.`,
         );
       } else {
         setMessage(`Committed: ${summaryText}`);
@@ -272,15 +295,7 @@ export function MetadataCommitPanel({
           : 'settings-surface settings-surface-full'
       }
     >
-      {embedded ? null : (
-        <header className="settings-surface-header">
-          <div>
-            <p className="settings-section-kicker">Library Maintenance</p>
-            <h2>Commit Metadata To Disk</h2>
-          </div>
-          <span className="settings-pill">Admin Only</span>
-        </header>
-      )}
+      <MetadataCommitHeader embedded={embedded} />
 
       <p className="muted commit-intro">
         Rename and restructure media files on disk to match your edited titles,
@@ -343,16 +358,7 @@ export function MetadataCommitPanel({
         </button>
       </div>
 
-      {message || error ? (
-        <div className="commit-status-row" aria-live="polite">
-          {message ? (
-            <p className="commit-status commit-status-ok">{message}</p>
-          ) : null}
-          {error ? (
-            <p className="commit-status commit-status-error">{error}</p>
-          ) : null}
-        </div>
-      ) : null}
+      <MetadataCommitStatus message={message} error={error} />
 
       <MetadataCommitPlanSection plan={plan} />
 

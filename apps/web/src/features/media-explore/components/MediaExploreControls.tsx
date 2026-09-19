@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   type ExploreCatalogMode,
   type ExploreTypeFilter,
@@ -6,6 +7,7 @@ import type { ExploreTypeCounts } from '../services/exploreGrid';
 
 interface MediaExploreControlsProps {
   catalogMode: ExploreCatalogMode;
+  collapsible?: boolean;
   typeFilter: ExploreTypeFilter;
   typeCounts: ExploreTypeCounts;
   tagFilter: string;
@@ -22,6 +24,7 @@ interface MediaExploreControlsProps {
 
 export function MediaExploreControls({
   catalogMode,
+  collapsible = false,
   typeFilter,
   typeCounts,
   tagFilter,
@@ -35,9 +38,15 @@ export function MediaExploreControls({
   onClearTag,
   onResetExplore,
 }: MediaExploreControlsProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   return (
-    <section className="library-toolbar" aria-label="Explore controls" data-tv-focus-zone="shelf">
-      <div className="library-filters">
+    <section
+      className={`library-toolbar${collapsible ? ' tv-explore-toolbar' : ''}${filtersOpen ? ' is-open' : ''}`}
+      aria-label="Explore controls"
+      data-tv-focus-zone="shelf"
+    >
+      {(!collapsible || filtersOpen) ? <div className="library-filters">
         <div className="library-filter-group">
           <p className="library-filter-label">Catalog</p>
           <div
@@ -149,11 +158,21 @@ export function MediaExploreControls({
             })}
           </div>
         </div>
-      </div>
+      </div> : null}
 
       <div className="library-stat-block" aria-live="polite" data-tv-focus-lane-id="explore-toolbar-actions">
         <span className="library-stat-value">{filteredCount.toLocaleString()}</span>
         <span className="library-stat-label">Titles Shown</span>
+        {collapsible ? (
+          <button
+            type="button"
+            className="library-clear-button"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            {filtersOpen ? 'Hide Filters' : 'Filters'}
+          </button>
+        ) : null}
         {tagFilter ? (
           <button
             type="button"

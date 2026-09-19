@@ -1,5 +1,5 @@
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
-import { canAccessTorrentTools, isAdminRole } from './features/auth/services/roles';
+import { isAdminRole } from './features/auth/services/roles';
 import type { ClientExperience } from './features/navigation/services/clientExperience';
 import type { User } from './features/shared/services/types';
 import { HomePage } from './features/home/pages/HomePage';
@@ -26,9 +26,9 @@ import { SystemSettingsPageTv } from './features/settings/pages/SystemSettingsPa
 import { AccountAccessPage } from './features/settings/pages/AccountAccessPage';
 import { AccountAccessPagePhone } from './features/settings/pages/AccountAccessPagePhone';
 import { AccountAccessPageTv } from './features/settings/pages/AccountAccessPageTv';
-import { DownloadControlPage } from './features/settings/pages/DownloadControlPage';
-import { DownloadControlPagePhone } from './features/settings/pages/DownloadControlPagePhone';
-import { DownloadControlPageTv } from './features/settings/pages/DownloadControlPageTv';
+import { AddonsPage } from './features/addons/pages/AddonsPage';
+import { AddonsPagePhone } from './features/addons/pages/AddonsPagePhone';
+import { AddonsPageTv } from './features/addons/pages/AddonsPageTv';
 
 export interface AppCommonPageProps {
   token: string;
@@ -144,12 +144,12 @@ export function buildGuardedExperienceRoutes(
       tv: <AccountAccessPageTv {...commonPageProps} />,
     },
     {
-      path: '/admin/downloads',
-      allowed: canAccessTorrentTools(user.role),
-      redirectTo: '/',
-      desktop: <DownloadControlPage {...commonPageProps} />,
-      phone: <DownloadControlPagePhone {...commonPageProps} />,
-      tv: <DownloadControlPageTv {...commonPageProps} />,
+      path: '/admin/add-ons',
+      allowed: isAdminRole(user.role),
+      redirectTo: '/settings',
+      desktop: <AddonsPage {...commonPageProps} />,
+      phone: <AddonsPagePhone {...commonPageProps} />,
+      tv: <AddonsPageTv {...commonPageProps} />,
     },
   ];
 }

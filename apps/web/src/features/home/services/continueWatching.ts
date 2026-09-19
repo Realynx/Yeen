@@ -1,5 +1,5 @@
-import type { MediaItem, ProgressEntry } from '../../shared/services/types';
-import { toProgressPercent } from './homePageUtils';
+import type { MediaItem, ProgressEntry } from "../../shared/services/types";
+import { toProgressPercent } from "./homePageUtils";
 
 export interface ContinueWatchingEntry {
   item: MediaItem;
@@ -7,15 +7,16 @@ export interface ContinueWatchingEntry {
   lastWatchedAt: number;
 }
 
-const MIN_CONTINUE_SECONDS = 60;
-const MIN_CONTINUE_PERCENT = 2;
+const MIN_CONTINUE_SECONDS = 5;
 const MAX_CONTINUE_PERCENT = 95;
 const CONTINUE_WATCHING_LIMIT = 18;
-const DISMISSED_CONTINUE_PREFIX = 'yeen_dismissed_continue_watching_v1:';
+const DISMISSED_CONTINUE_PREFIX = "yeen_dismissed_continue_watching_v1:";
 
 export function readDismissedContinueWatchingIds(userId: string): Set<string> {
   try {
-    const raw = window.localStorage.getItem(`${DISMISSED_CONTINUE_PREFIX}${userId}`);
+    const raw = window.localStorage.getItem(
+      `${DISMISSED_CONTINUE_PREFIX}${userId}`,
+    );
     if (!raw) {
       return new Set();
     }
@@ -25,13 +26,18 @@ export function readDismissedContinueWatchingIds(userId: string): Set<string> {
       return new Set();
     }
 
-    return new Set(parsed.filter((value): value is string => typeof value === 'string'));
+    return new Set(
+      parsed.filter((value): value is string => typeof value === "string"),
+    );
   } catch {
     return new Set();
   }
 }
 
-export function writeDismissedContinueWatchingIds(userId: string, ids: Set<string>): void {
+export function writeDismissedContinueWatchingIds(
+  userId: string,
+  ids: Set<string>,
+): void {
   window.localStorage.setItem(
     `${DISMISSED_CONTINUE_PREFIX}${userId}`,
     JSON.stringify([...ids]),
@@ -47,7 +53,9 @@ export function buildContinueWatchingEntries(
   },
 ): ContinueWatchingEntry[] {
   return mediaItems
-    .map((item) => toContinueWatchingEntry(item, progressMap.get(item.id), dismissedIds))
+    .map((item) =>
+      toContinueWatchingEntry(item, progressMap.get(item.id), dismissedIds),
+    )
     .filter((entry): entry is ContinueWatchingEntry => entry !== null)
     .sort((left, right) => {
       if (right.lastWatchedAt !== left.lastWatchedAt) {
@@ -55,7 +63,7 @@ export function buildContinueWatchingEntries(
       }
 
       return left.item.title.localeCompare(right.item.title, undefined, {
-        sensitivity: 'base',
+        sensitivity: "base",
       });
     })
     .slice(0, options?.limit ?? CONTINUE_WATCHING_LIMIT);
@@ -68,13 +76,12 @@ function toContinueWatchingEntry(
 ): ContinueWatchingEntry | null {
   const percent = toProgressPercent(progress);
   if (
-    !progress
-    || progress.completed
-    || dismissedIds.has(item.id)
-    || typeof percent !== 'number'
-    || percent < MIN_CONTINUE_PERCENT
-    || percent >= MAX_CONTINUE_PERCENT
-    || progress.positionSeconds < MIN_CONTINUE_SECONDS
+    !progress ||
+    progress.completed ||
+    dismissedIds.has(item.id) ||
+    typeof percent !== "number" ||
+    percent >= MAX_CONTINUE_PERCENT ||
+    progress.positionSeconds < MIN_CONTINUE_SECONDS
   ) {
     return null;
   }

@@ -9,6 +9,14 @@ import {
 import { SettingsIcon } from '../PlayerIcons';
 import { usePlayerMenuInitialFocus } from './usePlayerMenuInitialFocus';
 
+function toResolutionTier(height: number): string {
+  if (height >= 2160) return 'Ultra HD';
+  if (height >= 1440) return 'Quad HD';
+  if (height >= 1080) return 'Full HD';
+  if (height >= 720) return 'HD';
+  return 'SD';
+}
+
 interface PlayerSettingsMenuProps {
   open: boolean;
   playbackRate: number;
@@ -76,134 +84,196 @@ export function PlayerSettingsMenu({
       </button>
 
       {open ? (
-        <div ref={menuRef} className="player-menu player-menu-unified player-menu-settings" role="menu" aria-label="Playback settings">
-          <p className="player-menu-heading">Speed</p>
-          <div className="player-menu-chiprow">
-            {SPEED_OPTIONS.map((speed) => (
-              <button
-                key={`speed-${speed}`}
-                type="button"
-                className={`player-menu-chip ${playbackRate === speed ? 'is-active' : ''}`}
-                data-tv-menu-initial-focus={playbackRate === speed ? 'true' : undefined}
-                onClick={() => onPlaybackRateChange(speed)}
-              >
-                {speed}×
-              </button>
-            ))}
-          </div>
+        <div ref={menuRef} className="player-menu player-menu-unified player-menu-settings" role="dialog" aria-label="Video settings">
+          <header className="player-settings-header">
+            <div>
+              <p className="player-settings-eyebrow">Playback</p>
+              <h3>Video settings</h3>
+            </div>
+            <span className={`player-settings-mode ${isHlsSource ? 'is-transcoded' : ''}`}>
+              {isHlsSource ? 'Transcoded' : 'Direct play'}
+            </span>
+          </header>
 
-          <p className="player-menu-heading">Subtitle Font</p>
-          <div className="player-menu-chiprow">
-            {SUBTITLE_FONT_OPTIONS.map((option) => (
-              <button
-                key={`subtitle-font-${option.id}`}
-                type="button"
-                className={`player-menu-chip ${subtitleFontPreset === option.id ? 'is-active' : ''}`}
-                onClick={() => onSubtitleFontPresetChange(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <p className="player-menu-heading">Transcode Profile</p>
-          <section className="player-transcode-profile-card" aria-label="Transcode profile status">
-            <p className="player-transcode-profile-kicker">Video Quota Ceiling</p>
-            <p className="player-transcode-profile-value">{toBitrateLabelKbps(videoBitrateQuotaKbps)}</p>
-            <p className="player-transcode-profile-copy">
-              {isHlsSource
-                ? `Applied: ${toBitrateLabelKbps(appliedVideoBitrateKbps)} V | ${toBitrateLabelKbps(appliedAudioBitrateKbps)} A | ${appliedMaxOutputHeight ? toResolutionOptionLabel(appliedMaxOutputHeight) : 'Auto res'}`
-                : 'Used automatically when transcoding starts.'}
-            </p>
-          </section>
-
-          <p className="player-menu-heading">Resolution Ceiling</p>
-          <div className="player-menu-chiprow player-menu-chiprow-grid">
-            <button
-              type="button"
-              className={`player-menu-chip ${preferredMaxResolutionHeight === null ? 'is-active' : ''}`}
-              onClick={() => onPreferredResolutionChange(null)}
-            >
-              Auto
-            </button>
-            {resolutionHeightOptions.map((height) => (
-              <button
-                key={`resolution-${height}`}
-                type="button"
-                className={`player-menu-chip ${preferredMaxResolutionHeight === height ? 'is-active' : ''}`}
-                onClick={() => onPreferredResolutionChange(height)}
-              >
-                {toResolutionOptionLabel(height)}
-              </button>
-            ))}
-          </div>
-
-          <p className="player-menu-heading">Video Bitrate</p>
-          <div className="player-menu-chiprow player-menu-chiprow-grid">
-            <button
-              type="button"
-              className={`player-menu-chip ${preferredVideoBitrateKbps === null ? 'is-active' : ''}`}
-              onClick={() => onPreferredVideoBitrateChange(null)}
-            >
-              Auto
-            </button>
-            {videoBitrateOptionsKbps.map((bitrateKbps) => (
-              <button
-                key={`video-bitrate-${bitrateKbps}`}
-                type="button"
-                className={`player-menu-chip ${preferredVideoBitrateKbps === bitrateKbps ? 'is-active' : ''}`}
-                onClick={() => onPreferredVideoBitrateChange(bitrateKbps)}
-              >
-                {toBitrateLabelKbps(bitrateKbps)}
-              </button>
-            ))}
-          </div>
-
-          <p className="player-menu-heading">Audio Bitrate</p>
-          <div className="player-menu-chiprow player-menu-chiprow-grid">
-            <button
-              type="button"
-              className={`player-menu-chip ${preferredAudioBitrateKbps === null ? 'is-active' : ''}`}
-              onClick={() => onPreferredAudioBitrateChange(null)}
-            >
-              Auto
-            </button>
-            {audioBitrateOptionsKbps.map((bitrateKbps) => (
-              <button
-                key={`audio-bitrate-${bitrateKbps}`}
-                type="button"
-                className={`player-menu-chip ${preferredAudioBitrateKbps === bitrateKbps ? 'is-active' : ''}`}
-                onClick={() => onPreferredAudioBitrateChange(bitrateKbps)}
-              >
-                {toBitrateLabelKbps(bitrateKbps)}
-              </button>
-            ))}
-          </div>
-
-          {isHlsSource && hlsLevels.length > 0 ? (
-            <>
-              <p className="player-menu-heading">Quality</p>
-              <div className="player-menu-chiprow">
+          <div className="player-settings-scroll">
+            <section className="player-settings-section" aria-labelledby="player-quality-heading">
+              <div className="player-settings-section-heading">
+                <div>
+                  <h4 id="player-quality-heading">Playback quality</h4>
+                  <p>Set the highest resolution Yeen may produce. Automatic follows server and account limits.</p>
+                </div>
+                <span>{preferredMaxResolutionHeight ? toResolutionOptionLabel(preferredMaxResolutionHeight) : 'Automatic'}</span>
+              </div>
+              <div className="player-resolution-options">
                 <button
                   type="button"
-                  className={`player-menu-chip ${qualityMode === 'auto' ? 'is-active' : ''}`}
-                  onClick={() => onQualityModeChange('auto')}
+                  className={`player-resolution-option ${preferredMaxResolutionHeight === null ? 'is-active' : ''}`}
+                  aria-pressed={preferredMaxResolutionHeight === null}
+                  data-tv-menu-initial-focus={preferredMaxResolutionHeight === null ? 'true' : undefined}
+                  onClick={() => onPreferredResolutionChange(null)}
                 >
-                  Auto
+                  <strong>Automatic</strong>
+                  <small>Best available</small>
                 </button>
-                {hlsLevels.map((level) => (
+                {resolutionHeightOptions.map((height) => (
                   <button
-                    key={`quality-${level.index}`}
+                    key={`resolution-${height}`}
                     type="button"
-                    className={`player-menu-chip ${qualityMode === level.index ? 'is-active' : ''}`}
-                    onClick={() => onQualityModeChange(level.index)}
+                    className={`player-resolution-option ${preferredMaxResolutionHeight === height ? 'is-active' : ''} ${appliedMaxOutputHeight === height ? 'is-applied' : ''}`}
+                    aria-pressed={preferredMaxResolutionHeight === height}
+                    data-tv-menu-initial-focus={preferredMaxResolutionHeight === height ? 'true' : undefined}
+                    onClick={() => onPreferredResolutionChange(height)}
                   >
-                    {level.label}
+                    <strong>{toResolutionOptionLabel(height)}</strong>
+                    <small>{toResolutionTier(height)}</small>
                   </button>
                 ))}
               </div>
-            </>
-          ) : null}
+              {!isHlsSource ? (
+                <p className="player-settings-note">Direct play keeps the original quality. This preference is ready if transcoding is needed.</p>
+              ) : null}
+            </section>
+
+            <div className="player-settings-quick-grid">
+              <section className="player-settings-section" aria-labelledby="player-speed-heading">
+                <div className="player-settings-section-heading">
+                  <h4 id="player-speed-heading">Speed</h4>
+                  <span>{playbackRate}×</span>
+                </div>
+                <div className="player-menu-chiprow">
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={`speed-${speed}`}
+                      type="button"
+                      className={`player-menu-chip ${playbackRate === speed ? 'is-active' : ''}`}
+                      aria-pressed={playbackRate === speed}
+                      onClick={() => onPlaybackRateChange(speed)}
+                    >
+                      {speed}×
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="player-settings-section" aria-labelledby="player-caption-style-heading">
+                <div className="player-settings-section-heading">
+                  <h4 id="player-caption-style-heading">Caption style</h4>
+                </div>
+                <div className="player-menu-chiprow">
+                  {SUBTITLE_FONT_OPTIONS.map((option) => (
+                    <button
+                      key={`subtitle-font-${option.id}`}
+                      type="button"
+                      className={`player-menu-chip ${subtitleFontPreset === option.id ? 'is-active' : ''}`}
+                      aria-pressed={subtitleFontPreset === option.id}
+                      onClick={() => onSubtitleFontPresetChange(option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {isHlsSource && hlsLevels.length > 1 ? (
+              <section className="player-settings-section" aria-labelledby="player-rendition-heading">
+                <div className="player-settings-section-heading">
+                  <div>
+                    <h4 id="player-rendition-heading">Adaptive rendition</h4>
+                    <p>Choose a rendition from the active transcoded stream.</p>
+                  </div>
+                </div>
+                <div className="player-menu-chiprow">
+                  <button
+                    type="button"
+                    className={`player-menu-chip ${qualityMode === 'auto' ? 'is-active' : ''}`}
+                    aria-pressed={qualityMode === 'auto'}
+                    onClick={() => onQualityModeChange('auto')}
+                  >
+                    Automatic
+                  </button>
+                  {hlsLevels.map((level) => (
+                    <button
+                      key={`quality-${level.index}`}
+                      type="button"
+                      className={`player-menu-chip ${qualityMode === level.index ? 'is-active' : ''}`}
+                      aria-pressed={qualityMode === level.index}
+                      onClick={() => onQualityModeChange(level.index)}
+                    >
+                      {level.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <details className="player-settings-advanced">
+              <summary>
+                <span>
+                  <strong>Advanced transcoding</strong>
+                  <small>Bitrate limits and active profile</small>
+                </span>
+              </summary>
+
+              <section className="player-transcode-profile-card" aria-label="Active transcode profile">
+                <div>
+                  <p className="player-transcode-profile-kicker">Account ceiling</p>
+                  <p className="player-transcode-profile-value">{toBitrateLabelKbps(videoBitrateQuotaKbps)}</p>
+                </div>
+                <p className="player-transcode-profile-copy">
+                  {isHlsSource
+                    ? `Active: ${appliedMaxOutputHeight ? toResolutionOptionLabel(appliedMaxOutputHeight) : 'Auto'} · ${toBitrateLabelKbps(appliedVideoBitrateKbps)} video · ${toBitrateLabelKbps(appliedAudioBitrateKbps)} audio`
+                    : 'The server applies these limits when transcoding starts.'}
+                </p>
+              </section>
+
+              <p className="player-menu-heading">Video bitrate ceiling</p>
+              <div className="player-menu-chiprow player-menu-chiprow-grid">
+                <button
+                  type="button"
+                  className={`player-menu-chip ${preferredVideoBitrateKbps === null ? 'is-active' : ''}`}
+                  aria-pressed={preferredVideoBitrateKbps === null}
+                  onClick={() => onPreferredVideoBitrateChange(null)}
+                >
+                  Automatic
+                </button>
+                {videoBitrateOptionsKbps.map((bitrateKbps) => (
+                  <button
+                    key={`video-bitrate-${bitrateKbps}`}
+                    type="button"
+                    className={`player-menu-chip ${preferredVideoBitrateKbps === bitrateKbps ? 'is-active' : ''} ${appliedVideoBitrateKbps === bitrateKbps ? 'is-applied' : ''}`}
+                    aria-pressed={preferredVideoBitrateKbps === bitrateKbps}
+                    onClick={() => onPreferredVideoBitrateChange(bitrateKbps)}
+                  >
+                    {toBitrateLabelKbps(bitrateKbps)}
+                  </button>
+                ))}
+              </div>
+
+              <p className="player-menu-heading">Audio bitrate</p>
+              <div className="player-menu-chiprow player-menu-chiprow-grid">
+                <button
+                  type="button"
+                  className={`player-menu-chip ${preferredAudioBitrateKbps === null ? 'is-active' : ''}`}
+                  aria-pressed={preferredAudioBitrateKbps === null}
+                  onClick={() => onPreferredAudioBitrateChange(null)}
+                >
+                  Automatic
+                </button>
+                {audioBitrateOptionsKbps.map((bitrateKbps) => (
+                  <button
+                    key={`audio-bitrate-${bitrateKbps}`}
+                    type="button"
+                    className={`player-menu-chip ${preferredAudioBitrateKbps === bitrateKbps ? 'is-active' : ''} ${appliedAudioBitrateKbps === bitrateKbps ? 'is-applied' : ''}`}
+                    aria-pressed={preferredAudioBitrateKbps === bitrateKbps}
+                    onClick={() => onPreferredAudioBitrateChange(bitrateKbps)}
+                  >
+                    {toBitrateLabelKbps(bitrateKbps)}
+                  </button>
+                ))}
+              </div>
+            </details>
+          </div>
         </div>
       ) : null}
     </div>

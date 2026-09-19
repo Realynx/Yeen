@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MediaModule } from '../media/media.module';
 import { SystemSettingsModule } from '../system-settings/system-settings.module';
-import { TorrentModule } from '../torrent/torrent.module';
+import { LifecycleModule } from '../lifecycle/lifecycle.module';
 import { HlsSessionStore } from './infrastructure/stores/hls-session.store';
 import { RangeStreamService } from './application/services/range-stream.service';
 import { StreamController } from './presentation/controllers/stream.controller';
@@ -10,10 +10,11 @@ import { StreamService } from './application/services/stream.service';
 import { HlsManifestService } from './application/services/hls/hls-manifest.service';
 import { HlsSessionCleanupService } from './application/services/hls/hls-session-cleanup.service';
 import { HlsSegmentTranscoder } from './application/services/hls/hls-segment-transcoder.service';
-import { TorrentDataAvailabilityService } from './application/services/hls/torrent-data-availability.service';
+import { HlsTranscodeCapabilityService } from './application/services/hls/hls-transcode-capability.service';
+import { HlsContinuousAudioTranscoder } from './application/services/hls/hls-continuous-audio-transcoder.service';
 
 @Module({
-  imports: [AuthModule, MediaModule, SystemSettingsModule, TorrentModule],
+  imports: [AuthModule, MediaModule, SystemSettingsModule, LifecycleModule],
   controllers: [StreamController],
   providers: [
     HlsSessionStore,
@@ -21,7 +22,8 @@ import { TorrentDataAvailabilityService } from './application/services/hls/torre
     HlsManifestService,
     HlsSessionCleanupService,
     HlsSegmentTranscoder,
-    TorrentDataAvailabilityService,
+    HlsTranscodeCapabilityService,
+    HlsContinuousAudioTranscoder,
     StreamService,
   ],
   exports: [StreamService],

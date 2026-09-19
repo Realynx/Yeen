@@ -1,24 +1,32 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PlayerPlaybackPageView } from '../components/PlayerPlaybackPageView';
-import type { User } from '../../shared/services/types';
-import { usePlayerData } from '../services/usePlayerData';
-import { usePlayerMediaSource } from '../services/usePlayerMediaSource';
-import { usePlayerDiagnostics } from '../services/usePlayerDiagnostics';
-import { useShowEpisodes } from '../services/useShowEpisodes';
-import { usePlayerPreferenceState } from '../services/usePlayerPreferenceState';
-import { usePlayerSeriesPlaybackPreferences } from '../services/usePlayerSeriesPlaybackPreferences';
-import { usePlayerPlaybackRuntime } from '../services/usePlayerPlaybackRuntime';
-import { usePlayerTopBarActions } from '../services/usePlayerTopBarActions';
-import { usePlayerScrubbingClass } from '../services/usePlayerScrubbingClass';
-import { usePlayerQualityPreferences } from '../services/usePlayerQualityPreferences';
-import { redactAccessToken } from '../services/playerPageUtils';
-import { usePlayerPlaybackViewState } from '../services/usePlayerPlaybackViewState';
-import { useBroadcast } from '../../broadcast/services/broadcast-context';
-import { usePlayerBroadcastSync } from '../services/usePlayerBroadcastSync';
-import { usePlayerPlaybackDerivedState } from '../services/usePlayerPlaybackDerivedState';
-import { usePlayerTrackCycleShortcuts } from '../services/usePlayerTrackCycleShortcuts';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { PlayerPlaybackPageView } from "../components/PlayerPlaybackPageView";
+import type { User } from "../../shared/services/types";
+import { usePlayerData } from "../services/usePlayerData";
+import { usePlayerMediaSource } from "../services/usePlayerMediaSource";
+import { usePlayerDiagnostics } from "../services/usePlayerDiagnostics";
+import { useShowEpisodes } from "../services/useShowEpisodes";
+import { usePlayerPreferenceState } from "../services/usePlayerPreferenceState";
+import { usePlayerSeriesPlaybackPreferences } from "../services/usePlayerSeriesPlaybackPreferences";
+import { usePlayerPlaybackRuntime } from "../services/usePlayerPlaybackRuntime";
+import { usePlayerTopBarActions } from "../services/usePlayerTopBarActions";
+import { usePlayerScrubbingClass } from "../services/usePlayerScrubbingClass";
+import { usePlayerQualityPreferences } from "../services/usePlayerQualityPreferences";
+import { redactAccessToken } from "../services/playerPageUtils";
+import { usePlayerPlaybackViewState } from "../services/usePlayerPlaybackViewState";
+import { useBroadcast } from "../../broadcast/services/broadcast-context";
+import { usePlayerBroadcastSync } from "../services/usePlayerBroadcastSync";
+import { usePlayerPlaybackDerivedState } from "../services/usePlayerPlaybackDerivedState";
+import { usePlayerTrackCycleShortcuts } from "../services/usePlayerTrackCycleShortcuts";
 
 interface PlayerPlaybackPageProps {
   token: string;
@@ -29,6 +37,38 @@ interface PlayerPlaybackPageProps {
   isTvMode?: boolean;
 }
 
+function useSubtitleVisibility(
+  mediaId: string,
+  selectedSubtitleId: string,
+): [boolean, Dispatch<SetStateAction<boolean>>] {
+  const selectionKey = `${mediaId}:${selectedSubtitleId}`;
+  const defaultVisible = selectedSubtitleId !== "";
+  const [visibility, setVisibility] = useState({
+    selectionKey,
+    visible: defaultVisible,
+  });
+  const visible =
+    visibility.selectionKey === selectionKey
+      ? visibility.visible
+      : defaultVisible;
+  const setVisible = useCallback<Dispatch<SetStateAction<boolean>>>(
+    (next) => {
+      setVisibility((previous) => {
+        const current =
+          previous.selectionKey === selectionKey
+            ? previous.visible
+            : defaultVisible;
+        return {
+          selectionKey,
+          visible: typeof next === "function" ? next(current) : next,
+        };
+      });
+    },
+    [defaultVisible, selectionKey],
+  );
+  return [visible, setVisible];
+}
+
 export function PlayerPlaybackPage({
   token,
   user,
@@ -37,13 +77,14 @@ export function PlayerPlaybackPage({
   headerContent = null,
   isTvMode = false,
 }: PlayerPlaybackPageProps) {
-  const { mediaId = '' } = useParams();
+  const { mediaId = "" } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const {
     isEnabled: broadcastEnabled,
     updateSource: updateBroadcastSource,
     updatePlayback: updateBroadcastPlayback,
+    viewers: broadcastViewers,
   } = useBroadcast();
 
   const {
@@ -72,34 +113,74 @@ export function PlayerPlaybackPage({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
-  const [seekPreviewSeconds, setSeekPreviewSeconds] = useState<number | null>(null);
+  const [seekPreviewSeconds, setSeekPreviewSeconds] = useState<number | null>(
+    null,
+  );
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [subtitleVisible, setSubtitleVisible] = useState(true);
+  const [subtitleTrackRevision, setSubtitleTrackRevision] = useState(0);
   const [playerError, setPlayerError] = useState<string | null>(null);
 
   const {
-    theaterMode, setTheaterMode, volume, setVolume, muted, setMuted, playbackRate,
-    setPlaybackRate, subtitleFontPreset, setSubtitleFontPreset, preferredVideoBitrateKbps,
-    setPreferredVideoBitrateKbps, preferredAudioBitrateKbps, setPreferredAudioBitrateKbps,
-    preferredMaxResolutionHeight, setPreferredMaxResolutionHeight, accountVideoQuotaKbps,
-    effectivePreferredVideoBitrateKbps, effectivePreferredAudioBitrateKbps,
-    maxResolutionForBitrateBudget, effectivePreferredMaxResolutionHeight, transcodePreferences,
+    theaterMode,
+    setTheaterMode,
+    volume,
+    setVolume,
+    muted,
+    setMuted,
+    playbackRate,
+    setPlaybackRate,
+    subtitleFontPreset,
+    setSubtitleFontPreset,
+    preferredVideoBitrateKbps,
+    setPreferredVideoBitrateKbps,
+    preferredAudioBitrateKbps,
+    setPreferredAudioBitrateKbps,
+    preferredMaxResolutionHeight,
+    setPreferredMaxResolutionHeight,
+    accountVideoQuotaKbps,
+    effectivePreferredVideoBitrateKbps,
+    effectivePreferredAudioBitrateKbps,
+    maxResolutionForBitrateBudget,
+    effectivePreferredMaxResolutionHeight,
+    transcodePreferences,
   } = usePlayerPreferenceState({ userMaxBitrateKbps: user.maxBitrateKbps });
 
   const {
-    media, source, streamTorrentHash, audioTracks, selectedAudioStreamIndex, subtitleTracks,
-    selectedSubtitleId, selectedSubtitle, resumeAtSeconds, loading, error, switchingToHls,
-    extractingSubtitleTrackId, setSelectedAudioStreamIndex, setSelectedSubtitleId, extractTrack,
+    media,
+    source,
+    playbackPlan,
+    audioTracks,
+    selectedAudioStreamIndex,
+    subtitleTracks,
+    selectedSubtitleId,
+    selectedSubtitle,
+    resumeAtSeconds,
+    loading,
+    error,
+    switchingToHls,
+    extractingSubtitleTrackId,
+    setSelectedAudioStreamIndex,
+    setSelectedSubtitleId,
+    extractTrack,
     switchToHls,
   } = usePlayerData(token, mediaId, transcodePreferences);
 
+  const [subtitleVisible, setSubtitleVisible] = useSubtitleVisibility(
+    mediaId,
+    selectedSubtitleId,
+  );
+
   const {
-    downloadingTorrent, showNerdStats, hlsSessionStats, hlsSessionStatsError,
-    hlsSessionStatsUpdatedAt, videoTelemetry, toggleNerdStats,
-  } = usePlayerDiagnostics({ token, source, streamTorrentHash, videoRef });
+    showNerdStats,
+    hlsSessionStats,
+    hlsSessionStatsError,
+    hlsSessionStatsUpdatedAt,
+    videoTelemetry,
+    toggleNerdStats,
+  } = usePlayerDiagnostics({ token, source, videoRef });
 
   usePlayerScrubbingClass(isSeeking);
 
@@ -119,9 +200,25 @@ export function PlayerPlaybackPage({
     selectedSubtitle,
   });
 
+  const addonPreparation = useMemo(
+    () => ({
+      playbackPlan,
+      media,
+      source,
+      loading,
+      switchingToHls,
+    }),
+    [loading, media, playbackPlan, source, switchingToHls],
+  );
+
   const {
-    previousEpisode, nextEpisode, previousEpisodeImage, nextEpisodeImage,
-    autoAdvanceSeconds, cancelAutoAdvance, withAutoAdvance,
+    previousEpisode,
+    nextEpisode,
+    previousEpisodeImage,
+    nextEpisodeImage,
+    autoAdvanceSeconds,
+    cancelAutoAdvance,
+    withAutoAdvance,
   } = useShowEpisodes(token, media, mediaId);
 
   // Must be memoized — `usePlayerMediaSource` lists this in its effect deps.
@@ -132,6 +229,7 @@ export function PlayerPlaybackPage({
     () =>
       switchToHls({
         forceFresh: true,
+        recoveryAttempt: true,
         audioStreamIndex: selectedAudioStreamIndex,
         maxVideoBitrateKbps: effectivePreferredVideoBitrateKbps,
         audioBitrateKbps: effectivePreferredAudioBitrateKbps,
@@ -146,8 +244,11 @@ export function PlayerPlaybackPage({
     ],
   );
 
-  const { persistSeriesPlaybackPreference, handleSelectAudioTrack, handleSelectSubtitle } =
-    usePlayerSeriesPlaybackPreferences({
+  const {
+    persistSeriesPlaybackPreference,
+    handleSelectAudioTrack,
+    handleSelectSubtitle,
+  } = usePlayerSeriesPlaybackPreferences({
     token,
     mediaId,
     media,
@@ -167,6 +268,16 @@ export function PlayerPlaybackPage({
     effectivePreferredAudioBitrateKbps,
     effectivePreferredMaxResolutionHeight,
   });
+
+  const handleSelectSubtitleWithReload = useCallback(
+    (subtitleId: string) => {
+      handleSelectSubtitle(subtitleId);
+      if (subtitleId) {
+        setSubtitleTrackRevision((previous) => previous + 1);
+      }
+    },
+    [handleSelectSubtitle],
+  );
 
   usePlayerBroadcastSync({
     broadcastEnabled,
@@ -199,12 +310,6 @@ export function PlayerPlaybackPage({
     onToggleNerdStats: toggleNerdStats,
   });
 
-  useEffect(() => {
-    // Keep local visibility state aligned when subtitle selection changes externally.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSubtitleVisible(selectedSubtitleId !== '');
-  }, [mediaId, selectedSubtitleId]);
-
   const {
     hlsLevels,
     qualityMode,
@@ -226,9 +331,13 @@ export function PlayerPlaybackPage({
   });
 
   const {
-    effectiveVideoBitrateQuotaKbps, resolutionHeightOptions, videoBitrateOptionsKbps,
-    audioBitrateOptionsKbps, handlePreferredVideoBitrateChange,
-    handlePreferredAudioBitrateChange, handlePreferredResolutionChange,
+    effectiveVideoBitrateQuotaKbps,
+    resolutionHeightOptions,
+    videoBitrateOptionsKbps,
+    audioBitrateOptionsKbps,
+    handlePreferredVideoBitrateChange,
+    handlePreferredAudioBitrateChange,
+    handlePreferredResolutionChange,
   } = usePlayerQualityPreferences({
     source,
     accountVideoQuotaKbps,
@@ -304,14 +413,46 @@ export function PlayerPlaybackPage({
   });
 
   const {
-    activeTheaterMode, playerPageClassName, panelProps, episodeNavigationProps, detailsProps,
+    activeTheaterMode,
+    playerPageClassName,
+    panelProps,
+    episodeNavigationProps,
+    detailsProps,
   } = usePlayerPlaybackViewState({
-    token, hideTopNav, isTvMode, theaterMode, media, source, redactedStreamUrl,
-    trackState: { audioTracks, selectedAudioStreamIndex, subtitleTracks, selectedSubtitleId, extractingSubtitleTrackId },
+    token,
+    hideTopNav,
+    isTvMode,
+    theaterMode,
+    media,
+    source,
+    redactedStreamUrl,
+    trackState: {
+      audioTracks,
+      selectedAudioStreamIndex,
+      subtitleTracks,
+      selectedSubtitleId,
+      subtitleTrackRevision,
+      extractingSubtitleTrackId,
+    },
     playbackState: {
-      activeSubtitle, isControlsVisible, isPlaying, isSeeking, isBuffering, isFullscreen,
-      isPictureInPicture, muted, volume, playbackRate, subtitleFontPreset, currentTime,
-      totalDuration, safeDuration, playedPercent, bufferedPercent, seekValue, seekPreviewSeconds,
+      activeSubtitle,
+      isControlsVisible,
+      isPlaying,
+      isSeeking,
+      isBuffering,
+      isFullscreen,
+      isPictureInPicture,
+      muted,
+      volume,
+      playbackRate,
+      subtitleFontPreset,
+      currentTime,
+      totalDuration,
+      safeDuration,
+      playedPercent,
+      bufferedPercent,
+      seekValue,
+      seekPreviewSeconds,
     },
     capabilities: {
       canUsePictureInPicture: runtime.canUsePictureInPicture,
@@ -320,27 +461,32 @@ export function PlayerPlaybackPage({
       isCasting: runtime.isCasting,
     },
     qualityStateBase: {
-      estimatedBandwidthBps, hlsLevels, qualityMode, videoBitrateQuotaKbps: effectiveVideoBitrateQuotaKbps,
-      videoBitrateOptionsKbps, audioBitrateOptionsKbps, resolutionHeightOptions,
+      estimatedBandwidthBps,
+      hlsLevels,
+      qualityMode,
+      videoBitrateQuotaKbps: effectiveVideoBitrateQuotaKbps,
+      videoBitrateOptionsKbps,
+      audioBitrateOptionsKbps,
+      resolutionHeightOptions,
       preferredVideoBitrateKbps: effectivePreferredVideoBitrateKbps,
       preferredAudioBitrateKbps: effectivePreferredAudioBitrateKbps,
       preferredMaxResolutionHeight: effectivePreferredMaxResolutionHeight,
     },
-    sourceHasHls: Boolean(source?.hls), currentAutoLevel,
+    sourceHasHls: Boolean(source?.hls),
+    currentAutoLevel,
     diagnostics: {
       showNerdStats,
       hlsSessionStats,
       hlsSessionStatsError,
       hlsSessionStatsUpdatedAt,
       videoTelemetry,
-      downloadingTorrent,
       toggleNerdStats,
     },
     refs: { videoRef, videoShellRef },
     runtime,
     selectionHandlers: {
       onSelectAudioTrack: handleSelectAudioTrack,
-      onSelectSubtitle: handleSelectSubtitle,
+      onSelectSubtitle: handleSelectSubtitleWithReload,
     },
     extractSubtitleContext: {
       setSelectedSubtitleId,
@@ -364,7 +510,13 @@ export function PlayerPlaybackPage({
       cancelAutoAdvance,
       navigate,
     },
-    detailsContext: { totalDuration, currentTime, onOpenDetails: openCurrentDetails },
+    detailsContext: {
+      totalDuration,
+      currentTime,
+      onOpenDetails: openCurrentDetails,
+      broadcastEnabled,
+      broadcastViewers,
+    },
   });
 
   return (
@@ -389,7 +541,7 @@ export function PlayerPlaybackPage({
       panelProps={panelProps}
       episodeNavigationProps={episodeNavigationProps}
       detailsProps={detailsProps}
-      downloadingTorrent={downloadingTorrent}
+      preparation={addonPreparation}
     />
   );
 }

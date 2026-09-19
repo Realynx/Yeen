@@ -19,7 +19,7 @@ describe('librarySearchUtils', () => {
     ).toBe('/library?type=movie&tag=Action+%26+Sci-Fi&watch=unwatched&sort=updated-desc&shelf=tag');
   });
 
-  it('parses URL-backed Library filters for View All routes', () => {
+  it('parses URL-backed Library filters for contextual routes', () => {
     const filters = parseLibraryFilterState(
       new URLSearchParams('type=show&tag=Drama&watch=in-progress&quality=hd&sort=title-asc'),
     );

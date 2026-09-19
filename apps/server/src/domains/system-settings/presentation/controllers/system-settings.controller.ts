@@ -11,11 +11,12 @@ export class SystemSettingsController {
 
   @Get()
   getSettings() {
-    return this.systemSettingsService.getSettings();
+    return this.systemSettingsService.getPublicSettings();
   }
 
   @Put()
-  updateSettings(@Body() dto: UpdateSystemSettingsDto) {
-    return this.systemSettingsService.updateSettings(dto);
+  async updateSettings(@Body() dto: UpdateSystemSettingsDto) {
+    await this.systemSettingsService.updateSettings(dto);
+    return this.systemSettingsService.getPublicSettings();
   }
 }

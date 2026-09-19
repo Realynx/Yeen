@@ -3,6 +3,7 @@ export interface HlsSessionStatsResponse {
   mediaId: string;
   startedAt: string;
   ffmpegPath: string;
+  videoEncoder: 'cpu' | 'nvidia';
   sourceFilePath: string;
   segmentSeconds: number;
   totalDurationSeconds: number;
@@ -12,7 +13,7 @@ export interface HlsSessionStatsResponse {
   audioBitrateKbps: number;
   maxOutputHeight: number;
   keyFrameInterval: number;
-  torrentHash: string | null;
+  progressiveSourceId: string | null;
   readySegments: number;
   contiguousReadySegments: number;
   readyThroughSeconds: number;
@@ -21,8 +22,10 @@ export interface HlsSessionStatsResponse {
   inflightSegments: number[];
   inflightCount: number;
   globalInflightCount: number;
+  cpuInflightCount: number;
   maxGlobalInflightJobs: number;
   maxSessionInflightJobs: number;
+  maxCpuInflightJobs: number;
   overloadRetryAfterSeconds: number;
   nextSegmentIndex: number | null;
   recoverableStartFailures: number;

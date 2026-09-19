@@ -114,44 +114,44 @@ function extractTags(
   value: Record<string, unknown>,
   mediaType: 'movie' | 'show' | 'other',
 ): string[] {
-  const tags: string[] = [];
+  return sharedNormalizeTags([
+    ...extractNamedGenres(value.genres),
+    ...extractGenreIdNames(value.genre_ids, mediaType),
+  ]);
+}
 
-  const namedGenres = Array.isArray(value.genres) ? value.genres : [];
-  for (const genre of namedGenres) {
-    if (typeof genre !== 'object' || genre === null || Array.isArray(genre)) {
-      continue;
-    }
-    const name = (genre as Record<string, unknown>).name;
-    if (typeof name !== 'string') continue;
-    const cleaned = name.trim();
-    if (cleaned) tags.push(cleaned);
-  }
+function extractNamedGenres(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((genre) =>
+      typeof genre === 'object' && genre !== null && !Array.isArray(genre)
+        ? (genre as Record<string, unknown>).name
+        : null,
+    )
+    .filter((name): name is string => typeof name === 'string')
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
 
-  const genreIds = Array.isArray(value.genre_ids) ? value.genre_ids : [];
-  for (const genreId of genreIds) {
-    if (typeof genreId !== 'number' || !Number.isFinite(genreId)) continue;
-    const id = Math.trunc(genreId);
-    const movieGenre = TMDB_MOVIE_GENRES_BY_ID[id] ?? null;
-    const showGenre = TMDB_SHOW_GENRES_BY_ID[id] ?? null;
+function extractGenreIdNames(
+  value: unknown,
+  mediaType: 'movie' | 'show' | 'other',
+): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((genreId) => genreNamesForId(genreId, mediaType));
+}
 
-    if (mediaType === 'movie' && movieGenre) {
-      tags.push(movieGenre);
-      continue;
-    }
-    if (mediaType === 'show' && showGenre) {
-      tags.push(showGenre);
-      continue;
-    }
-    if (mediaType === 'other') {
-      if (movieGenre) {
-        tags.push(movieGenre);
-        continue;
-      }
-      if (showGenre) tags.push(showGenre);
-    }
-  }
-
-  return sharedNormalizeTags(tags);
+function genreNamesForId(
+  genreId: unknown,
+  mediaType: 'movie' | 'show' | 'other',
+): string[] {
+  if (typeof genreId !== 'number' || !Number.isFinite(genreId)) return [];
+  const id = Math.trunc(genreId);
+  const movieGenre = TMDB_MOVIE_GENRES_BY_ID[id];
+  const showGenre = TMDB_SHOW_GENRES_BY_ID[id];
+  if (mediaType === 'movie') return movieGenre ? [movieGenre] : [];
+  if (mediaType === 'show') return showGenre ? [showGenre] : [];
+  return movieGenre ? [movieGenre] : showGenre ? [showGenre] : [];
 }
 
 export function filterExactTitleCandidates<T extends TmdbCandidate>(

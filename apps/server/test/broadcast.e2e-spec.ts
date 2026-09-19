@@ -29,6 +29,7 @@ import { StreamService } from '../src/domains/stream/application/services/stream
 import { SubtitleListingService } from '../src/domains/subtitle/application/services/subtitle-listing.service';
 import { SubtitleFileStreamService } from '../src/domains/subtitle/application/services/subtitle-file-stream.service';
 import { JwtAuthGuard } from '../src/domains/auth/presentation/guards/jwt-auth.guard';
+import { BroadcastDirectStreamTimeline } from '../src/domains/broadcast/application/services/broadcast-direct-stream-timeline.service';
 
 describe('BroadcastController (integration e2e)', () => {
   let app: INestApplication<App>;
@@ -66,6 +67,7 @@ describe('BroadcastController (integration e2e)', () => {
       controllers: [BroadcastController],
       providers: [
         BroadcastService,
+        BroadcastDirectStreamTimeline,
         {
           provide: BroadcastSessionStore,
           useValue: broadcastSessionStore,
@@ -108,7 +110,12 @@ describe('BroadcastController (integration e2e)', () => {
 
   it('supports owner and public broadcast flow end-to-end', async () => {
     const shareToken = await enableBroadcast(app);
-    await configureSource(app, streamMediaBySessionId, 'media-1', 'hls-session-1');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-1',
+      'hls-session-1',
+    );
     await pushPlayback(app, 126.5, true, true);
 
     const ownerSession = await request(app.getHttpServer())
@@ -190,7 +197,12 @@ describe('BroadcastController (integration e2e)', () => {
 
   it('maps upstream stream outages to bad gateway for public HLS', async () => {
     const shareToken = await enableBroadcast(app);
-    await configureSource(app, streamMediaBySessionId, 'media-2', 'hls-session-2');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-2',
+      'hls-session-2',
+    );
     await pushPlayback(app, 30, true, true);
 
     streamFailureBySessionId.set('hls-session-2', new Error('upstream down'));
@@ -209,7 +221,12 @@ describe('BroadcastController (integration e2e)', () => {
 
   it('maps missing upstream stream sessions to not found for public HLS', async () => {
     const shareToken = await enableBroadcast(app);
-    await configureSource(app, streamMediaBySessionId, 'media-3', 'hls-session-3');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-3',
+      'hls-session-3',
+    );
     await pushPlayback(app, 45, true, true);
 
     streamFailureBySessionId.set(
@@ -232,7 +249,12 @@ describe('BroadcastController (integration e2e)', () => {
   it('handles owner media switch and disable-enable transitions', async () => {
     const shareToken = await enableBroadcast(app);
 
-    await configureSource(app, streamMediaBySessionId, 'media-a', 'hls-session-a');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-a',
+      'hls-session-a',
+    );
     await pushPlayback(app, 88, true, true);
 
     const initialPublicStatus = await request(app.getHttpServer())
@@ -241,7 +263,12 @@ describe('BroadcastController (integration e2e)', () => {
     const initialBody =
       initialPublicStatus.body as BroadcastPublicSessionStatus;
 
-    await configureSource(app, streamMediaBySessionId, 'media-b', 'hls-session-b');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-b',
+      'hls-session-b',
+    );
 
     const switchedPublicStatus = await request(app.getHttpServer())
       .get(`/api/broadcast/public/${encodeURIComponent(shareToken)}`)
@@ -298,10 +325,95 @@ describe('BroadcastController (integration e2e)', () => {
     expect(reenabledBody.manifestUrl).toBeNull();
   });
 
+  it('keeps one stable VLC URL on the current media while browser playback is paused', async () => {
+    const shareToken = await enableBroadcast(app);
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-vlc-a',
+      'hls-vlc-a',
+    );
+    await pushPlayback(app, 0, false, true);
+
+    const pausedSession = sessionsByOwner.get(ownerUser.sub);
+    if (!pausedSession) {
+      throw new Error('Expected paused broadcast session.');
+    }
+    pausedSession.playbackUpdatedAt = '2026-01-01T00:00:00.000Z';
+    pausedSession.playbackSyncTimestampMs = 1;
+
+    const directUrl = `/api/broadcast/public/${encodeURIComponent(shareToken)}/direct/master.m3u8`;
+    const stableVideoUrl = `/api/broadcast/public/${encodeURIComponent(shareToken)}/direct/live/video.m3u8`;
+    const rootBeforeSwitch = await request(app.getHttpServer())
+      .get(directUrl)
+      .expect(200);
+    expect(rootBeforeSwitch.text).not.toContain('/direct/live/audio.m3u8');
+    expect(rootBeforeSwitch.text).not.toContain('TYPE=AUDIO');
+    expect(rootBeforeSwitch.text).not.toContain('AUDIO="audio"');
+    expect(rootBeforeSwitch.text).toContain('/direct/live/video.m3u8');
+    expect(rootBeforeSwitch.text).toContain('/direct/live/subtitles.m3u8');
+
+    const stableSubtitleUrl = `/api/broadcast/public/${encodeURIComponent(shareToken)}/direct/live/subtitles.m3u8`;
+    const subtitlesBeforeSwitch = await request(app.getHttpServer())
+      .get(stableSubtitleUrl)
+      .expect(200);
+    expect(subtitlesBeforeSwitch.text).toContain('#EXTINF:3.000,');
+    expect(subtitlesBeforeSwitch.text).toContain('broadcast_sub.vtt');
+    expect(subtitlesBeforeSwitch.text).not.toContain('#EXT-X-ENDLIST');
+
+    const videoBeforeSwitch = await request(app.getHttpServer())
+      .get(stableVideoUrl)
+      .expect(200);
+    expect(videoBeforeSwitch.text.match(/#EXTINF:/g)).toHaveLength(5);
+    expect(videoBeforeSwitch.text).toContain('# hls-vlc-a/video.m3u8');
+    const firstDirectSegmentPath = videoBeforeSwitch.text
+      .split('\n')
+      .find((line) => line.includes('/direct/hls/') && line.endsWith('.ts'));
+    if (!firstDirectSegmentPath) {
+      throw new Error('Expected a direct VLC segment URL.');
+    }
+    const directSegmentResponse = await request(app.getHttpServer())
+      .get(firstDirectSegmentPath)
+      .expect(200);
+    expect(directSegmentResponse.headers['content-type']).toContain(
+      'video/mp2t',
+    );
+    const ownerWithVlcViewer = await request(app.getHttpServer())
+      .get('/api/broadcast/session')
+      .expect(200);
+    const ownerWithVlcViewerBody =
+      ownerWithVlcViewer.body as BroadcastOwnerSessionStatus;
+    const vlcViewer = ownerWithVlcViewerBody.viewers.find(
+      (viewer) => viewer.clientType === 'vlc',
+    );
+    expect(vlcViewer?.ipAddress).toBeTruthy();
+
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-vlc-b',
+      'hls-vlc-b',
+    );
+    await pushPlayback(app, 18, false, true);
+
+    const videoAfterSwitch = await request(app.getHttpServer())
+      .get(stableVideoUrl)
+      .expect(200);
+    expect(videoAfterSwitch.text.match(/#EXTINF:/g)).toHaveLength(5);
+    expect(videoAfterSwitch.text).toContain('# hls-vlc-b/video.m3u8');
+    expect(videoAfterSwitch.text).toContain('/segment_00003.ts');
+    expect(videoAfterSwitch.text).not.toContain('# hls-vlc-a/video.m3u8');
+  });
+
   it('ignores stale playback updates that arrive after a source switch', async () => {
     const shareToken = await enableBroadcast(app);
 
-    await configureSource(app, streamMediaBySessionId, 'media-race-a', 'hls-session-race-a');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-race-a',
+      'hls-session-race-a',
+    );
 
     await request(app.getHttpServer())
       .put('/api/broadcast/playback')
@@ -313,7 +425,12 @@ describe('BroadcastController (integration e2e)', () => {
       })
       .expect(200);
 
-    await configureSource(app, streamMediaBySessionId, 'media-race-b', 'hls-session-race-b');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-race-b',
+      'hls-session-race-b',
+    );
 
     const stalePlayback = await request(app.getHttpServer())
       .put('/api/broadcast/playback')
@@ -343,7 +460,12 @@ describe('BroadcastController (integration e2e)', () => {
 
   it('returns timing metadata after playback updates for latency compensation', async () => {
     const shareToken = await enableBroadcast(app);
-    await configureSource(app, streamMediaBySessionId, 'media-timing', 'hls-session-timing');
+    await configureSource(
+      app,
+      streamMediaBySessionId,
+      'media-timing',
+      'hls-session-timing',
+    );
     await pushPlayback(app, 33, true, true);
 
     const publicStatus = await request(app.getHttpServer())

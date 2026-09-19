@@ -60,6 +60,8 @@ export interface JikanSeriesEpisodeCatalog {
 
 export interface JikanRemoteCandidate {
   provider: 'jikan';
+  /** Discovery may come from AniList while the stable identifier remains a MAL id. */
+  catalogSourceLabel?: 'AniList';
   providerId: string;
   title: string;
   mediaType: 'movie' | 'show';

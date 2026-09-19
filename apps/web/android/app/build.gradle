@@ -1,14 +1,84 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+def rootPackageFile = new File(rootProject.projectDir, '../../../package.json')
+def rootPackageVersion = new JsonSlurper().parse(rootPackageFile).version.toString()
+def semanticVersion = rootPackageVersion =~ /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
+if (!semanticVersion.matches()) {
+    throw new GradleException("Root package version is not Android-compatible: ${rootPackageVersion}")
+}
+
+def versionMajor = semanticVersion[0][1].toInteger()
+def versionMinor = semanticVersion[0][2].toInteger()
+def versionPatch = semanticVersion[0][3].toInteger()
+def prereleaseLabel = semanticVersion[0][4]
+def prereleaseNumberMatch = prereleaseLabel == null ? null : (prereleaseLabel =~ /(?:^|\.)(\d+)$/)
+def releaseOrdinal = prereleaseLabel == null
+    ? 999
+    : (prereleaseNumberMatch?.find() ? prereleaseNumberMatch.group(1).toInteger() : 0)
+if (versionMinor > 99 || versionPatch > 99 || releaseOrdinal > 999) {
+    throw new GradleException("Root package version exceeds Android versionCode limits: ${rootPackageVersion}")
+}
+def rootPackageVersionCode = (versionMajor * 10000000) \
+    + (versionMinor * 100000) \
+    + (versionPatch * 1000) \
+    + releaseOrdinal
+if (rootPackageVersionCode > 2100000000) {
+    throw new GradleException("Root package version exceeds Android versionCode limits: ${rootPackageVersion}")
+}
+
+def releaseKeystorePath = System.getenv('YEEN_ANDROID_KEYSTORE_PATH')
+def releaseKeystorePassword = System.getenv('YEEN_ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('YEEN_ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('YEEN_ANDROID_KEY_PASSWORD')
+def releaseSigningAvailable = [
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+].every { value -> value != null && !value.trim().isEmpty() }
+def releaseSigningValueCount = [
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+].count { value -> value != null && !value.trim().isEmpty() }
+if (releaseSigningValueCount > 0 && !releaseSigningAvailable) {
+    throw new GradleException('Android release signing variables are only partially configured.')
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def requestsReleasePackage = graph.allTasks.any { task ->
+        task.name in ['assembleRelease', 'bundleRelease', 'packageRelease']
+    }
+    if (requestsReleasePackage && !releaseSigningAvailable) {
+        throw new GradleException(
+            'Refusing to create an unsigned release. Configure YEEN_ANDROID_KEYSTORE_PATH, ' \
+            + 'YEEN_ANDROID_KEYSTORE_PASSWORD, YEEN_ANDROID_KEY_ALIAS, and YEEN_ANDROID_KEY_PASSWORD.'
+        )
+    }
+}
 
 android {
     namespace = "com.yeen.client"
     compileSdk = rootProject.ext.compileSdkVersion
+    signingConfigs {
+        if (releaseSigningAvailable) {
+            release {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.yeen.client"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode rootPackageVersionCode
+        versionName rootPackageVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,6 +90,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigningAvailable) {
+                signingConfig = signingConfigs.release
+            }
         }
     }
 }

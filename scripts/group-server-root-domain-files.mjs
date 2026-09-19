@@ -122,55 +122,23 @@ function classifyBaseTargetDir(domain, relativeParts, baseName) {
     return path.join(DOMAIN_ROOT, domain);
   }
 
-  if (baseName.includes('.store.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'stores');
-  }
-
-  if (baseName.includes('.guard.')) {
-    return path.join(DOMAIN_ROOT, domain, 'presentation', 'guards');
-  }
-
-  if (baseName.includes('.decorator.')) {
-    return path.join(DOMAIN_ROOT, domain, 'presentation', 'decorators');
-  }
-
-  if (baseName.includes('.strategy.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'strategies');
-  }
-
-  if (baseName.includes('.client.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'clients');
-  }
-
-  if (baseName.includes('.resolver.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'resolvers');
-  }
-
-  if (baseName.includes('.adapter.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'adapters');
-  }
-
-  if (baseName.includes('.reader.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'readers');
-  }
-
-  if (baseName.includes('.parser.')) {
-    return path.join(DOMAIN_ROOT, domain, 'domain', 'parsers');
-  }
-
-  if (baseName.includes('.normalizer.')) {
-    return path.join(DOMAIN_ROOT, domain, 'domain', 'normalizers');
-  }
-
-  if (baseName.includes('.sanitizer.')) {
-    return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'sanitizers');
-  }
-
-  if (baseName.includes('.types.')) {
-    return path.join(DOMAIN_ROOT, domain, 'application', 'types');
-  }
-
-  return path.join(DOMAIN_ROOT, domain, 'infrastructure', 'support');
+  const conventions = [
+    ['.store.', ['infrastructure', 'stores']],
+    ['.guard.', ['presentation', 'guards']],
+    ['.decorator.', ['presentation', 'decorators']],
+    ['.strategy.', ['infrastructure', 'strategies']],
+    ['.client.', ['infrastructure', 'clients']],
+    ['.resolver.', ['infrastructure', 'resolvers']],
+    ['.adapter.', ['infrastructure', 'adapters']],
+    ['.reader.', ['infrastructure', 'readers']],
+    ['.parser.', ['domain', 'parsers']],
+    ['.normalizer.', ['domain', 'normalizers']],
+    ['.sanitizer.', ['infrastructure', 'sanitizers']],
+    ['.types.', ['application', 'types']],
+  ];
+  const convention = conventions.find(([marker]) => baseName.includes(marker));
+  const targetParts = convention?.[1] ?? ['infrastructure', 'support'];
+  return path.join(DOMAIN_ROOT, domain, ...targetParts);
 }
 
 function destinationForFile(filePath) {

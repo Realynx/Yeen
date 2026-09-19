@@ -1,5 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
-import type { TorrentItem, User } from '../../shared/services/types';
+import type { User } from '../../shared/services/types';
 import { PlayerPlaybackLayout } from './PlayerPlaybackLayout';
 import { PlayerPanelContainer } from './PlayerPanelContainer';
 
@@ -24,7 +24,7 @@ interface PlayerPlaybackPageViewProps {
   panelProps: React.ComponentProps<typeof PlayerPanelContainer>;
   episodeNavigationProps: React.ComponentProps<typeof PlayerPlaybackLayout>['episodeNavigationProps'];
   detailsProps: React.ComponentProps<typeof PlayerPlaybackLayout>['detailsProps'];
-  downloadingTorrent: TorrentItem | null;
+  preparation: unknown;
 }
 
 export function PlayerPlaybackPageView({
@@ -48,7 +48,7 @@ export function PlayerPlaybackPageView({
   panelProps,
   episodeNavigationProps,
   detailsProps,
-  downloadingTorrent,
+  preparation,
 }: PlayerPlaybackPageViewProps) {
   return (
     <PlayerPlaybackLayout
@@ -72,9 +72,7 @@ export function PlayerPlaybackPageView({
       videoPanelNode={<PlayerPanelContainer {...panelProps} />}
       episodeNavigationProps={episodeNavigationProps}
       detailsProps={detailsProps}
-      downloadProgressProps={{
-        torrent: downloadingTorrent,
-      }}
+      preparation={preparation}
     />
   );
 }

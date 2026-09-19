@@ -15,6 +15,7 @@ import { MediaService } from './application/services/media.service';
 import { MediaStore } from './infrastructure/stores/media.store';
 import { MediaSubtitleResolver } from './infrastructure/resolvers/media-subtitle.resolver';
 import { JikanMetadataService } from './application/services/remote-metadata/jikan-metadata.service';
+import { AniListCatalogService } from './application/services/remote-metadata/anilist-catalog.service';
 import { TmdbMetadataService } from './application/services/remote-metadata/tmdb-metadata.service';
 import { MediaCommitStore } from './infrastructure/stores/media-commit.store';
 import { MediaFsCommitService } from './application/services/filesystem/media-fs-commit.service';
@@ -22,13 +23,7 @@ import { MediaFsCommitPlannerService } from './application/services/filesystem/m
 import { MediaFsFileOpsService } from './application/services/filesystem/media-fs-file-ops.service';
 import { MediaFsNfoService } from './application/services/filesystem/media-fs-nfo.service';
 import { MediaFsRollbackService } from './application/services/filesystem/media-fs-rollback.service';
-import { IptorrentsSearchService } from './application/services/torrent-search/iptorrents-search.service';
-import { NyaaSearchService } from './application/services/torrent-search/nyaa-search.service';
 import { MediaPathResolverService } from './application/services/path-resolution/media-path-resolver.service';
-import { MediaTorrentIndexingService } from './application/services/torrent-intake/media-torrent-indexing.service';
-import { MediaTorrentIntakePollingService } from './application/services/torrent-intake/media-torrent-intake-polling.service';
-import { MediaTorrentIntakeCandidateService } from './application/services/torrent-intake/media-torrent-intake-candidate.service';
-import { MediaSearchTorrentDownloadService } from './application/services/torrent-intake/media-search-torrent-download.service';
 import { MediaLibraryLocationsService } from './application/services/media-library-locations.service';
 import { MediaStorageSummaryService } from './application/services/media-storage-summary.service';
 import { MediaIndexRefreshPolicyService } from './application/services/index-refresh/media-index-refresh-policy.service';
@@ -48,10 +43,13 @@ import { MediaScanExecutionService } from './application/services/media-scan-exe
 import { MediaRecycleDeletionsService } from './application/services/recycle-deletions/media-recycle-deletions.service';
 import { MediaPermanentDeleteService } from './application/services/recycle-deletions/media-permanent-delete.service';
 import { MediaEpisodeCatalogService } from './application/services/episode-catalog/media-episode-catalog.service';
-import { TorrentModule } from '../torrent/torrent.module';
+import { LocalMediaItemIntakeFacade } from './application/services/local-media-item-intake.facade';
+import { OptionalIntegrationsModule } from '../core/optional-integrations.module';
+import { TheAudioDbMusicService } from './application/services/remote-music/the-audio-db-music.service';
+import { RemoteMusicCatalogService } from './application/services/remote-music/remote-music-catalog.service';
 
 @Module({
-  imports: [SystemSettingsModule, TorrentModule],
+  imports: [SystemSettingsModule, OptionalIntegrationsModule],
   controllers: [MediaController, MediaImagesController],
   providers: [
     MediaStore,
@@ -61,6 +59,7 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaAiTitleProviderService,
     TmdbMetadataService,
     JikanMetadataService,
+    AniListCatalogService,
     MediaNfoReader,
     MediaProbeAdapter,
     MediaSubtitleResolver,
@@ -73,10 +72,6 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaFsNfoService,
     MediaFsRollbackService,
     MediaPathResolverService,
-    MediaTorrentIndexingService,
-    MediaSearchTorrentDownloadService,
-    MediaTorrentIntakeCandidateService,
-    MediaTorrentIntakePollingService,
     MediaLibraryLocationsService,
     MediaStorageSummaryService,
     MediaIndexRefreshPolicyService,
@@ -96,11 +91,24 @@ import { TorrentModule } from '../torrent/torrent.module';
     MediaScanExecutionService,
     MediaRecycleDeletionsService,
     MediaPermanentDeleteService,
+    LocalMediaItemIntakeFacade,
+    TheAudioDbMusicService,
+    RemoteMusicCatalogService,
     MediaFsCommitService,
-    IptorrentsSearchService,
-    NyaaSearchService,
     MediaService,
   ],
-  exports: [MediaService, MediaEpisodeNavigationService],
+  exports: [
+    MediaService,
+    MediaEpisodeNavigationService,
+    MediaStore,
+    MediaLocationsStore,
+    MetadataApiCacheStore,
+    MediaProbeAdapter,
+    MediaScannerService,
+    MediaScanStore,
+    MediaPathResolverService,
+    MediaIndexRefreshPolicyService,
+    LocalMediaItemIntakeFacade,
+  ],
 })
 export class MediaModule {}

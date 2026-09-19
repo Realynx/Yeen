@@ -3,6 +3,8 @@ import type { MediaItem, ProgressEntry } from '../../shared/services/types';
 import {
   normalizeTags,
   toLibraryType,
+  type MediaSortOrder,
+  type MediaTypeFilter,
 } from './mediaLibraryUtils';
 import { defaultLibraryFilterState } from './librarySearchUtils';
 import {
@@ -20,7 +22,6 @@ import {
   type VideoCodecFilter,
   type WatchStatusFilter,
 } from './mediaLibraryFilterUtils';
-import type { MediaSortOrder, MediaTypeFilter } from './mediaLibraryUtils';
 
 export interface LibraryTypeCounts {
   all: number;

@@ -7,12 +7,14 @@ import {
   toApiErrorMessage,
 } from '../../shared/services/api';
 import type { MediaItem, ProgressEntry } from '../../shared/services/types';
+import { findRemoteLibraryMatch } from './remoteLibraryMatch';
 
 interface MediaDetailsDataState {
   items: MediaItem[];
   progress: ProgressEntry[];
   loading: boolean;
   error: string | null;
+  libraryMatch: MediaItem | null;
   reloadVersion: number;
   reload: () => void;
 }
@@ -22,6 +24,7 @@ export function useMediaDetailsData(mediaId: string, token: string): MediaDetail
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [libraryMatch, setLibraryMatch] = useState<MediaItem | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
@@ -30,13 +33,18 @@ export function useMediaDetailsData(mediaId: string, token: string): MediaDetail
     async function load() {
       setLoading(true);
       setError(null);
+      setLibraryMatch(null);
 
       try {
         if (isRemoteMediaId(mediaId)) {
-          const remoteItem = await getRemoteMedia(token, mediaId);
+          const [remoteItem, localItems] = await Promise.all([
+            getRemoteMedia(token, mediaId),
+            listMedia(token).catch(() => [] as MediaItem[]),
+          ]);
           if (!cancelled) {
             setItems([remoteItem]);
             setProgress([]);
+            setLibraryMatch(findRemoteLibraryMatch(remoteItem, localItems));
           }
           return;
         }
@@ -48,6 +56,7 @@ export function useMediaDetailsData(mediaId: string, token: string): MediaDetail
         if (!cancelled) {
           setItems(mediaItems);
           setProgress(progressItems);
+          setLibraryMatch(null);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -74,6 +83,7 @@ export function useMediaDetailsData(mediaId: string, token: string): MediaDetail
     progress,
     loading,
     error,
+    libraryMatch,
     reloadVersion,
     reload: () => setReloadVersion((value) => value + 1),
   };

@@ -6,12 +6,25 @@
  */
 
 export interface VideoEncoderConfig {
+  hardwareAcceleration?: VideoEncoder;
+  nvidiaInputMode?: 'cuda' | 'software';
   keyFrameInterval: number;
   preset: string;
   crf: number;
   maxVideoBitrateKbps: number;
   maxOutputHeight: number;
   rateControlBufferSeconds: number;
+}
+
+export type VideoEncoder = 'cpu' | 'nvidia';
+
+export function buildVideoDecoderInputArgs(
+  encoder: VideoEncoder,
+  nvidiaInputMode: 'cuda' | 'software' = 'cuda',
+): string[] {
+  return encoder === 'nvidia' && nvidiaInputMode === 'cuda'
+    ? ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda']
+    : [];
 }
 
 export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
@@ -29,19 +42,11 @@ export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
     maxVideoBitrateKbps * rateControlBufferSeconds,
   );
 
-  return [
-    '-c:v',
-    'libx264',
-    '-vf',
-    `setpts=PTS-STARTPTS,scale=-2:${maxOutputHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p`,
-    '-pix_fmt',
-    'yuv420p',
+  const commonArgs = [
     '-profile:v',
     'high',
-    '-level',
-    '4.1',
-    // `-fps_mode` is unavailable on older ffmpeg releases often found on
-    // long-term Ubuntu/Debian images. Use the broadly supported equivalent.
+    // Let the encoder select a level compatible with the actual output
+    // dimensions and frame rate. A fixed Level 4.1 tag is invalid for 2160p.
     '-vsync',
     'cfr',
     '-g',
@@ -50,11 +55,50 @@ export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
     String(config.keyFrameInterval),
     '-sc_threshold',
     '0',
-    // Force only the first output frame to be a keyframe. Using
-    // `expr:gte(t,0)` would force every frame as keyframe, which collapses
-    // inter-frame compression and causes severe quality artifacts under VBV.
     '-force_key_frames',
     'expr:eq(n,0)',
+  ];
+
+  if (config.hardwareAcceleration === 'nvidia') {
+    const filter =
+      config.nvidiaInputMode === 'software'
+        ? `setpts=PTS-STARTPTS,scale=-2:${maxOutputHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p`
+        : `setpts=PTS-STARTPTS,scale_cuda=-2:${maxOutputHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`;
+    return [
+      '-c:v',
+      'h264_nvenc',
+      '-vf',
+      filter,
+      '-pix_fmt',
+      'yuv420p',
+      ...commonArgs,
+      '-preset',
+      toNvencPreset(config.preset),
+      '-tune',
+      'hq',
+      '-rc',
+      'vbr',
+      '-cq',
+      String(config.crf),
+      '-maxrate',
+      `${maxVideoBitrateKbps}k`,
+      '-bufsize',
+      `${rateControlBufferKbps}k`,
+      '-spatial_aq',
+      '1',
+      '-temporal_aq',
+      '1',
+    ];
+  }
+
+  return [
+    '-c:v',
+    'libx264',
+    '-vf',
+    `setpts=PTS-STARTPTS,scale=-2:${maxOutputHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p`,
+    '-pix_fmt',
+    'yuv420p',
+    ...commonArgs,
     '-preset',
     config.preset,
     '-crf',
@@ -64,6 +108,27 @@ export function buildVideoEncoderArgs(config: VideoEncoderConfig): string[] {
     '-bufsize',
     `${rateControlBufferKbps}k`,
   ];
+}
+
+function toNvencPreset(preset: string): string {
+  switch (preset.trim().toLowerCase()) {
+    case 'ultrafast':
+    case 'superfast':
+      return 'p1';
+    case 'veryfast':
+    case 'faster':
+      return 'p2';
+    case 'fast':
+      return 'p3';
+    case 'slow':
+      return 'p5';
+    case 'slower':
+      return 'p6';
+    case 'veryslow':
+      return 'p7';
+    default:
+      return 'p4';
+  }
 }
 
 export interface AudioEncoderConfig {
@@ -88,10 +153,13 @@ export function buildAudioEncoderArgs(config: AudioEncoderConfig): string[] {
 }
 
 export interface SegmentFfmpegArgsInput {
+  mediaKind: 'video' | 'audio';
   sourceFilePath: string;
   startSeconds: number;
   durationSeconds: number;
   audioMapSpecifier: string;
+  includeAudio?: boolean;
+  inputArgs?: string[];
   videoArgs: string[];
   audioArgs: string[];
   outputPath: string;
@@ -101,6 +169,15 @@ export function buildSegmentFfmpegArgs(
   input: SegmentFfmpegArgsInput,
 ): string[] {
   const startStr = input.startSeconds.toFixed(3);
+  const includeAudio = input.includeAudio !== false;
+  const mappedStreams =
+    input.mediaKind === 'audio'
+      ? ['-map', input.audioMapSpecifier, '-vn']
+      : includeAudio
+        ? ['-map', '0:v:0', '-map', input.audioMapSpecifier]
+        : ['-map', '0:v:0', '-an'];
+  const videoArgs = input.mediaKind === 'audio' ? [] : input.videoArgs;
+  const audioArgs = includeAudio ? input.audioArgs : [];
 
   return [
     '-hide_banner',
@@ -110,6 +187,7 @@ export function buildSegmentFfmpegArgs(
     '50M',
     '-probesize',
     '50M',
+    ...(input.inputArgs ?? []),
     // Input-side accurate seek: decodes from the nearest preceding keyframe
     // then drops frames until reaching the requested time.
     '-ss',
@@ -123,14 +201,11 @@ export function buildSegmentFfmpegArgs(
     '-err_detect',
     'ignore_err',
     '-ignore_unknown',
-    '-map',
-    '0:v:0',
-    '-map',
-    input.audioMapSpecifier,
+    ...mappedStreams,
     '-sn',
     '-dn',
-    ...input.videoArgs,
-    ...input.audioArgs,
+    ...videoArgs,
+    ...audioArgs,
     // Place this segment's PTS at its true position in the overall timeline so
     // hls.js can stitch segments without seeing them as discontinuities.
     '-output_ts_offset',
@@ -145,6 +220,59 @@ export function buildSegmentFfmpegArgs(
     'mpegts',
     '-y',
     input.outputPath,
+  ];
+}
+
+export interface ContinuousAudioHlsArgsInput {
+  sourceFilePath: string;
+  audioMapSpecifier: string;
+  audioArgs: string[];
+  segmentSeconds: number;
+  segmentPattern: string;
+  manifestPath: string;
+}
+
+export function buildContinuousAudioHlsArgs(
+  input: ContinuousAudioHlsArgsInput,
+): string[] {
+  return [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-analyzeduration',
+    '50M',
+    '-probesize',
+    '50M',
+    '-i',
+    input.sourceFilePath,
+    '-map',
+    input.audioMapSpecifier,
+    '-vn',
+    '-sn',
+    '-dn',
+    ...input.audioArgs,
+    // MPEG-TS otherwise starts near 1.4s. The independently generated video
+    // rendition starts at zero, so keep both media timelines aligned.
+    '-muxpreload',
+    '0',
+    '-muxdelay',
+    '0',
+    '-avoid_negative_ts',
+    'disabled',
+    '-f',
+    'hls',
+    '-hls_time',
+    Math.max(1, input.segmentSeconds).toFixed(3),
+    '-hls_list_size',
+    '0',
+    '-hls_playlist_type',
+    'event',
+    '-hls_flags',
+    'temp_file+independent_segments',
+    '-hls_segment_filename',
+    input.segmentPattern,
+    '-y',
+    input.manifestPath,
   ];
 }
 

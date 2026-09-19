@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   updateMediaMetadata,
   detectMediaFilename,

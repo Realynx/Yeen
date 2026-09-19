@@ -3,11 +3,7 @@ import { MediaItem } from '../../domain/entities/media-item.entity';
 import { SystemSettingsService } from '../../../system-settings/application/services/system-settings.service';
 import { MediaProbeAdapter } from '../../infrastructure/media-probe.adapter';
 import { MediaFileResolutionService } from './path-resolution/media-file-resolution.service';
-import {
-  TorrentService,
-  type TorrentListItem,
-} from '../../../torrent/application/services/torrent.service';
-import { TorrentMediaIndexStore } from '../../../torrent/infrastructure/stores/torrent-media-index.store';
+import { ProgressivePlaybackSourceRegistry } from '../../../core/application/extensions/progressive-playback-source';
 
 interface MediaPlaybackAudioTrack {
   streamIndex: number;
@@ -18,26 +14,19 @@ interface MediaPlaybackAudioTrack {
   isDefault: boolean;
 }
 
-interface MediaTorrentDownloadProgressItem {
-  mediaId: string;
-  hash: string;
-  progressPercent: number;
-  state: string;
-}
-
 @Injectable()
 export class MediaPlaybackService {
-  private static readonly ACTIVE_TORRENT_DOWNLOAD_STATES = new Set([
-    'downloading',
-    'forceddl',
-    'stalldl',
-    'stalleddl',
-    'metadl',
-    'queueddl',
-    'checkingdl',
-  ]);
-
   private readonly directPlayExtensions = new Set(['.mp4', '.m4v', '.webm']);
+  private readonly directPlayMusicExtensions = new Set([
+    '.aac',
+    '.flac',
+    '.m4a',
+    '.mp3',
+    '.oga',
+    '.ogg',
+    '.opus',
+    '.wav',
+  ]);
   private readonly directPlayVideoCodecHints = [
     'h264',
     'avc',
@@ -46,15 +35,22 @@ export class MediaPlaybackService {
     'vp9',
     'av1',
   ];
-  private readonly directPlayAudioCodecHints = ['aac', 'mp3', 'opus', 'vorbis'];
+  private readonly directPlayAudioCodecHints = [
+    'aac',
+    'alac',
+    'flac',
+    'mp3',
+    'opus',
+    'pcm',
+    'vorbis',
+  ];
   private readonly logger = new Logger(MediaPlaybackService.name);
 
   constructor(
     private readonly systemSettingsService: SystemSettingsService,
     private readonly mediaProbeAdapter: MediaProbeAdapter,
     private readonly mediaFileResolutionService: MediaFileResolutionService,
-    private readonly torrentService: TorrentService,
-    private readonly torrentMediaIndexStore: TorrentMediaIndexStore,
+    private readonly progressivePlaybackSources: ProgressivePlaybackSourceRegistry,
   ) {}
 
   async getPlaybackAudioTracks(
@@ -129,9 +125,8 @@ export class MediaPlaybackService {
   }
 
   async getPlaybackPlan(item: MediaItem) {
-    const torrentIndex =
-      (await this.torrentMediaIndexStore.getByMediaId(item.id)) ??
-      (await this.torrentMediaIndexStore.getByRelatedFilePath(item.filePath));
+    const extensionFields =
+      await this.progressivePlaybackSources.decoratePlaybackPlan(item);
 
     return {
       mediaId: item.id,
@@ -146,105 +141,21 @@ export class MediaPlaybackService {
       subtitles: {
         listUrl: `/api/subtitles/${item.id}`,
       },
-      torrent: torrentIndex
-        ? {
-            hash: torrentIndex.hash,
-            statusUrl: `/api/media/torrent/${torrentIndex.hash}/status`,
-          }
-        : null,
+      ...extensionFields,
     };
-  }
-
-  async getTorrentDownloadProgressByMediaIds(mediaIds: string[]) {
-    const normalizedMediaIds = [
-      ...new Set(
-        mediaIds
-          .map((mediaId) => mediaId.trim())
-          .filter((mediaId) => mediaId.length > 0),
-      ),
-    ];
-
-    if (normalizedMediaIds.length === 0) {
-      return { items: [] as MediaTorrentDownloadProgressItem[] };
-    }
-
-    const indexByMediaId =
-      await this.torrentMediaIndexStore.getByMediaIds(normalizedMediaIds);
-
-    if (indexByMediaId.size === 0) {
-      return { items: [] as MediaTorrentDownloadProgressItem[] };
-    }
-
-    let torrents: TorrentListItem[] = [];
-    try {
-      const listResult = await this.torrentService.listTorrents();
-      torrents = Array.isArray(listResult.items) ? listResult.items : [];
-    } catch {
-      return { items: [] as MediaTorrentDownloadProgressItem[] };
-    }
-
-    const activeTorrentsByHash = new Map<string, TorrentListItem>();
-    for (const torrent of torrents) {
-      const normalizedHash = torrent.hash.trim().toLowerCase();
-      if (!normalizedHash) {
-        continue;
-      }
-
-      if (!this.isActiveDownloadingTorrentState(torrent.state)) {
-        continue;
-      }
-
-      activeTorrentsByHash.set(normalizedHash, torrent);
-    }
-
-    const items: MediaTorrentDownloadProgressItem[] = [];
-    for (const mediaId of normalizedMediaIds) {
-      const indexEntry = indexByMediaId.get(mediaId);
-      if (!indexEntry) {
-        continue;
-      }
-
-      const torrent = activeTorrentsByHash.get(indexEntry.hash);
-      if (!torrent) {
-        continue;
-      }
-
-      const normalizedProgress = Number.isFinite(torrent.progress)
-        ? Math.min(1, Math.max(0, torrent.progress))
-        : 0;
-
-      items.push({
-        mediaId,
-        hash: indexEntry.hash,
-        progressPercent: normalizedProgress * 100,
-        state: torrent.state,
-      });
-    }
-
-    return { items };
-  }
-
-  private isActiveDownloadingTorrentState(
-    state: string | null | undefined,
-  ): boolean {
-    if (!state) {
-      return false;
-    }
-
-    const normalized = state.trim().toLowerCase();
-    if (!normalized) {
-      return false;
-    }
-
-    if (MediaPlaybackService.ACTIVE_TORRENT_DOWNLOAD_STATES.has(normalized)) {
-      return true;
-    }
-
-    return normalized.includes('dl');
   }
 
   private supportsDirectPlay(item: MediaItem): boolean {
     const extension = item.extension.toLowerCase();
+    if (item.libraryType === 'music') {
+      return (
+        this.directPlayMusicExtensions.has(extension) &&
+        this.directPlayAudioCodecHints.some((hint) =>
+          (item.audioCodec ?? '').toLowerCase().includes(hint),
+        )
+      );
+    }
+
     if (!this.directPlayExtensions.has(extension)) {
       return false;
     }

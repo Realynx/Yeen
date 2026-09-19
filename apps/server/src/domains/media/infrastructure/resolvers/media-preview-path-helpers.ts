@@ -93,13 +93,14 @@ function normalizeChapterMarkers(
   if (!Array.isArray(markers) || markers.length === 0) {
     return [];
   }
+  const typedMarkers: readonly ChapterThumbnailCapturePoint[] = markers;
 
   const maxSecond =
     Number.isFinite(durationSeconds) && durationSeconds > 0
       ? Math.max(0, durationSeconds - 0.2)
       : null;
 
-  const normalized = markers
+  const normalized = typedMarkers
     .map((marker) => {
       if (
         typeof marker !== 'object' ||
@@ -151,6 +152,8 @@ export function buildPreviewImageCandidates(
     `${fileBaseName}-poster`,
     'poster',
     'folder',
+    'cover',
+    'front',
   ];
 
   return baseNames.flatMap((baseName) =>

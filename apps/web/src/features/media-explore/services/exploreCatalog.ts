@@ -138,7 +138,7 @@ export function defaultTagForMode(mode: ExploreCatalogMode): string {
 }
 
 export function providerLabelForMode(mode: ExploreCatalogMode): string {
-  return mode === 'anime' ? 'Jikan' : 'TMDB';
+  return mode === 'anime' ? 'AniList' : 'TMDB';
 }
 
 export function isExploreCatalogMode(value: unknown): value is ExploreCatalogMode {

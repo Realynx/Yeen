@@ -16,7 +16,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AdminGuard } from '../../../auth/presentation/guards/admin.guard';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
-import { TorrentAccessGuard } from '../../../auth/presentation/guards/torrent-access.guard';
 import { ScanMediaDto } from '../../application/dto/scan-media.dto';
 import { SetMediaLocationsDto } from '../../application/dto/set-media-locations.dto';
 import {
@@ -30,20 +29,15 @@ import {
   PlanCommitMetadataDto,
 } from '../../application/dto/commit-metadata.dto';
 import { ImportMetadataDto } from '../../application/dto/import-metadata.dto';
-import { DownloadIptorrentDto } from '../../application/dto/download-iptorrent.dto';
 import { PurgeRecycleDeletionsDto } from '../../application/dto/purge-recycle-deletions.dto';
-import { IptorrentsSearchService } from '../../application/services/torrent-search/iptorrents-search.service';
-import { NyaaSearchService } from '../../application/services/torrent-search/nyaa-search.service';
 import { MediaFsCommitService } from '../../application/services/filesystem/media-fs-commit.service';
 import { MediaEpisodeNavigationService } from '../../application/services/media-episode-navigation.service';
 import { MediaService } from '../../application/services/media.service';
-import { TorrentService } from '../../../torrent/application/services/torrent.service';
-import { MediaSearchTorrentDownloadService } from '../../application/services/torrent-intake/media-search-torrent-download.service';
+import { RemoteMusicCatalogService } from '../../application/services/remote-music/remote-music-catalog.service';
 import {
   normalizeUploadedJsonFile,
   parseBooleanQuery,
   parseRemoteProvidersQuery,
-  parseStringArrayBody,
   parseTagsQuery,
 } from './media.controller.helpers';
 
@@ -54,15 +48,24 @@ export class MediaController {
     private readonly mediaService: MediaService,
     private readonly mediaEpisodeNavigationService: MediaEpisodeNavigationService,
     private readonly mediaFsCommitService: MediaFsCommitService,
-    private readonly iptorrentsSearchService: IptorrentsSearchService,
-    private readonly nyaaSearchService: NyaaSearchService,
-    private readonly mediaSearchTorrentDownloadService: MediaSearchTorrentDownloadService,
-    private readonly torrentService: TorrentService,
+    private readonly remoteMusicCatalogService: RemoteMusicCatalogService,
   ) {}
 
   @Get()
-  list(@Query('q') query?: string, @Query('tags') tags?: string | string[]) {
-    return this.mediaService.list(query, parseTagsQuery(tags));
+  list(
+    @Query('q') query?: string,
+    @Query('tags') tags?: string | string[],
+    @Query('libraryType') libraryType?: string,
+  ) {
+    const normalizedLibraryType =
+      libraryType === 'music' || libraryType === 'video'
+        ? libraryType
+        : 'video';
+    return this.mediaService.list(
+      query,
+      parseTagsQuery(tags),
+      normalizedLibraryType,
+    );
   }
 
   @Get('locations')
@@ -74,7 +77,9 @@ export class MediaController {
   @Put('locations')
   @UseGuards(AdminGuard)
   setLocations(@Body() dto: SetMediaLocationsDto) {
-    return this.mediaService.setLocations(dto.locations);
+    return this.mediaService.setLocations(
+      dto.libraryLocations ?? dto.locations ?? [],
+    );
   }
 
   @Get('scan/progress')
@@ -123,7 +128,11 @@ export class MediaController {
   @Post('scan')
   @UseGuards(AdminGuard)
   scan(@Body() dto: ScanMediaDto) {
-    return this.mediaService.scan(dto.libraryPath, dto.libraryPaths);
+    return this.mediaService.scan(
+      dto.libraryPath,
+      dto.libraryPaths,
+      dto.libraryLocations,
+    );
   }
 
   @Get('search/remote')
@@ -147,101 +156,46 @@ export class MediaController {
     });
   }
 
-  @Get('search/iptorrents')
-  @UseGuards(TorrentAccessGuard)
-  searchIptorrents(
+  @Get('music/search/remote')
+  searchRemoteMusic(
     @Query('q') query?: string,
     @Query('limit') limit?: string,
-    @Query('mediaType') mediaType?: string,
-  ) {
-    const parsedLimit = limit ? Number.parseInt(limit, 10) : NaN;
-    const normalizedMediaType =
-      mediaType === 'movie' || mediaType === 'show' ? mediaType : undefined;
-
-    return this.iptorrentsSearchService.search({
-      query: (query ?? '').trim(),
-      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      mediaType: normalizedMediaType,
-    });
-  }
-
-  @Get('search/nyaa')
-  @UseGuards(TorrentAccessGuard)
-  searchNyaa(
-    @Query('q') query?: string,
-    @Query('limit') limit?: string,
-    @Query('category') category?: string,
     @Query('page') page?: string,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortDirection') sortDirection?: string,
+    @Query('providers') providers?: string | string[],
   ) {
-    const parsedLimit = limit ? Number.parseInt(limit, 10) : NaN;
-
-    return this.nyaaSearchService.search({
-      query: (query ?? '').trim(),
-      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      page: Number.isFinite(Number(page)) ? Number(page) : undefined,
-      sortBy,
-      sortDirection,
-      category: typeof category === 'string' ? category.trim() : undefined,
+    return this.remoteMusicCatalogService.search({
+      query: query ?? '',
+      limit: parseInteger(limit),
+      page: parseInteger(page),
+      providers: parseProviderList(providers),
     });
   }
 
-  @Post('search/iptorrents/download')
-  @UseGuards(TorrentAccessGuard)
-  async startIptorrentsDownload(@Body() dto: DownloadIptorrentDto) {
-    return this.mediaSearchTorrentDownloadService.startDownload(
-      'iptorrents',
-      dto,
+  @Get('music/discover')
+  discoverRemoteMusic(
+    @Query('limit') limit?: string,
+    @Query('providers') providers?: string | string[],
+  ) {
+    return this.remoteMusicCatalogService.discover({
+      limit: parseInteger(limit),
+      providers: parseProviderList(providers),
+    });
+  }
+
+  @Get('music/:mediaId/metadata/candidates')
+  getRemoteMusicMetadataCandidates(
+    @Param('mediaId') mediaId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.remoteMusicCatalogService.metadataCandidates(
+      mediaId,
+      parseInteger(limit),
     );
   }
 
-  @Post('search/nyaa/download')
-  @UseGuards(TorrentAccessGuard)
-  async startNyaaDownload(@Body() dto: DownloadIptorrentDto) {
-    return this.mediaSearchTorrentDownloadService.startDownload('nyaa', dto);
-  }
-
-  @Post('torrent/:hash/index')
-  @UseGuards(TorrentAccessGuard)
-  indexTorrent(@Param('hash') hash: string) {
-    return this.mediaService.indexTorrentFile(hash);
-  }
-
-  /**
-   * Combined status endpoint for the "preparing to stream" page: returns both
-   * the index probe result and live qBittorrent download stats in one call so
-   * the page can poll a single URL.
-   */
-  @Get('torrent/:hash/status')
-  async getTorrentStatus(@Param('hash') hash: string) {
-    const [indexResult, torrent] = await Promise.all([
-      this.mediaService.indexTorrentFile(hash).catch((error: unknown) => ({
-        status: 'pending' as const,
-        reason:
-          error instanceof Error
-            ? `Index attempt failed: ${error.message}`
-            : 'Index attempt failed.',
-      })),
-      this.torrentService.getTorrentByHash(hash).catch(() => null),
-    ]);
-
-    // While the prepare page is still polling, the user is actively waiting
-    // on the head of the file. Make sure the torrent is in sequential +
-    // first/last-piece-priority mode so the EBML/MOV header lands ASAP.
-    // This is a no-op when already in that state.
-    if (indexResult.status !== 'indexed') {
-      void this.torrentService.ensureSequentialDownload(hash);
-    }
-
-    return { indexResult, torrent };
-  }
-
-  @Post('torrent/download-progress')
-  getTorrentDownloadProgress(@Body() body: { mediaIds?: unknown }) {
-    return this.mediaService.getTorrentDownloadProgressByMediaIds(
-      parseStringArrayBody(body?.mediaIds),
-    );
+  @Get('remote/:remoteId/series-catalog')
+  getRemoteSeriesEpisodeCatalog(@Param('remoteId') remoteId: string) {
+    return this.mediaService.getRemoteSeriesEpisodeCatalog(remoteId);
   }
 
   @Get('remote/:remoteId')
@@ -381,4 +335,18 @@ export class MediaController {
   getPlayback(@Param('mediaId') mediaId: string) {
     return this.mediaService.getPlaybackPlan(mediaId);
   }
+}
+
+function parseInteger(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseProviderList(value: string | string[] | undefined): string[] {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return values
+    .flatMap((entry) => entry.split(','))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }

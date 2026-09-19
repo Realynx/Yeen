@@ -1,5 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { spawn } from 'node:child_process';
+import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
+import {
+  BoundedChildProcessRunner,
+  CommandCancelledError,
+  CommandTimedOutError,
+  type BoundedCommandOptions,
+} from '../../core/infrastructure/shared/bounded-child-process-runner';
 
 export interface FfprobeStreamTags {
   [key: string]: string | undefined;
@@ -11,6 +16,7 @@ export interface FfprobeStreamDisposition {
   [key: string]: number | undefined;
   default?: number;
   forced?: number;
+  attached_pic?: number;
 }
 
 export interface FfprobeFormatTags {
@@ -58,14 +64,16 @@ export interface FfprobePayload {
 }
 
 @Injectable()
-export class MediaProbeAdapter {
+export class MediaProbeAdapter implements OnModuleDestroy {
   private readonly logger = new Logger(MediaProbeAdapter.name);
+  private readonly commandRunner = new BoundedChildProcessRunner(60_000);
 
   async probeFile(
     filePath: string,
     ffprobePath: string,
+    options?: BoundedCommandOptions,
   ): Promise<FfprobePayload> {
-    // For in-progress torrent downloads we may be probing a `.!qB` partial
+    // An external intake adapter may hand us a growing partial file.
     // file or an .mkv that doesn't yet contain its trailing Cues. Give
     // ffprobe more head bytes to work with (default analyzeduration is
     // 5s/5MB) so it can resolve duration + stream info from a partial file,
@@ -90,10 +98,16 @@ export class MediaProbeAdapter {
     ];
 
     try {
-      const raw = await this.runCommand(ffprobePath, primaryArgs);
+      const raw = await this.runCommand(ffprobePath, primaryArgs, options);
       return JSON.parse(raw) as FfprobePayload;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      if (
+        error instanceof CommandTimedOutError ||
+        error instanceof CommandCancelledError
+      ) {
+        throw error;
+      }
       if (!this.isRecoverableProbeError(message)) {
         throw error;
       }
@@ -108,9 +122,17 @@ export class MediaProbeAdapter {
         '0%+180',
         filePath,
       ];
-      const fallbackRaw = await this.runCommand(ffprobePath, fallbackArgs);
+      const fallbackRaw = await this.runCommand(
+        ffprobePath,
+        fallbackArgs,
+        options,
+      );
       return JSON.parse(fallbackRaw) as FfprobePayload;
     }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.commandRunner.stop();
   }
 
   selectStreams(streams: FfprobeStream[]): {
@@ -119,7 +141,11 @@ export class MediaProbeAdapter {
     subtitleStreams: FfprobeStream[];
   } {
     return {
-      video: streams.find((stream) => stream.codec_type === 'video'),
+      video: streams.find(
+        (stream) =>
+          stream.codec_type === 'video' &&
+          (stream.disposition?.attached_pic ?? 0) <= 0,
+      ),
       audio: streams.find((stream) => stream.codec_type === 'audio'),
       subtitleStreams: streams.filter(
         (stream) => stream.codec_type === 'subtitle',
@@ -127,64 +153,45 @@ export class MediaProbeAdapter {
     };
   }
 
-  private runCommand(command: string, args: string[]): Promise<string> {
-    return new Promise((resolvePromise, rejectPromise) => {
-      const child = spawn(command, args, {
-        windowsHide: true,
-      });
+  private async runCommand(
+    command: string,
+    args: string[],
+    options?: BoundedCommandOptions,
+  ): Promise<string> {
+    const result = await this.commandRunner.run(command, args, options);
+    const trimmedStdout = result.stdout.trim();
 
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString();
-      });
-
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-
-      child.on('error', (error) => {
-        rejectPromise(error);
-      });
-
-      child.on('close', (code) => {
-        const trimmedStdout = stdout.trim();
-
-        if (code !== 0) {
-          // ffprobe can exit non-zero on partial/in-progress files even when
-          // it already emitted valid JSON stream metadata. Accept that payload
-          // so torrent indexing can continue while the file is still growing.
-          if (trimmedStdout) {
-            try {
-              const parsed = JSON.parse(trimmedStdout) as FfprobePayload;
-              const hasStreams =
-                Array.isArray(parsed.streams) && parsed.streams.length > 0;
-              const hasFormat = Boolean(
-                parsed.format && Object.keys(parsed.format).length > 0,
-              );
-
-              if (hasStreams || hasFormat) {
-                this.logger.warn(
-                  `ffprobe exited with code ${code} but returned usable metadata; continuing with partial probe output.`,
-                );
-                resolvePromise(trimmedStdout);
-                return;
-              }
-            } catch {
-              // Ignore parse failures and fall through to the original error.
-            }
-          }
-
-          rejectPromise(
-            new Error(stderr.trim() || `Command failed with code ${code}`),
+    if (result.exitCode !== 0) {
+      // ffprobe can exit non-zero on partial/in-progress files even when
+      // it already emitted valid JSON stream metadata. Accept that payload
+      // so external intake can continue while the file is still growing.
+      if (trimmedStdout) {
+        try {
+          const parsed = JSON.parse(trimmedStdout) as FfprobePayload;
+          const hasStreams =
+            Array.isArray(parsed.streams) && parsed.streams.length > 0;
+          const hasFormat = Boolean(
+            parsed.format && Object.keys(parsed.format).length > 0,
           );
-          return;
-        }
 
-        resolvePromise(stdout);
-      });
-    });
+          if (hasStreams || hasFormat) {
+            this.logger.warn(
+              `ffprobe exited with code ${result.exitCode} but returned usable metadata; continuing with partial probe output.`,
+            );
+            return trimmedStdout;
+          }
+        } catch {
+          // Ignore parse failures and fall through to the original error.
+        }
+      }
+
+      throw new Error(
+        result.stderr.trim() ||
+          `Command failed with code ${result.exitCode ?? 'unknown'}`,
+      );
+    }
+
+    return result.stdout;
   }
 
   private isRecoverableProbeError(message: string): boolean {

@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useAddonHost } from '../../addons/runtime/AddonHostContext';
+import { AddonNavigationEntries } from '../../addons/runtime/AddonHostSlots';
 
 interface PhoneNavItem {
   to: string;
@@ -53,6 +55,7 @@ const PHONE_NAV_ITEMS: readonly PhoneNavItem[] = [
 ];
 
 export function PhoneBottomNav() {
+  const { user } = useAddonHost();
   return (
     <nav className="phone-bottom-nav" aria-label="Primary">
       {PHONE_NAV_ITEMS.map((item) => (
@@ -70,6 +73,7 @@ export function PhoneBottomNav() {
           <span className="phone-bottom-nav-label">{item.label}</span>
         </NavLink>
       ))}
+      <AddonNavigationEntries placement="phone" user={user} phone />
     </nav>
   );
 }

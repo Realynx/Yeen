@@ -149,6 +149,7 @@ export interface CommitApplyResponse {
     nfoWritten: boolean;
     error?: string;
   }>;
+  integrationWarnings?: string[];
 }
 
 export interface CommitHistoryEntry {

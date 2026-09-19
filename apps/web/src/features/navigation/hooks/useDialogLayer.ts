@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 const DIALOG_FOCUSABLE_SELECTOR = [
   'a[href]:not([tabindex="-1"])',
@@ -7,6 +6,7 @@ const DIALOG_FOCUSABLE_SELECTOR = [
   'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
   'select:not([disabled]):not([tabindex="-1"])',
   'textarea:not([disabled]):not([tabindex="-1"])',
+  'summary:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
@@ -102,6 +102,29 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 }
 
+function shouldCloseForKey(event: KeyboardEvent, closeOnEscape: boolean, closeOnBack: boolean): boolean {
+  return (closeOnEscape && event.key === 'Escape')
+    || (closeOnBack && event.key === 'Backspace' && !isEditableTarget(event.target));
+}
+
+function trapTabFocus(event: KeyboardEvent, container: HTMLElement): void {
+  const focusables = getFocusableElements(container);
+  if (focusables.length === 0) {
+    event.preventDefault();
+    if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+    container.focus({ preventScroll: true });
+    return;
+  }
+  const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const activeIndex = active ? focusables.indexOf(active) : -1;
+  const step = event.shiftKey ? -1 : 1;
+  const nextIndex = activeIndex < 0
+    ? (event.shiftKey ? focusables.length - 1 : 0)
+    : (activeIndex + step + focusables.length) % focusables.length;
+  event.preventDefault();
+  focusables[nextIndex]?.focus({ preventScroll: true });
+}
+
 export interface UseDialogLayerOptions {
   open: boolean;
   containerRef: RefObject<HTMLElement | null>;
@@ -163,10 +186,7 @@ export function useDialogLayer({
         return;
       }
 
-      const closeForEscape = closeOnEscape && event.key === 'Escape';
-      const closeForBack = closeOnBack && event.key === 'Backspace' && !isEditableTarget(event.target);
-
-      if ((closeForEscape || closeForBack) && onRequestClose) {
+      if (shouldCloseForKey(event, closeOnEscape, closeOnBack) && onRequestClose) {
         event.preventDefault();
         event.stopPropagation();
         onRequestClose();
@@ -177,28 +197,7 @@ export function useDialogLayer({
         return;
       }
 
-      const container: HTMLElement = containerRef.current ?? root;
-      const focusables = getFocusableElements(container);
-      if (focusables.length === 0) {
-        event.preventDefault();
-        if (!container.hasAttribute('tabindex')) {
-          container.setAttribute('tabindex', '-1');
-        }
-        container.focus({ preventScroll: true });
-        return;
-      }
-
-      const active = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-      const activeIndex = active ? focusables.indexOf(active) : -1;
-      const step = event.shiftKey ? -1 : 1;
-      const nextIndex = activeIndex < 0
-        ? (event.shiftKey ? focusables.length - 1 : 0)
-        : (activeIndex + step + focusables.length) % focusables.length;
-
-      event.preventDefault();
-      focusables[nextIndex]?.focus({ preventScroll: true });
+      trapTabFocus(event, containerRef.current ?? root);
     }
 
     document.addEventListener('keydown', handleKeyDown, true);

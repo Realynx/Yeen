@@ -126,14 +126,14 @@ export function resolvePublicMediaId(
   liveStatePlayingGraceMs: number,
 ): string {
   if (
-    !session
-    || !isSessionLiveAtWithGrace(
+    !session ||
+    !isSessionLiveAtWithGrace(
       session,
       nowMs,
       liveStateGraceMs,
       liveStatePlayingGraceMs,
-    )
-    || !session.mediaId
+    ) ||
+    !session.mediaId
   ) {
     throw new NotFoundException('Broadcast stream is not active.');
   }
@@ -184,7 +184,11 @@ export function buildOwnerStatus(
   viewerStaleMs: number,
 ): BroadcastOwnerSessionStatus {
   const viewerCount = session.enabled
-    ? cleanupAndCountViewers(viewerHeartbeats, session.shareToken, viewerStaleMs)
+    ? cleanupAndCountViewers(
+        viewerHeartbeats,
+        session.shareToken,
+        viewerStaleMs,
+      )
     : 0;
 
   return toOwnerStatus(session, viewerCount);
@@ -266,7 +270,10 @@ function toSegmentTrackingStatus(
     return null;
   }
 
-  const normalizedPlaybackPosition = Math.max(0, session.playbackPositionSeconds);
+  const normalizedPlaybackPosition = Math.max(
+    0,
+    session.playbackPositionSeconds,
+  );
   const playbackSegmentIndex =
     segmentSeconds === null
       ? null

@@ -28,6 +28,8 @@ const MEDIA_METADATA_COLUMNS = [
   'container',
   'type',
   'digital_media_type',
+  'library_type',
+  'music_metadata_json',
   'size_bytes',
   'duration_seconds',
   'width',
@@ -292,6 +294,8 @@ export class MediaStore implements OnModuleDestroy {
         container TEXT,
         type TEXT NOT NULL,
         digital_media_type TEXT NOT NULL,
+        library_type TEXT NOT NULL DEFAULT 'video',
+        music_metadata_json TEXT,
         size_bytes INTEGER NOT NULL,
         duration_seconds REAL NOT NULL,
         width INTEGER,
@@ -324,6 +328,9 @@ export class MediaStore implements OnModuleDestroy {
 
       CREATE INDEX IF NOT EXISTS idx_media_metadata_type
         ON media_metadata (type);
+
+      CREATE INDEX IF NOT EXISTS idx_media_metadata_library_type
+        ON media_metadata (library_type);
 
       CREATE INDEX IF NOT EXISTS idx_media_metadata_dedupe_key
         ON media_metadata (dedupe_key);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   listRecycleDeletions,
   purgeRecycleDeletions,
@@ -20,6 +20,57 @@ function formatTimestamp(value: string): string {
   return new Date(parsed).toLocaleString();
 }
 
+function RecycleDeletionList({
+  entries,
+  selectedPaths,
+  busy,
+  loading,
+  onToggle,
+}: {
+  entries: RecycleDeletionEntry[];
+  selectedPaths: Set<string>;
+  busy: boolean;
+  loading: boolean;
+  onToggle: (path: string, checked: boolean) => void;
+}) {
+  if (loading) return <p className="muted" style={{ marginTop: '0.6rem' }}>Loading recycle operations...</p>;
+  if (entries.length === 0) return <p className="muted" style={{ marginTop: '0.6rem' }}>No recycle operation folders found.</p>;
+  return (
+    <div className="recycle-deletion-list" role="list">
+      {entries.map((entry) => {
+        const checked = selectedPaths.has(entry.folderPath);
+        return (
+          <label key={entry.folderPath} className={checked ? 'recycle-deletion-item is-selected' : 'recycle-deletion-item'}>
+            <input type="checkbox" checked={checked}
+              onChange={(event) => onToggle(entry.folderPath, event.target.checked)} disabled={busy} />
+            <div className="recycle-deletion-item-copy">
+              <div className="recycle-deletion-item-head">
+                <code>{entry.operationId}</code>
+                <span>{formatBytes(entry.sizeBytes)} · {entry.fileCount} file{entry.fileCount === 1 ? '' : 's'}</span>
+              </div>
+              <p className="recycle-deletion-item-meta">{entry.driveRoot} · updated {formatTimestamp(entry.updatedAt)}</p>
+              <p className="recycle-deletion-item-path">{entry.folderPath}</p>
+            </div>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function RecycleSummary({ totalEntries, totalSizeBytes, selectedCount, selectedSizeBytes, truncated }: {
+  totalEntries: number; totalSizeBytes: number; selectedCount: number;
+  selectedSizeBytes: number; truncated: boolean;
+}) {
+  return (
+    <div className="recycle-deletion-summary">
+      <span>{totalEntries} operation(s)</span><span>{formatBytes(totalSizeBytes)} total</span>
+      {selectedCount > 0 ? <span>{selectedCount} selected ({formatBytes(selectedSizeBytes)})</span> : null}
+      {truncated ? <span>showing latest 300</span> : null}
+    </div>
+  );
+}
+
 export function RecycleDeletionPanel({
   token,
   disabled = false,
@@ -37,7 +88,7 @@ export function RecycleDeletionPanel({
 
   const busy = disabled || loading || purging;
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -63,14 +114,14 @@ export function RecycleDeletionPanel({
     } finally {
       setLoading(false);
     }
-  }
+  }, [token]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    void refresh();
-    /* eslint-enable react-hooks/set-state-in-effect */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+    const timeoutId = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [refresh]);
 
   function toggleSelected(folderPath: string, checked: boolean) {
     setSelectedPaths((previous) => {
@@ -212,16 +263,8 @@ export function RecycleDeletionPanel({
         folders.
       </p>
 
-      <div className="recycle-deletion-summary">
-        <span>{totalEntries} operation(s)</span>
-        <span>{formatBytes(totalSizeBytes)} total</span>
-        {selectedCount > 0 ? (
-          <span>
-            {selectedCount} selected ({formatBytes(selectedSizeBytes)})
-          </span>
-        ) : null}
-        {truncated ? <span>showing latest 300</span> : null}
-      </div>
+      <RecycleSummary totalEntries={totalEntries} totalSizeBytes={totalSizeBytes}
+        selectedCount={selectedCount} selectedSizeBytes={selectedSizeBytes} truncated={truncated} />
 
       <div className="recycle-deletion-toolbar">
         <label className="recycle-deletion-days-input" htmlFor="recycle-days-input">
@@ -272,53 +315,8 @@ export function RecycleDeletionPanel({
         </div>
       ) : null}
 
-      {loading ? (
-        <p className="muted" style={{ marginTop: '0.6rem' }}>
-          Loading recycle operations...
-        </p>
-      ) : entries.length === 0 ? (
-        <p className="muted" style={{ marginTop: '0.6rem' }}>
-          No recycle operation folders found.
-        </p>
-      ) : (
-        <div className="recycle-deletion-list" role="list">
-          {entries.map((entry) => {
-            const checked = selectedPaths.has(entry.folderPath);
-
-            return (
-              <label
-                key={entry.folderPath}
-                className={
-                  checked ? 'recycle-deletion-item is-selected' : 'recycle-deletion-item'
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(event) =>
-                    toggleSelected(entry.folderPath, event.target.checked)
-                  }
-                  disabled={busy}
-                />
-
-                <div className="recycle-deletion-item-copy">
-                  <div className="recycle-deletion-item-head">
-                    <code>{entry.operationId}</code>
-                    <span>
-                      {formatBytes(entry.sizeBytes)} · {entry.fileCount} file
-                      {entry.fileCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <p className="recycle-deletion-item-meta">
-                    {entry.driveRoot} · updated {formatTimestamp(entry.updatedAt)}
-                  </p>
-                  <p className="recycle-deletion-item-path">{entry.folderPath}</p>
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      )}
+      <RecycleDeletionList entries={entries} selectedPaths={selectedPaths} busy={busy}
+        loading={loading} onToggle={toggleSelected} />
     </section>
   );
 }

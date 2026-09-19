@@ -75,10 +75,7 @@ export class MediaAiMetadataService {
     // Seed the heuristic result for every name. Anything the AI returns
     // afterwards overrides the heuristic, so a partial AI response (or
     // none at all) still leaves us with a usable title.
-    const normalizedByRaw = new Map<string, string>();
-    for (const rawName of rawNames) {
-      normalizedByRaw.set(rawName, cleanTitle(rawName));
-    }
+    const normalizedByRaw = this.seedHeuristicTitles(rawNames);
 
     if (rawNames.length === 0) {
       return normalizedByRaw;
@@ -97,20 +94,10 @@ export class MediaAiMetadataService {
     // Files that differ only in release noise (resolution, group, codec)
     // collapse to one AI call, which is the biggest single speed win for
     // libraries containing the same show many times.
-    const namesByHeuristic = new Map<string, string[]>();
-    for (const rawName of rawNames) {
-      const heuristic = normalizedByRaw.get(rawName) ?? cleanTitle(rawName);
-      const key = heuristic.toLowerCase().replace(/\s+/g, ' ').trim();
-      if (!key) {
-        continue;
-      }
-      const bucket = namesByHeuristic.get(key);
-      if (bucket) {
-        bucket.push(rawName);
-      } else {
-        namesByHeuristic.set(key, [rawName]);
-      }
-    }
+    const namesByHeuristic = this.groupNamesByHeuristic(
+      rawNames,
+      normalizedByRaw,
+    );
 
     // Each representative pairs the bucket's raw filename (used as the
     // storage key in `normalizedByRaw`) with the heuristic-cleaned title
@@ -135,31 +122,14 @@ export class MediaAiMetadataService {
     const totalRepresentatives = representatives.length;
     onProgress?.({ done: 0, total: totalRepresentatives });
 
-    let cursor = 0;
-    while (cursor < representatives.length) {
-      if (Date.now() >= deadlineMs || Date.now() < this.aiBackoffUntil) {
-        break;
-      }
-
-      const batch = representatives.slice(
-        cursor,
-        cursor + scanState.effectiveBatchSize,
-      );
-      const timedOut = await this.processBatchWithAdaptiveSplit(
-        settings,
-        batch,
-        normalizedByRaw,
-        deadlineMs,
-        scanState,
-      );
-      if (timedOut) {
-        // processBatchWithAdaptiveSplit has already armed the backoff;
-        // stop attempting further batches in this scan.
-        break;
-      }
-      cursor += batch.length;
-      onProgress?.({ done: cursor, total: totalRepresentatives });
-    }
+    await this.processRepresentatives(
+      settings,
+      representatives,
+      normalizedByRaw,
+      deadlineMs,
+      scanState,
+      onProgress,
+    );
 
     // Fan the representative's result out to the rest of its cluster so
     // every member of an identical-heuristic group gets the same title.
@@ -175,6 +145,54 @@ export class MediaAiMetadataService {
     }
 
     return normalizedByRaw;
+  }
+
+  private seedHeuristicTitles(rawNames: string[]): Map<string, string> {
+    return new Map(rawNames.map((rawName) => [rawName, cleanTitle(rawName)]));
+  }
+
+  private groupNamesByHeuristic(
+    rawNames: string[],
+    normalizedByRaw: Map<string, string>,
+  ): Map<string, string[]> {
+    const grouped = new Map<string, string[]>();
+    for (const rawName of rawNames) {
+      const heuristic = normalizedByRaw.get(rawName) ?? cleanTitle(rawName);
+      const key = heuristic.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (!key) continue;
+      const bucket = grouped.get(key) ?? [];
+      bucket.push(rawName);
+      grouped.set(key, bucket);
+    }
+    return grouped;
+  }
+
+  private async processRepresentatives(
+    settings: SystemSettings,
+    representatives: AiTitleBatchEntry[],
+    normalizedByRaw: Map<string, string>,
+    deadlineMs: number,
+    scanState: { effectiveBatchSize: number },
+    onProgress?: (progress: { done: number; total: number }) => void,
+  ): Promise<void> {
+    let cursor = 0;
+    while (cursor < representatives.length && Date.now() < deadlineMs) {
+      if (Date.now() < this.aiBackoffUntil) break;
+      const batch = representatives.slice(
+        cursor,
+        cursor + scanState.effectiveBatchSize,
+      );
+      const timedOut = await this.processBatchWithAdaptiveSplit(
+        settings,
+        batch,
+        normalizedByRaw,
+        deadlineMs,
+        scanState,
+      );
+      if (timedOut) break;
+      cursor += batch.length;
+      onProgress?.({ done: cursor, total: representatives.length });
+    }
   }
 
   /**

@@ -21,5 +21,24 @@
   .hero-switch-dot {
     transition: none;
   }
+
+  .browse-page,
+  .media-tile,
+  .home-skeleton-block {
+    animation: none;
+  }
+
+  .media-tile,
+  .media-thumb,
+  .media-hover-panel,
+  .media-thumb-image,
+  .media-thumb-backdrop {
+    transition: none;
+  }
+
+  .media-row,
+  .phone-home-scroll-row {
+    scroll-behavior: auto;
+  }
 }
 

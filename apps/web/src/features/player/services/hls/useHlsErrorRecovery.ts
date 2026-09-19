@@ -33,6 +33,15 @@ export function attachHlsErrorRecovery({
   let startSegment503Count = 0;
 
   hls.on(Hls.Events.ERROR, (_event, data: ErrorData) => {
+    if (isPermanentTranscodeError(data)) {
+      setPlayerError(
+        'This media could not be transcoded. Ask an administrator to check its codec or transcoding settings.',
+      );
+      hls.destroy();
+      clearHlsRef();
+      return;
+    }
+
     if (isSourceUnreachableError(data)) {
       setPlayerError(
         'Media source is unreachable. Check that the storage share is online and try again.',
@@ -100,6 +109,10 @@ export function attachHlsErrorRecovery({
     // from by retrying or restarting the session, so escalate immediately
     // instead of looping the 503-restart state machine.
     return getResponseStatus(data) === 502;
+  }
+
+  function isPermanentTranscodeError(data: ErrorData): boolean {
+    return getResponseStatus(data) === 422;
   }
 
   function getResponseStatus(data: ErrorData): number | null {

@@ -1,0 +1,6 @@
+services:
+  yeen:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    image: yeen-local:${YEEN_VERSION:-dev}

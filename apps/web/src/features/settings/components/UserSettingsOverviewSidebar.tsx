@@ -3,9 +3,10 @@ import {
   formatMemberSince,
   initialForName,
 } from './userSettingsViewUtils';
-import type {
-  UserSettingsCategoryId,
-  UserSettingsQuickAction,
+import {
+  USER_SETTINGS_SECTION_IDS,
+  type UserSettingsCategoryId,
+  type UserSettingsQuickAction,
 } from './userSettings.types';
 
 interface UserSettingsOverviewSidebarProps {
@@ -99,6 +100,8 @@ export function UserSettingsOverviewSidebar({
                   type="button"
                   className={`system-settings-nav-button${isActive ? ' is-active' : ''}`}
                   onClick={() => onOpenCategory(item.category)}
+                  aria-expanded={isActive}
+                  aria-controls={`${USER_SETTINGS_SECTION_IDS[item.category]}-content`}
                 >
                   <span className="system-settings-nav-button-main">
                     <span className="user-settings-quick-action-dot" aria-hidden="true" />

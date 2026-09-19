@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import {
   clamp,
   readPlayerPreferences,

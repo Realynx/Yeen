@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { basename, dirname, extname, join } from 'node:path';
 import { MediaChapterThumbnail } from '../../domain/entities/media-item.entity';
 import { extractDescriptionFromNfo } from './media-preview-description.helpers';
+import { normalizePersistedMediaAssetPath } from '../helpers/media-persisted-asset-path';
 import {
   buildPreviewImageCandidates,
   type ChapterThumbnailCapturePoint,
@@ -43,6 +44,50 @@ export class MediaPreviewResolver {
     'backdrops',
   );
 
+  async extractEmbeddedArtwork(
+    filePath: string,
+    streamIndex: number,
+    sourceMtimeMs: number,
+    ffmpegPath: string,
+  ): Promise<string | null> {
+    const outputPath = join(
+      this.generatedPosterThumbnailDir,
+      `music-${hashPath(filePath)}.jpg`,
+    );
+
+    try {
+      await mkdir(this.generatedPosterThumbnailDir, { recursive: true });
+      if (await this.pathExists(outputPath)) {
+        const artworkStats = await stat(outputPath);
+        if (artworkStats.mtimeMs >= sourceMtimeMs) {
+          return normalizePersistedMediaAssetPath(outputPath);
+        }
+      }
+
+      await this.runCommand(ffmpegPath?.trim() || 'ffmpeg', [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-y',
+        '-i',
+        filePath,
+        '-map',
+        `0:${streamIndex}`,
+        '-frames:v',
+        '1',
+        '-q:v',
+        '2',
+        outputPath,
+      ]);
+      return normalizePersistedMediaAssetPath(outputPath);
+    } catch (error) {
+      this.logger.debug(
+        `Embedded artwork extraction failed for ${filePath}: ${this.toErrorMessage(error)}`,
+      );
+      return null;
+    }
+  }
+
   async generateChapterThumbnails(
     filePath: string,
     durationSeconds: number,
@@ -77,7 +122,8 @@ export class MediaPreviewResolver {
           const thumbnailStats = await stat(outputPath);
           if (thumbnailStats.mtimeMs >= sourceMtimeMs) {
             thumbnails.push({
-              imagePath: outputPath,
+              imagePath:
+                normalizePersistedMediaAssetPath(outputPath) ?? outputPath,
               second: captureSecond,
               name: capturePoint.name,
             });
@@ -107,7 +153,8 @@ export class MediaPreviewResolver {
           ]);
 
           thumbnails.push({
-            imagePath: outputPath,
+            imagePath:
+              normalizePersistedMediaAssetPath(outputPath) ?? outputPath,
             second: captureSecond,
             name: capturePoint.name,
           });
@@ -177,7 +224,7 @@ export class MediaPreviewResolver {
       );
 
       if (!force && (await this.pathExists(outputPath))) {
-        return outputPath;
+        return normalizePersistedMediaAssetPath(outputPath);
       }
 
       const abortController = new AbortController();
@@ -200,7 +247,7 @@ export class MediaPreviewResolver {
         }
 
         await writeFile(outputPath, payload);
-        return outputPath;
+        return normalizePersistedMediaAssetPath(outputPath);
       } finally {
         clearTimeout(timeoutHandle);
       }

@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
-import type {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
-} from 'react';
-import type { PlaybackSource } from './usePlayerData';
-import { clamp, describeMediaError } from './playerUtils';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
+import type { PlaybackSource } from "./usePlayerData";
+import type { HlsSwitchOptions } from "./playerData.types";
+import { clamp, describeMediaError } from "./playerUtils";
+import { shouldShowBufferingForVideoState } from "./playerBufferingState";
 
 // With on-demand HLS transcoding, independently produced MPEG-TS segments do not
 // always tile the timeline perfectly (CFR frame-rounding + per-segment AAC
@@ -31,7 +35,7 @@ interface UsePlayerVideoPanelHandlersOptions {
   setIsSeeking: Dispatch<SetStateAction<boolean>>;
   setSeekPreviewSeconds: Dispatch<SetStateAction<number | null>>;
   setPlaybackRate: Dispatch<SetStateAction<number>>;
-  setQualityMode: (value: 'auto' | number) => void;
+  setQualityMode: (value: "auto" | number) => void;
   setTheaterMode: Dispatch<SetStateAction<boolean>>;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setIsBuffering: Dispatch<SetStateAction<boolean>>;
@@ -41,10 +45,7 @@ interface UsePlayerVideoPanelHandlersOptions {
   switchingToHls: boolean;
   source: PlaybackSource | null;
   attemptedHlsFallbackRef: MutableRefObject<boolean>;
-  switchToHls: (options?: {
-    forceFresh?: boolean;
-    audioStreamIndex?: number | null;
-  }) => Promise<boolean>;
+  switchToHls: (options?: HlsSwitchOptions) => Promise<boolean>;
   videoRef: MutableRefObject<HTMLVideoElement | null>;
 }
 
@@ -53,7 +54,7 @@ interface PlayerVideoPanelHandlers {
   clearSeekPreview: () => void;
   handleSeekTouchEnd: () => void;
   handlePlaybackRateChange: (nextRate: number) => void;
-  handleQualityModeChange: (nextQualityMode: 'auto' | number) => void;
+  handleQualityModeChange: (nextQualityMode: "auto" | number) => void;
   handleToggleTheaterMode: () => void;
   handleVideoPlay: () => void;
   handleVideoPause: () => void;
@@ -86,7 +87,10 @@ export function usePlayerVideoPanelHandlers({
   videoRef,
 }: UsePlayerVideoPanelHandlersOptions): PlayerVideoPanelHandlers {
   const attemptedHlsRestartRef = useRef(false);
-  const spuriousEndRecoveryRef = useRef({ attempts: 0, lastPositionSeconds: -1 });
+  const spuriousEndRecoveryRef = useRef({
+    attempts: 0,
+    lastPositionSeconds: -1,
+  });
 
   useEffect(() => {
     attemptedHlsRestartRef.current = false;
@@ -116,7 +120,7 @@ export function usePlayerVideoPanelHandlers({
   );
 
   const handleQualityModeChange = useCallback(
-    (nextQualityMode: 'auto' | number) => {
+    (nextQualityMode: "auto" | number) => {
       setQualityMode(nextQualityMode);
       revealControls();
     },
@@ -158,7 +162,7 @@ export function usePlayerVideoPanelHandlers({
     // manifest is built from and does not shrink, so it stays a valid reference.
     const authoritativeDurationSeconds = Math.max(
       totalDuration,
-      Number.isFinite(video?.duration) ? video?.duration ?? 0 : 0,
+      Number.isFinite(video?.duration) ? (video?.duration ?? 0) : 0,
     );
 
     if (video && authoritativeDurationSeconds > 0) {
@@ -199,11 +203,17 @@ export function usePlayerVideoPanelHandlers({
     setIsControlsVisible(true);
     void syncProgress(true);
     return true;
-  }, [setIsControlsVisible, setIsPlaying, syncProgress, totalDuration, videoRef]);
+  }, [
+    setIsControlsVisible,
+    setIsPlaying,
+    syncProgress,
+    totalDuration,
+    videoRef,
+  ]);
 
   const handleVideoWaiting = useCallback(() => {
-    setIsBuffering(true);
-  }, [setIsBuffering]);
+    setIsBuffering(shouldShowBufferingForVideoState(videoRef.current));
+  }, [setIsBuffering, videoRef]);
 
   const handleVideoReady = useCallback(() => {
     setIsBuffering(false);
@@ -217,15 +227,17 @@ export function usePlayerVideoPanelHandlers({
     if (switchingToHls) {
       setPlayerError(
         source?.hls
-          ? 'Transcoded playback failed. Restarting stream session...'
-          : 'Direct play failed. Starting transcoded stream...',
+          ? "Transcoded playback failed. Restarting stream session..."
+          : "Direct play failed. Starting transcoded stream...",
       );
       return;
     }
 
     if (source && !source.hls && !attemptedHlsFallbackRef.current) {
       attemptedHlsFallbackRef.current = true;
-      setPlayerError(`Direct play failed (${mediaErrorText}). Switching to transcoded stream...`);
+      setPlayerError(
+        `Direct play failed (${mediaErrorText}). Switching to transcoded stream...`,
+      );
 
       void switchToHls().then((switched) => {
         if (!switched) {
@@ -243,13 +255,15 @@ export function usePlayerVideoPanelHandlers({
         `Transcoded playback failed (${mediaErrorText}). Restarting stream session...`,
       );
 
-      void switchToHls({ forceFresh: true }).then((switched) => {
-        if (!switched) {
-          setPlayerError(
-            `Transcoded playback failed (${mediaErrorText}) and session restart could not start.`,
-          );
-        }
-      });
+      void switchToHls({ forceFresh: true, recoveryAttempt: true }).then(
+        (switched) => {
+          if (!switched) {
+            setPlayerError(
+              `Transcoded playback failed (${mediaErrorText}) and session restart could not start.`,
+            );
+          }
+        },
+      );
       return;
     }
 

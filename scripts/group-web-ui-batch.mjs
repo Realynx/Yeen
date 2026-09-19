@@ -73,10 +73,6 @@ async function resolveImportTarget(importerFile, specifier) {
   return null;
 }
 
-function rewriteByPattern(text, pattern, replacer) {
-  return text.replace(pattern, (...args) => replacer(...args));
-}
-
 async function rewriteRelativeImports(content, importerFile, destinationFile, moveLookup) {
   let changed = false;
 

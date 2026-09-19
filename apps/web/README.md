@@ -1,75 +1,47 @@
-# React + TypeScript + Vite
+# Yeen web client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The React client is an installable Progressive Web App on supported mobile and
+desktop browsers. Its generated manifest and service worker are built by
+`vite-plugin-pwa` and verified at the end of every production build.
 
-Currently, two official plugins are available:
+## Install it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Serve Yeen over HTTPS (or `localhost` while developing), sign in, then use the
+browser's install action:
 
-## React Compiler
+- Chrome and Edge on desktop: select **Install Yeen** in the address bar or
+  browser menu.
+- Android browsers: select **Install app** or **Add to Home screen**.
+- Safari on iPhone or iPad: open the Share menu, select **Add to Home Screen**,
+  and enable **Open as Web App** when offered.
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+The installed app launches in its own window and keeps the current server URL,
+account, theme, and media-mode preferences stored by the web client.
 
-Note: This will impact Vite dev & build performances.
+## Offline and updates
 
-## Expanding the ESLint configuration
+The service worker caches only the versioned application shell: HTML,
+JavaScript, CSS, fonts, and Yeen-owned icons. API responses, streams, subtitles,
+and personal media are network-only and are never copied into the PWA cache.
+Cached screens can launch without a connection, while playback and library
+updates resume when the server is reachable again.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+An available client update is shown inside Yeen with a deliberate **Reload**
+action so an update cannot silently interrupt playback. Returning to the app or
+regaining connectivity also checks for a new version.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The Capacitor Android application uses the same web build but does not register
+the browser service worker. APK assets remain controlled exclusively by the APK
+version, avoiding stale web assets inside the native WebView.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Development
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm run dev
+npm run build
+npm run pwa:audit
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Service workers are intentionally enabled only in production builds. Use
+`npm run build && npm run preview` to exercise installation and offline startup.

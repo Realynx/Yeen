@@ -1,0 +1,4 @@
+# Install as /etc/sudoers.d/yeen-update with mode 0440 and validate with visudo -cf.
+# The API can only provide an exact UUID-shaped instance. The root helper reads
+# only its requested version, then independently fetches and verifies it.
+www-data ALL=(root) NOPASSWD: /bin/systemctl start --no-block yeen-update@????????-????-????-????-????????????.service

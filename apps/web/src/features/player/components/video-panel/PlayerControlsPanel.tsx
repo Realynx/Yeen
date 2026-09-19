@@ -1,9 +1,10 @@
-import type {
-  ChangeEvent,
-  MouseEvent as ReactMouseEvent,
-  RefObject,
+import {
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
 } from 'react';
-import { useEffect, useRef } from 'react';
 import type {
   MediaItem,
   PlaybackAudioTrack,

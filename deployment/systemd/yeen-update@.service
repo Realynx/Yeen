@@ -1,0 +1,17 @@
+[Unit]
+Description=Independently fetch, verify, and apply Yeen update %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/yeen/current/deployment/updater/yeen-apply-staged-update.sh %i
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=false

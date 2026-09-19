@@ -1,66 +1,70 @@
 import type {
   HlsSessionStats,
   HlsStartResponse,
-  MediaTorrentDownloadProgressEntry,
   PlaybackAudioTrack,
   ProgressEntry,
   SubtitleTrack,
-} from './types';
-import { jsonBody, request } from './api-core';
+} from "./types";
+import { jsonBody, request } from "./api-core";
+import { publishProgressUpdate } from "./progressUpdates";
+
+interface HlsSessionOptions {
+  forceFresh?: boolean;
+  audioStreamIndex?: number | null;
+  maxVideoBitrateKbps?: number | null;
+  audioBitrateKbps?: number | null;
+  maxOutputHeight?: number | null;
+}
+
+function appendPositiveInteger(
+  params: URLSearchParams,
+  key: string,
+  value: number | null | undefined,
+  allowZero = false,
+): void {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return;
+  }
+
+  if (allowZero ? value < 0 : value <= 0) {
+    return;
+  }
+
+  params.set(key, String(value));
+}
+
+function createHlsSessionParams(options?: HlsSessionOptions): URLSearchParams {
+  const params = new URLSearchParams();
+  if (options?.forceFresh) {
+    params.set("force", "1");
+  }
+
+  appendPositiveInteger(
+    params,
+    "audioStreamIndex",
+    options?.audioStreamIndex,
+    true,
+  );
+  appendPositiveInteger(
+    params,
+    "maxVideoBitrateKbps",
+    options?.maxVideoBitrateKbps,
+  );
+  appendPositiveInteger(params, "audioBitrateKbps", options?.audioBitrateKbps);
+  appendPositiveInteger(params, "maxOutputHeight", options?.maxOutputHeight);
+  return params;
+}
 
 export async function startHlsSession(
   token: string,
   mediaId: string,
-  options?: {
-    forceFresh?: boolean;
-    audioStreamIndex?: number | null;
-    maxVideoBitrateKbps?: number | null;
-    audioBitrateKbps?: number | null;
-    maxOutputHeight?: number | null;
-  },
+  options?: HlsSessionOptions,
 ) {
-  const params = new URLSearchParams();
-
-  if (options?.forceFresh) {
-    params.set('force', '1');
-  }
-
-  if (
-    typeof options?.audioStreamIndex === 'number'
-    && Number.isInteger(options.audioStreamIndex)
-    && options.audioStreamIndex >= 0
-  ) {
-    params.set('audioStreamIndex', String(options.audioStreamIndex));
-  }
-
-  if (
-    typeof options?.maxVideoBitrateKbps === 'number'
-    && Number.isInteger(options.maxVideoBitrateKbps)
-    && options.maxVideoBitrateKbps > 0
-  ) {
-    params.set('maxVideoBitrateKbps', String(options.maxVideoBitrateKbps));
-  }
-
-  if (
-    typeof options?.audioBitrateKbps === 'number'
-    && Number.isInteger(options.audioBitrateKbps)
-    && options.audioBitrateKbps > 0
-  ) {
-    params.set('audioBitrateKbps', String(options.audioBitrateKbps));
-  }
-
-  if (
-    typeof options?.maxOutputHeight === 'number'
-    && Number.isInteger(options.maxOutputHeight)
-    && options.maxOutputHeight > 0
-  ) {
-    params.set('maxOutputHeight', String(options.maxOutputHeight));
-  }
-
-  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const params = createHlsSessionParams(options);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
   return request<HlsStartResponse>(
     `/stream/${mediaId}/hls/start${suffix}`,
-    { method: 'POST' },
+    { method: "POST" },
     token,
   );
 }
@@ -77,7 +81,7 @@ export async function listPlaybackAudioTracks(token: string, mediaId: string) {
 export async function getHlsSessionStats(token: string, sessionId: string) {
   return request<HlsSessionStats>(
     `/stream/hls/${encodeURIComponent(sessionId)}/debug/stats`,
-    { method: 'GET' },
+    { method: "GET" },
     token,
   );
 }
@@ -91,11 +95,15 @@ export async function listSubtitleTracks(token: string, mediaId: string) {
   return payload.tracks;
 }
 
-export async function extractSubtitle(token: string, mediaId: string, streamIndex: number) {
+export async function extractSubtitle(
+  token: string,
+  mediaId: string,
+  streamIndex: number,
+) {
   return request<{ mediaId: string; streamIndex: number; url: string }>(
     `/subtitles/${mediaId}/extract`,
     {
-      method: 'POST',
+      method: "POST",
       body: jsonBody({ streamIndex }),
     },
     token,
@@ -103,31 +111,7 @@ export async function extractSubtitle(token: string, mediaId: string, streamInde
 }
 
 export async function listProgress(token: string) {
-  return request<ProgressEntry[]>('/progress', { cache: 'no-store' }, token);
-}
-
-export async function listMediaTorrentDownloadProgress(
-  token: string,
-  mediaIds: string[],
-) {
-  const normalizedMediaIds = [...new Set(
-    mediaIds
-      .map((mediaId) => mediaId.trim())
-      .filter((mediaId) => mediaId.length > 0),
-  )];
-
-  if (normalizedMediaIds.length === 0) {
-    return { items: [] as MediaTorrentDownloadProgressEntry[] };
-  }
-
-  return request<{ items: MediaTorrentDownloadProgressEntry[] }>(
-    '/media/torrent/download-progress',
-    {
-      method: 'POST',
-      body: jsonBody({ mediaIds: normalizedMediaIds }),
-    },
-    token,
-  );
+  return request<ProgressEntry[]>("/progress", { cache: "no-store" }, token);
 }
 
 export async function upsertProgress(
@@ -147,10 +131,16 @@ export async function upsertProgress(
     keepalive?: boolean;
   },
 ) {
-  return request<ProgressEntry>(`/progress/${mediaId}`, {
-    method: 'PUT',
-    body: jsonBody(payload),
-    keepalive: options?.keepalive,
-    cache: 'no-store',
-  }, token);
+  const progress = await request<ProgressEntry>(
+    `/progress/${mediaId}`,
+    {
+      method: "PUT",
+      body: jsonBody(payload),
+      keepalive: options?.keepalive,
+      cache: "no-store",
+    },
+    token,
+  );
+  publishProgressUpdate(progress);
+  return progress;
 }

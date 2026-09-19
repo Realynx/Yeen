@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -25,6 +26,10 @@ import {
 } from '../../types/media-fs-commit.types';
 import { MediaStore } from '../../../infrastructure/stores/media.store';
 import { MediaFsRollbackService } from './media-fs-rollback.service';
+import {
+  METADATA_COMMIT_PARTICIPANTS,
+  MetadataCommitParticipantRegistry,
+} from '../../../../core/application/extensions/metadata-commit-participant';
 
 export type {
   CommitPlan,
@@ -45,6 +50,8 @@ export class MediaFsCommitService {
     private readonly fileOps: MediaFsFileOpsService,
     private readonly nfoService: MediaFsNfoService,
     private readonly rollbackService: MediaFsRollbackService,
+    @Inject(METADATA_COMMIT_PARTICIPANTS)
+    private readonly commitParticipants: MetadataCommitParticipantRegistry,
   ) {}
 
   async planAll(): Promise<CommitPlan> {
@@ -77,6 +84,28 @@ export class MediaFsCommitService {
         ? await this.planByIds(input.mediaIds)
         : await this.planAll();
 
+    const preparedParticipants = await this.commitParticipants.prepare(plan);
+    let result: CommitResult;
+    try {
+      result = await this.executeCommitPlan(plan, writeNfo);
+    } catch (error) {
+      await this.commitParticipants.abort(preparedParticipants, error);
+      throw error;
+    }
+
+    const integrationWarnings = await this.commitParticipants.complete(
+      preparedParticipants,
+      result,
+    );
+    return integrationWarnings.length > 0
+      ? { ...result, integrationWarnings }
+      : result;
+  }
+
+  private async executeCommitPlan(
+    plan: CommitPlan,
+    writeNfo: boolean,
+  ): Promise<CommitResult> {
     const commitId = randomUUID();
     const operations: CommitOperation[] = [];
     const summary: CommitSummary = {

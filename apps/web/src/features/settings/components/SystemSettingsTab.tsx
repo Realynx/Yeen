@@ -1,18 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import type { MediaLocationsState } from '../services/useMediaLocations';
 import type { SystemSettingsState } from '../services/useSystemSettings';
 import { MediaLocationsCategory } from './system-settings-categories/MediaLocationsCategory';
 import { RuntimeCategory } from './system-settings-categories/RuntimeCategory';
 import { SystemSettingsCategoriesForm } from './system-settings-categories/SystemSettingsCategoriesForm';
-import { SystemSettingsQuickJumpNav } from './SystemSettingsQuickJumpNav';
+import {
+  SystemSettingsQuickJumpNav,
+  type SystemSettingsNavItem,
+} from './SystemSettingsQuickJumpNav';
 import {
   SYSTEM_SETTINGS_SECTION_IDS,
   createCollapsedSectionsState,
   createSystemSettingsNavEntries,
-  type SystemSettingsNavEntry,
-  type SystemSettingsSectionId,
 } from './systemSettingsNavItems';
+import { AddonSettingsSurfaces } from '../../addons/runtime/AddonHostSlots';
+import { useAddonHost } from '../../addons/runtime/AddonHostContext';
+import { canAccessAddonContribution } from '../../addons/runtime/addonRuntimeAccess';
 
 interface SystemSettingsTabProps {
   token: string;
@@ -30,6 +40,7 @@ export function SystemSettingsTab({
   const { locations, addLocation, scanConfiguredLocations } = mediaLocationsState;
   const { systemMessage, systemError, saveSystemSettings, clearMetadataIndex } =
     systemSettingsState;
+  const { settingsSurfaces, user } = useAddonHost();
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,9 +72,21 @@ export function SystemSettingsTab({
   const configuredLabel =
     locations.length === 1 ? '1 location' : `${locations.length} locations`;
 
-  const sectionNavItems = useMemo<SystemSettingsNavEntry[]>(
-    () => createSystemSettingsNavEntries(configuredLabel),
-    [configuredLabel],
+  const sectionNavItems = useMemo<SystemSettingsNavItem[]>(
+    () => [
+      ...createSystemSettingsNavEntries(configuredLabel),
+      ...settingsSurfaces
+        .filter((surface) => surface.placement === 'system'
+          && canAccessAddonContribution(user.role, surface))
+        .map((surface) => ({
+          id: surface.sectionId ?? `addon-${surface.addon.id}-${surface.id}`,
+          label: surface.title,
+          shortLabel: surface.shortTitle ?? surface.title,
+          icon: 'addon' as const,
+          note: surface.note ?? surface.addon.name,
+        })),
+    ],
+    [configuredLabel, settingsSurfaces, user.role],
   );
 
   const floatingQuickJumpListRef = useRef<HTMLUListElement | null>(null);
@@ -78,12 +101,12 @@ export function SystemSettingsTab({
 
     const hashSectionId = window.location.hash.replace('#', '');
     return sectionNavItems.some((item) => item.id === hashSectionId)
-      ? (hashSectionId as SystemSettingsSectionId)
+      ? hashSectionId
       : defaultSectionId;
   });
 
   const [expandedSections, setExpandedSections] = useState<
-    Record<SystemSettingsSectionId, boolean>
+    Record<string, boolean>
   >(() => {
     if (typeof window === 'undefined') {
       return createCollapsedSectionsState();
@@ -94,10 +117,13 @@ export function SystemSettingsTab({
       (item) => item.id === hashSectionId,
     )?.id;
 
-    return createCollapsedSectionsState(defaultOpenSectionId);
+    return {
+      ...createCollapsedSectionsState(),
+      ...(defaultOpenSectionId ? { [defaultOpenSectionId]: true } : {}),
+    };
   });
 
-  const toggleSection = useCallback((sectionId: SystemSettingsSectionId) => {
+  const toggleSection = useCallback((sectionId: string) => {
     setExpandedSections((current) => ({
       ...current,
       [sectionId]: !current[sectionId],
@@ -105,7 +131,7 @@ export function SystemSettingsTab({
     setActiveSectionId(sectionId);
   }, []);
 
-  const expandSection = useCallback((sectionId: SystemSettingsSectionId) => {
+  const expandSection = useCallback((sectionId: string) => {
     setExpandedSections((current) => {
       if (current[sectionId]) {
         return current;
@@ -134,7 +160,7 @@ export function SystemSettingsTab({
           .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
 
         if (visibleEntry) {
-          setActiveSectionId(visibleEntry.target.id as SystemSettingsSectionId);
+          setActiveSectionId(visibleEntry.target.id);
           return;
         }
 
@@ -146,7 +172,7 @@ export function SystemSettingsTab({
           .sort((left, right) => left.distance - right.distance)[0];
 
         if (closestSection) {
-          setActiveSectionId(closestSection.id as SystemSettingsSectionId);
+          setActiveSectionId(closestSection.id);
         }
       },
       {
@@ -162,7 +188,7 @@ export function SystemSettingsTab({
     };
   }, [sectionNavItems]);
 
-  function scrollToSection(sectionId: SystemSettingsSectionId) {
+  function scrollToSection(sectionId: string) {
     const section = document.getElementById(sectionId);
 
     if (!section) {
@@ -180,7 +206,7 @@ export function SystemSettingsTab({
   }
 
   const scrollFloatingQuickJumpToSection = useCallback((
-    sectionId: SystemSettingsSectionId,
+    sectionId: string,
     options: {
       behavior: ScrollBehavior;
       center: boolean;
@@ -254,12 +280,11 @@ export function SystemSettingsTab({
       fromFloating: boolean;
     },
   ) => {
-    const typedSectionId = sectionId as SystemSettingsSectionId;
-    expandSection(typedSectionId);
-    scrollToSection(typedSectionId);
+    expandSection(sectionId);
+    scrollToSection(sectionId);
 
     if (options.fromFloating) {
-      scrollFloatingQuickJumpToSection(typedSectionId, {
+      scrollFloatingQuickJumpToSection(sectionId, {
         behavior: 'smooth',
         center: true,
       });
@@ -342,18 +367,19 @@ export function SystemSettingsTab({
               onToggleMetadataDefaults={() =>
                 toggleSection('system-metadata-defaults')
               }
-              torrentClientIsOpen={expandedSections['system-torrent-client']}
-              onToggleTorrentClient={() => toggleSection('system-torrent-client')}
-              torrentProvidersIsOpen={expandedSections['system-torrent-trackers']}
-              onToggleTorrentProviders={() =>
-                toggleSection('system-torrent-trackers')
-              }
               metadataCommitsIsOpen={expandedSections['system-metadata-commits']}
               onToggleMetadataCommits={() =>
                 toggleSection('system-metadata-commits')
               }
               maintenanceIsOpen={expandedSections['system-maintenance']}
               onToggleMaintenance={() => toggleSection('system-maintenance')}
+            />
+
+            <AddonSettingsSurfaces
+              placement="system"
+              categorized
+              expandedSections={expandedSections}
+              onToggleSection={toggleSection}
             />
 
             {systemMessage ? <p className="scan-success">{systemMessage}</p> : null}

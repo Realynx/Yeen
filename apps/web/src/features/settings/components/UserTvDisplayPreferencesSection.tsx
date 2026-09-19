@@ -28,8 +28,15 @@ const OPTIONS: Array<{
   },
 ];
 
-export function UserTvDisplayPreferencesSection() {
-  const [isOpen, setIsOpen] = useState(false);
+interface UserTvDisplayPreferencesSectionProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function UserTvDisplayPreferencesSection({
+  isOpen,
+  onToggle,
+}: UserTvDisplayPreferencesSectionProps) {
   const [preferences, setPreferences] = useState<TvDisplayPreferences>(() =>
     readTvDisplayPreferences(),
   );
@@ -50,7 +57,7 @@ export function UserTvDisplayPreferencesSection() {
       description="Tune readability, focus contrast, and motion for remote-first viewing."
       badge={enabledCount > 0 ? `${enabledCount} On` : 'Optional'}
       isOpen={isOpen}
-      onToggle={() => setIsOpen((value) => !value)}
+      onToggle={onToggle}
     >
       <div className="tv-display-preference-grid" role="group" aria-label="TV display preferences">
         {OPTIONS.map((option) => {

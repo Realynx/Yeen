@@ -1,6 +1,1 @@
-@media (prefers-reduced-motion: reduce) {
-  .media-torrent-phone-sheet {
-    animation: none;
-  }
-}
-
+/* Add-on motion rules are delivered by each installed add-on. */

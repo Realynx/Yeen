@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { isAssDrawingPayload } from './subtitle-drawing-payload';
 
 const ASS_OVERRIDE_BLOCK_PATTERN = /\{[^{}]*\\[^{}]*\}/g;
 const BRACE_BLOCK_PATTERN = /\{[^{}]*\}/g;
@@ -37,7 +38,7 @@ function isCueTextLine(line: string): boolean {
 }
 
 function sanitizeCueLine(line: string): string {
-  return line
+  const sanitized = line
     .replace(ASS_NEWLINE_PATTERN, ' ')
     .replace(ASS_HARD_SPACE_PATTERN, ' ')
     .replace(ASS_OVERRIDE_BLOCK_PATTERN, '')
@@ -46,6 +47,7 @@ function sanitizeCueLine(line: string): string {
     .replace(INVISIBLE_CUE_CHARS_PATTERN, '')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
+  return isAssDrawingPayload(sanitized) ? '' : sanitized;
 }
 
 export function sanitizeVttContent(content: string): string {
@@ -65,9 +67,16 @@ export function sanitizeVttContent(content: string): string {
   return sanitizedLines.join('\n');
 }
 
+function assertWebVttHeader(content: string): void {
+  if (!/^\uFEFF?WEBVTT(?:[ \t].*)?(?:\n|$)/.test(content)) {
+    throw new Error('Subtitle cache is missing a valid WebVTT header.');
+  }
+}
+
 export async function sanitizeVttFile(filePath: string): Promise<boolean> {
   const raw = await readFile(filePath, 'utf8');
   const sanitized = sanitizeVttContent(raw);
+  assertWebVttHeader(sanitized);
 
   if (sanitized === raw) {
     return false;

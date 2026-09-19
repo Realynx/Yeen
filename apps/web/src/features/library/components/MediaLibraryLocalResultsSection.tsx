@@ -16,7 +16,6 @@ interface MediaLibraryLocalResultsSectionProps {
   manageMode: boolean;
   selectedIds: Set<string>;
   progressMap: Map<string, ProgressEntry>;
-  downloadProgressMap: Map<string, number>;
   hasSearchOrTagFilter: boolean;
   onOpenDetails: (mediaId: string) => void;
   onToggleSelection: (
@@ -35,7 +34,6 @@ export function MediaLibraryLocalResultsSection({
   manageMode,
   selectedIds,
   progressMap,
-  downloadProgressMap,
   hasSearchOrTagFilter,
   onOpenDetails,
   onToggleSelection,
@@ -47,14 +45,9 @@ export function MediaLibraryLocalResultsSection({
   }
 
   function statusLabelFor(
-    downloadProgressPercent: number | undefined,
     watchedProgressPercent: number | undefined,
     completed: boolean,
   ): string | null {
-    if (downloadProgressPercent !== undefined) {
-      return `Downloading ${Math.round(downloadProgressPercent)}%`;
-    }
-
     if (completed) {
       return 'Watched';
     }
@@ -80,11 +73,9 @@ export function MediaLibraryLocalResultsSection({
           data-tv-focus-lane-id="library-results-grid"
         >
           {filteredItems.map((item) => {
-            const downloadProgressPercent = downloadProgressMap.get(item.id);
             const itemProgress = progressMap.get(item.id);
             const watchedProgressPercent = toProgressPercent(itemProgress);
             const topRightLabel = statusLabelFor(
-              downloadProgressPercent,
               watchedProgressPercent,
               Boolean(itemProgress?.completed),
             );
@@ -94,8 +85,8 @@ export function MediaLibraryLocalResultsSection({
                 key={item.id}
                 media={item}
                 imageUrl={artworkUrlForMedia(item)}
-                progressPercent={downloadProgressPercent ?? watchedProgressPercent}
-                progressKind={downloadProgressPercent !== undefined ? 'download' : 'watch'}
+                progressPercent={watchedProgressPercent}
+                progressKind="watch"
                 topRightLabel={topRightLabel}
                 layout="library"
                 onOpen={onOpenDetails}

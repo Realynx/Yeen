@@ -4,6 +4,7 @@ import { extname } from 'node:path';
 import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
 import type {
   MediaItem,
+  MusicMetadata,
   SeriesAssignmentRules,
 } from '../../../domain/entities/media-item.entity';
 import { MediaEpisodeCatalogService } from '../episode-catalog/media-episode-catalog.service';
@@ -57,9 +58,7 @@ export class MediaMetadataImportNormalizerService {
       relativePath,
       pathContext,
     );
-    const id =
-      this.mediaMetadataIoService.readOptionalString(value, 'id') ??
-      randomUUID();
+    const id = this.importedId(value);
     const type = this.mediaMetadataIoService.normalizeImportedType(
       this.mediaMetadataIoService.readOptionalString(value, 'type'),
     );
@@ -99,10 +98,7 @@ export class MediaMetadataImportNormalizerService {
       episodeTitle = null;
     }
 
-    const extension =
-      this.mediaMetadataIoService.readOptionalString(value, 'extension') ||
-      extname(filePath) ||
-      '.bin';
+    const extension = this.importedExtension(value, filePath);
     const metadataRefreshedAt =
       this.mediaMetadataIoService.normalizeImportedTimestamp(
         this.mediaMetadataIoService.readOptionalString(
@@ -134,6 +130,18 @@ export class MediaMetadataImportNormalizerService {
         value,
         'episodeCatalogSourceId',
       );
+    const digitalMediaType =
+      this.mediaMetadataIoService.normalizeDigitalMediaType(
+        this.mediaMetadataIoService.readOptionalString(
+          value,
+          'digitalMediaType',
+        ),
+      );
+    const libraryType =
+      this.mediaMetadataIoService.readOptionalString(value, 'libraryType') ===
+        'music' || digitalMediaType === 'audio'
+        ? 'music'
+        : 'video';
 
     const item: MediaItem = {
       id,
@@ -157,12 +165,12 @@ export class MediaMetadataImportNormalizerService {
         'container',
       ),
       type,
-      digitalMediaType: this.mediaMetadataIoService.normalizeDigitalMediaType(
-        this.mediaMetadataIoService.readOptionalString(
-          value,
-          'digitalMediaType',
-        ),
-      ),
+      digitalMediaType,
+      libraryType,
+      musicMetadata:
+        libraryType === 'music'
+          ? this.normalizeImportedMusicMetadata(value['musicMetadata'])
+          : null,
       sizeBytes: this.mediaMetadataIoService.toNonNegativeInteger(
         this.mediaMetadataIoService.readOptionalNumber(value, 'sizeBytes'),
       ),
@@ -249,5 +257,52 @@ export class MediaMetadataImportNormalizerService {
       this.mediaMetadataPatchApplicationService.buildDedupeKey(item);
 
     return item;
+  }
+
+  private importedId(value: Record<string, unknown>): string {
+    return (
+      this.mediaMetadataIoService.readOptionalString(value, 'id') ??
+      randomUUID()
+    );
+  }
+
+  private importedExtension(
+    value: Record<string, unknown>,
+    filePath: string,
+  ): string {
+    return (
+      this.mediaMetadataIoService.readOptionalString(value, 'extension') ||
+      extname(filePath) ||
+      '.bin'
+    );
+  }
+
+  private normalizeImportedMusicMetadata(value: unknown): MusicMetadata {
+    const record = this.mediaMetadataIoService.isObjectRecord(value)
+      ? value
+      : {};
+    const readString = (key: string): string | null =>
+      this.mediaMetadataIoService.readOptionalString(record, key);
+    const readOrdinal = (key: string): number | null => {
+      const raw = this.mediaMetadataIoService.readOptionalNumber(record, key);
+      if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+        return null;
+      }
+      return Math.round(raw);
+    };
+    const rawArtworkKind = readString('artworkKind');
+
+    return {
+      artist: readString('artist'),
+      album: readString('album'),
+      albumArtist: readString('albumArtist'),
+      trackNumber: readOrdinal('trackNumber'),
+      discNumber: readOrdinal('discNumber'),
+      genre: readString('genre'),
+      artworkKind:
+        rawArtworkKind === 'embedded' || rawArtworkKind === 'sidecar'
+          ? rawArtworkKind
+          : 'none',
+    };
   }
 }

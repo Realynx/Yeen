@@ -6,31 +6,31 @@ import { MediaPathResolverService } from './media-path-resolver.service';
 describe('MediaPathResolverService', () => {
   const resolver = new MediaPathResolverService();
 
-  describe('buildTorrentAbsoluteFileCandidates', () => {
+  describe('buildExternalAbsoluteFileCandidates', () => {
     it('builds de-duplicated candidate paths from save and content roots', () => {
       const savePath = resolve('downloads');
       const contentPath = resolve('downloads', 'Example Pack');
-      const torrentRelativePath = 'Example Pack/Video File.mkv';
+      const sourceRelativePath = 'Example Pack/Video File.mkv';
 
-      const candidates = resolver.buildTorrentAbsoluteFileCandidates({
+      const candidates = resolver.buildExternalAbsoluteFileCandidates({
         savePath,
         contentPath,
-        torrentRelativePath,
+        sourceRelativePath,
       });
 
       const lowerKeys = new Set(
         candidates.map((candidate) => candidate.toLowerCase()),
       );
       expect(lowerKeys.size).toBe(candidates.length);
-      expect(candidates).toContain(resolve(savePath, torrentRelativePath));
+      expect(candidates).toContain(resolve(savePath, sourceRelativePath));
       expect(candidates).toContain(resolve(savePath, 'Video File.mkv'));
-      expect(candidates).toContain(resolve(contentPath, torrentRelativePath));
+      expect(candidates).toContain(resolve(contentPath, sourceRelativePath));
       expect(candidates).toContain(resolve(contentPath, 'Video File.mkv'));
     });
   });
 
   describe('buildMediaFilePathCandidates', () => {
-    it('includes root-relative, label-stripped, and .!qB variants', () => {
+    it('includes root-relative, label-stripped, and legacy partial variants', () => {
       const root = resolve('Media');
       const candidates = resolver.buildMediaFilePathCandidates(
         'Movies/Inception.mkv',

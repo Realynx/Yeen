@@ -7,6 +7,7 @@ import {
 } from '../metadata-io/media-metadata-io.service';
 import { MediaPathResolverService } from './media-path-resolver.service';
 import { MediaLibraryLocationsService } from '../media-library-locations.service';
+import type { MediaLibraryLocation } from '@yeen/shared-contracts';
 
 @Injectable()
 export class MediaFileResolutionService {
@@ -23,6 +24,18 @@ export class MediaFileResolutionService {
     return this.mediaLibraryLocationsService.resolveScanLocations(
       libraryPath,
       libraryPaths,
+    );
+  }
+
+  async resolveScanLibraryLocations(
+    libraryPath?: string,
+    libraryPaths?: string[],
+    libraryLocations?: MediaLibraryLocation[],
+  ): Promise<MediaLibraryLocation[]> {
+    return this.mediaLibraryLocationsService.resolveScanLibraryLocations(
+      libraryPath,
+      libraryPaths,
+      libraryLocations,
     );
   }
 

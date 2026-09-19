@@ -8,9 +8,12 @@ import {
   Put,
   Req,
   Res,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import type { Readable } from 'node:stream';
+import type { BroadcastViewerClientType } from '@yeen/shared-contracts';
 import { CurrentUser } from '../../../auth/presentation/decorators/current-user.decorator';
 import type { AuthUser } from '../../../auth/domain/entities/auth-user.entity';
 import { JwtAuthGuard } from '../../../auth/presentation/guards/jwt-auth.guard';
@@ -23,7 +26,9 @@ import { UpdateBroadcastPlaybackDto } from '../../application/dto/update-broadca
 import { UpdateBroadcastSourceDto } from '../../application/dto/update-broadcast-source.dto';
 import { UpdatePublicViewerHeartbeatDto } from '../../application/dto/update-public-viewer-heartbeat.dto';
 import {
-  buildPublicDirectMasterManifest,
+  buildPublicDirectRootManifest,
+  buildPublicDirectLiveManifest,
+  buildPublicDirectLiveSubtitleManifest,
   buildPublicDirectSubtitleManifest,
   parseSourceEpoch,
   redirectToDirectMaster,
@@ -36,6 +41,7 @@ import {
   BroadcastService,
   BroadcastSourceEpochMismatchError,
 } from '../../application/services/broadcast.service';
+import { BroadcastDirectStreamTimeline } from '../../application/services/broadcast-direct-stream-timeline.service';
 
 @Controller('broadcast')
 export class BroadcastController {
@@ -44,6 +50,7 @@ export class BroadcastController {
     private readonly streamService: StreamService,
     private readonly subtitleListingService: SubtitleListingService,
     private readonly subtitleFileStreamService: SubtitleFileStreamService,
+    private readonly directStreamTimeline: BroadcastDirectStreamTimeline,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -92,19 +99,30 @@ export class BroadcastController {
   ) {
     const status = await this.broadcastService.getPublicStatus(shareToken);
     const subtitleUrl = await this.resolveDirectSubtitleUrl(status);
-    if (!(status.enabled && status.isLive && status.manifestUrl)) {
+    if (!(status.enabled && status.mediaId)) {
       sendServiceUnavailable(response, 'Broadcast stream is not active.');
       return;
     }
 
-    response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    response.setHeader('Cache-Control', 'no-store');
-    response.send(
-      buildPublicDirectMasterManifest(
-        status,
-        resolveRequestBaseUrl(request),
-        subtitleUrl,
-      ),
+    const sessionId =
+      await this.broadcastService.resolvePublicDirectHlsSessionId(
+        shareToken,
+        String(status.sourceEpoch),
+      );
+    this.trackViewerRequest(shareToken, 'vlc', request, response);
+    const requestBaseUrl = resolveRequestBaseUrl(request);
+    return this.streamService.streamHlsFile(
+      sessionId,
+      'master.m3u8',
+      response,
+      undefined,
+      (manifest) =>
+        buildPublicDirectRootManifest(
+          manifest,
+          status,
+          requestBaseUrl,
+          subtitleUrl,
+        ),
     );
   }
 
@@ -115,19 +133,27 @@ export class BroadcastController {
     @Req() request: Request,
     @Res() response: Response,
   ) {
+    if (sourceEpoch.trim().toLowerCase() === 'live') {
+      return this.getPublicDirectLiveSubtitleManifest(
+        shareToken,
+        request,
+        response,
+      );
+    }
+
     const status = await this.broadcastService.getPublicStatus(shareToken);
     const subtitleUrl = await this.resolveDirectSubtitleUrl(status);
     const requestedSourceEpoch = parseSourceEpoch(sourceEpoch);
 
     if (
-      !(status.enabled && status.isLive && subtitleUrl) ||
+      !(status.enabled && status.mediaId && subtitleUrl) ||
       requestedSourceEpoch === null ||
       requestedSourceEpoch !== status.sourceEpoch
     ) {
       if (
         requestedSourceEpoch !== null &&
         status.enabled &&
-        status.isLive &&
+        status.mediaId &&
         requestedSourceEpoch !== status.sourceEpoch
       ) {
         redirectToDirectMaster(response, shareToken);
@@ -140,7 +166,7 @@ export class BroadcastController {
 
     let sessionId: string;
     try {
-      sessionId = await this.broadcastService.resolvePublicHlsSessionId(
+      sessionId = await this.broadcastService.resolvePublicDirectHlsSessionId(
         shareToken,
         sourceEpoch,
       );
@@ -154,6 +180,7 @@ export class BroadcastController {
     }
 
     const stats = await this.streamService.getHlsSessionStats(sessionId);
+    this.trackViewerRequest(shareToken, 'vlc', request, response);
 
     response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     response.setHeader('Cache-Control', 'no-store');
@@ -171,13 +198,99 @@ export class BroadcastController {
     @Param('shareToken') shareToken: string,
     @Param('sourceEpoch') sourceEpoch: string,
     @Param('fileName') fileName: string,
+    @Req() request: Request,
     @Res() response: Response,
   ) {
     return this.streamPublicDirectHlsFile(
       shareToken,
       sourceEpoch,
       fileName,
+      request,
       response,
+    );
+  }
+
+  @Sse('public/:shareToken/events')
+  observePublicStatus(@Param('shareToken') shareToken: string) {
+    return this.broadcastService.observePublicStatus(shareToken);
+  }
+
+  @Get('public/:shareToken/direct/live/subtitles.m3u8')
+  async getPublicDirectLiveSubtitleManifest(
+    @Param('shareToken') shareToken: string,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    const status = await this.broadcastService.getPublicStatus(shareToken);
+    const subtitleUrl = await this.resolveDirectSubtitleUrl(status);
+    if (!(status.enabled && status.mediaId && subtitleUrl)) {
+      sendServiceUnavailable(response, 'Broadcast subtitles are not active.');
+      return;
+    }
+
+    await this.broadcastService.resolvePublicDirectHlsSessionId(
+      shareToken,
+      String(status.sourceEpoch),
+    );
+    this.trackViewerRequest(shareToken, 'vlc', request, response);
+    response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    response.setHeader('Cache-Control', 'no-store');
+    response.send(
+      buildPublicDirectLiveSubtitleManifest(
+        subtitleUrl,
+        resolveRequestBaseUrl(request),
+        status.sourceEpoch,
+      ),
+    );
+  }
+
+  @Get('public/:shareToken/direct/live/:fileName')
+  async getPublicDirectLiveHlsFile(
+    @Param('shareToken') shareToken: string,
+    @Param('fileName') fileName: string,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    if (fileName.trim().toLowerCase() === 'subtitles.m3u8') {
+      return this.getPublicDirectLiveSubtitleManifest(
+        shareToken,
+        request,
+        response,
+      );
+    }
+
+    const status = await this.broadcastService.getPublicStatus(shareToken);
+    if (!(status.enabled && status.mediaId)) {
+      sendServiceUnavailable(response, 'Broadcast stream is not active.');
+      return;
+    }
+
+    const sessionId =
+      await this.broadcastService.resolvePublicDirectHlsSessionId(
+        shareToken,
+        String(status.sourceEpoch),
+      );
+    const stats = await this.streamService.getHlsSessionStats(sessionId);
+    this.trackViewerRequest(shareToken, 'vlc', request, response, fileName);
+    const window = this.directStreamTimeline.resolveWindow(
+      shareToken,
+      status.sourceEpoch,
+      stats.segmentSeconds,
+      stats.totalSegments,
+      status.playbackPositionSeconds,
+    );
+    return this.streamService.streamHlsFile(
+      sessionId,
+      fileName,
+      response,
+      undefined,
+      (manifest) =>
+        buildPublicDirectLiveManifest(
+          manifest,
+          shareToken,
+          status.sourceEpoch,
+          window,
+        ),
     );
   }
 
@@ -185,10 +298,13 @@ export class BroadcastController {
   updateViewerHeartbeat(
     @Param('shareToken') shareToken: string,
     @Body() dto: UpdatePublicViewerHeartbeatDto,
+    @Req() request: Request,
   ) {
     return this.broadcastService.registerViewerHeartbeat(
       shareToken,
       dto.viewerId,
+      resolveViewerIpAddress(request),
+      request.get('user-agent'),
     );
   }
 
@@ -197,11 +313,13 @@ export class BroadcastController {
     @Param('shareToken') shareToken: string,
     @Param('sourceEpoch') sourceEpoch: string,
     @Param('fileName') fileName: string,
+    @Req() request: Request,
     @Res() response: Response,
   ) {
     return this.streamPublicHlsFile(
       shareToken,
       fileName,
+      request,
       response,
       sourceEpoch,
     );
@@ -211,14 +329,16 @@ export class BroadcastController {
   async getPublicHlsFile(
     @Param('shareToken') shareToken: string,
     @Param('fileName') fileName: string,
+    @Req() request: Request,
     @Res() response: Response,
   ) {
-    return this.streamPublicHlsFile(shareToken, fileName, response);
+    return this.streamPublicHlsFile(shareToken, fileName, request, response);
   }
 
   private async streamPublicHlsFile(
     shareToken: string,
     fileName: string,
+    request: Request,
     response: Response,
     sourceEpoch?: string,
   ) {
@@ -229,7 +349,7 @@ export class BroadcastController {
 
     let sessionId: string;
     try {
-      sessionId = await this.broadcastService.resolvePublicHlsSessionId(
+      sessionId = await this.broadcastService.resolvePublicDirectHlsSessionId(
         shareToken,
         sourceEpoch,
       );
@@ -245,6 +365,14 @@ export class BroadcastController {
       throw error;
     }
 
+    this.trackViewerRequest(
+      shareToken,
+      'web',
+      request,
+      response,
+      normalizedFileName,
+    );
+
     return this.streamService.streamHlsFile(
       sessionId,
       normalizedFileName,
@@ -256,6 +384,7 @@ export class BroadcastController {
     shareToken: string,
     sourceEpoch: string,
     fileName: string,
+    request: Request,
     response: Response,
   ) {
     const normalizedSourceEpoch = parseSourceEpoch(sourceEpoch);
@@ -270,7 +399,7 @@ export class BroadcastController {
 
     let sessionId: string;
     try {
-      sessionId = await this.broadcastService.resolvePublicHlsSessionId(
+      sessionId = await this.broadcastService.resolvePublicDirectHlsSessionId(
         shareToken,
         String(normalizedSourceEpoch),
       );
@@ -283,6 +412,22 @@ export class BroadcastController {
       throw error;
     }
 
+    this.trackViewerRequest(
+      shareToken,
+      'vlc',
+      request,
+      response,
+      normalizedFileName,
+    );
+
+    if (/^segment_\d{5}\.ts$/.test(normalizedFileName)) {
+      return this.streamService.streamHlsCompatibilitySegment(
+        sessionId,
+        normalizedFileName,
+        response,
+      );
+    }
+
     return this.streamService.streamHlsFile(
       sessionId,
       normalizedFileName,
@@ -293,7 +438,7 @@ export class BroadcastController {
   @Get('public/:shareToken/subtitles')
   async listPublicSubtitles(@Param('shareToken') shareToken: string) {
     const mediaId =
-      await this.broadcastService.resolvePublicMediaId(shareToken);
+      await this.broadcastService.resolvePublicDirectMediaId(shareToken);
     const listed = await this.subtitleListingService.list(mediaId, null);
 
     return {
@@ -316,7 +461,7 @@ export class BroadcastController {
     }
 
     const mediaId =
-      await this.broadcastService.resolvePublicMediaId(shareToken);
+      await this.broadcastService.resolvePublicDirectMediaId(shareToken);
     const stream = this.subtitleFileStreamService.getSubtitleFile(
       mediaId,
       normalizedFileName,
@@ -348,4 +493,60 @@ export class BroadcastController {
 
     return null;
   }
+
+  private trackViewerRequest(
+    shareToken: string,
+    clientType: BroadcastViewerClientType,
+    request: Request,
+    response: Response,
+    fileName?: string,
+  ): void {
+    const ipAddress = resolveViewerIpAddress(request);
+    const userAgent = request.get('user-agent');
+    this.broadcastService.registerViewerAccess(
+      shareToken,
+      clientType,
+      ipAddress,
+      userAgent,
+    );
+
+    if (!fileName || fileName.toLowerCase().endsWith('.m3u8')) {
+      return;
+    }
+
+    const startedAt = process.hrtime.bigint();
+    let deliveredBytes = 0;
+    let source: Readable | null = null;
+    const countChunk = (chunk: unknown) => {
+      if (Buffer.isBuffer(chunk)) {
+        deliveredBytes += chunk.length;
+      } else if (typeof chunk === 'string') {
+        deliveredBytes += Buffer.byteLength(chunk);
+      }
+    };
+    response.once('pipe', (pipedSource: Readable) => {
+      source = pipedSource;
+      source.on('data', countChunk);
+    });
+    response.once('finish', () => {
+      source?.off('data', countChunk);
+      const durationMs =
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      this.broadcastService.registerViewerDelivery(
+        shareToken,
+        clientType,
+        ipAddress,
+        userAgent,
+        deliveredBytes,
+        durationMs,
+      );
+    });
+  }
+}
+
+function resolveViewerIpAddress(request: Request): string {
+  const forwardedFor = request.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return (
+    forwardedFor || request.ip || request.socket.remoteAddress || 'Unknown IP'
+  );
 }

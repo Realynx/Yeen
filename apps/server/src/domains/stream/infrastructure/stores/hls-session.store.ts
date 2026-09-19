@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { existsSync } from 'node:fs';
+import type { ProgressivePlaybackSourceRef } from '../../../core/application/extensions/progressive-playback-source';
+import type { VideoEncoder } from '../hls/hls-ffmpeg-args';
 
 export interface HlsSession {
   sessionId: string;
@@ -8,9 +10,10 @@ export interface HlsSession {
   manifestPath: string;
   startedAt: string;
   formatVersion: number;
+  mediaKind: 'video' | 'audio';
   // Inputs needed to transcode any segment on demand.
   sourceFilePath: string;
-  torrentHash: string | null;
+  progressiveSource: ProgressivePlaybackSourceRef | null;
   ffmpegPath: string;
   segmentSeconds: number;
   totalDurationSeconds: number;
@@ -20,8 +23,13 @@ export interface HlsSession {
   audioBitrateKbps: number;
   maxOutputHeight: number;
   audioMapSpecifier: string;
+  videoEncoder: VideoEncoder;
+  inputArgs: string[];
   videoArgs: string[];
+  softwareNvencFallbackVideoArgs?: string[];
+  cpuFallbackVideoArgs?: string[];
   audioArgs: string[];
+  continuousAudio: boolean;
   keyFrameInterval: number;
   // Runtime-only counters for startup-segment self-healing.
   startSegmentRecoverableWindowStartedAtMs?: number;
@@ -73,8 +81,10 @@ export class HlsSessionStore {
     });
   }
 
-  delete(sessionId: string): void {
+  delete(sessionId: string): HlsSession | undefined {
+    const session = this.sessions.get(sessionId);
     this.sessions.delete(sessionId);
+    return session;
   }
 
   all(): HlsSession[] {

@@ -39,7 +39,11 @@ export function UserSettingsCategorySection({
   }
 
   return (
-    <section ref={sectionRef} className={`settings-category${isOpen ? ' is-open' : ''}`}>
+    <section
+      ref={sectionRef}
+      id={id}
+      className={`settings-category${isOpen ? ' is-open' : ''}`}
+    >
       <button
         type="button"
         className="settings-category-toggle"

@@ -25,6 +25,60 @@ function formatTimestamp(value: string): string {
   }
 }
 
+type HistoryItemProps = Pick<MetadataCommitHistorySectionProps,
+  'rollingBackId' | 'rollingBackToId' | 'committing' | 'importing' | 'exporting'
+  | 'onRollback' | 'onRollbackTo'> & { entry: CommitHistoryEntry };
+
+function MetadataCommitHistoryItem({
+  entry,
+  rollingBackId,
+  rollingBackToId,
+  committing,
+  importing,
+  exporting,
+  onRollback,
+  onRollbackTo,
+}: HistoryItemProps) {
+  const operationBusy = committing || importing || exporting;
+  const rollbackDisabled = Boolean(entry.rolledBackAt || rollingBackToId)
+    || rollingBackId === entry.id || operationBusy;
+  const rollbackToDisabled = Boolean(rollingBackToId || rollingBackId) || operationBusy;
+  const rollbackLabel = entry.rolledBackAt
+    ? 'Rolled Back'
+    : rollingBackId === entry.id ? 'Rolling Back...' : 'Rollback';
+
+  return (
+    <li className={entry.rolledBackAt ? 'commit-history-item is-rolled-back' : 'commit-history-item'}>
+      <div className="commit-history-info">
+        <span className="commit-history-title">{formatTimestamp(entry.createdAt)}</span>
+        <span className="commit-history-meta">
+          {entry.summary.filesRenamed} renamed · {entry.summary.sidecarsMoved} sidecars ·{' '}
+          {entry.summary.nfoFilesWritten} NFO · {entry.summary.errors} error
+          {entry.summary.errors === 1 ? '' : 's'}
+        </span>
+        {entry.rolledBackAt ? (
+          <span className="commit-history-rolledback">
+            Rolled back {formatTimestamp(entry.rolledBackAt)}
+          </span>
+        ) : null}
+      </div>
+      <div className="commit-history-actions">
+        <button type="button" className="ghost-button small !rounded-lg !px-3 !py-1.5"
+          onClick={() => void onRollback(entry.id)} disabled={rollbackDisabled}>
+          {rollbackLabel}
+        </button>
+        {entry.rolledBackAt ? null : (
+          <button type="button" className="ghost-button small !rounded-lg !px-3 !py-1.5"
+            title="Roll back this commit and all newer commits in order"
+            onClick={() => void onRollbackTo(entry.id, entry.createdAt)} disabled={rollbackToDisabled}>
+            {rollingBackToId === entry.id ? 'Rolling Back...' : 'Rollback to here'}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function MetadataCommitHistorySection({
   history,
   loadingHistory,
@@ -62,72 +116,10 @@ export function MetadataCommitHistorySection({
       ) : (
         <ul className="commit-history-list">
           {history.map((entry) => (
-            <li
-              key={entry.id}
-              className={
-                entry.rolledBackAt
-                  ? 'commit-history-item is-rolled-back'
-                  : 'commit-history-item'
-              }
-            >
-              <div className="commit-history-info">
-                <span className="commit-history-title">
-                  {formatTimestamp(entry.createdAt)}
-                </span>
-                <span className="commit-history-meta">
-                  {entry.summary.filesRenamed} renamed ·{' '}
-                  {entry.summary.sidecarsMoved} sidecars ·{' '}
-                  {entry.summary.nfoFilesWritten} NFO ·{' '}
-                  {entry.summary.errors} error
-                  {entry.summary.errors === 1 ? '' : 's'}
-                </span>
-                {entry.rolledBackAt ? (
-                  <span className="commit-history-rolledback">
-                    Rolled back {formatTimestamp(entry.rolledBackAt)}
-                  </span>
-                ) : null}
-              </div>
-              <div className="commit-history-actions">
-                <button
-                  type="button"
-                  className="ghost-button small !rounded-lg !px-3 !py-1.5"
-                  onClick={() => void onRollback(entry.id)}
-                  disabled={
-                    !!entry.rolledBackAt
-                    || rollingBackId === entry.id
-                    || !!rollingBackToId
-                    || committing
-                    || importing
-                    || exporting
-                  }
-                >
-                  {entry.rolledBackAt
-                    ? 'Rolled Back'
-                    : rollingBackId === entry.id
-                      ? 'Rolling Back...'
-                      : 'Rollback'}
-                </button>
-                {!entry.rolledBackAt ? (
-                  <button
-                    type="button"
-                    className="ghost-button small !rounded-lg !px-3 !py-1.5"
-                    title="Roll back this commit and all newer commits in order"
-                    onClick={() => void onRollbackTo(entry.id, entry.createdAt)}
-                    disabled={
-                      !!rollingBackToId
-                      || !!rollingBackId
-                      || committing
-                      || importing
-                      || exporting
-                    }
-                  >
-                    {rollingBackToId === entry.id
-                      ? 'Rolling Back...'
-                      : 'Rollback to here'}
-                  </button>
-                ) : null}
-              </div>
-            </li>
+            <MetadataCommitHistoryItem key={entry.id} entry={entry}
+              rollingBackId={rollingBackId} rollingBackToId={rollingBackToId}
+              committing={committing} importing={importing} exporting={exporting}
+              onRollback={onRollback} onRollbackTo={onRollbackTo} />
           ))}
         </ul>
       )}

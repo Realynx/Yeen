@@ -30,6 +30,30 @@ interface UsePublicBroadcastSubtitlesResult {
   handleSubtitleTrackError: () => void;
 }
 
+function resolveSubtitleSelection(
+  primaryUrl: string | null,
+  selectionKey: string,
+  failedKey: string | null,
+  fallback: { key: string; url: string | null },
+): { failed: boolean; fallbackUrl: string | null; activeUrl: string | null } {
+  const failed = Boolean(primaryUrl && failedKey === selectionKey);
+  const fallbackUrl = fallback.key === selectionKey ? fallback.url : null;
+  return { failed, fallbackUrl, activeUrl: !failed && primaryUrl ? primaryUrl : fallbackUrl };
+}
+
+function syncBroadcastTextTracks(video: HTMLVideoElement, shouldShow: boolean): void {
+  let activated = false;
+  Array.from(video.textTracks).forEach((track) => {
+    const subtitle = track.kind === 'subtitles' || track.kind === 'captions';
+    if (shouldShow && subtitle && !activated) {
+      track.mode = 'showing';
+      activated = true;
+    } else {
+      track.mode = 'disabled';
+    }
+  });
+}
+
 export function usePublicBroadcastSubtitles({
   resolvedShareToken,
   status,
@@ -46,17 +70,11 @@ export function usePublicBroadcastSubtitles({
     ? absoluteApiUrl(status.subtitleUrl)
     : null;
   const subtitleSelectionKey = `${status?.sourceEpoch ?? 'none'}|${primarySubtitleUrl ?? 'none'}`;
-  const primarySubtitleLoadFailed = Boolean(
-    primarySubtitleUrl && failedPrimarySubtitleKey === subtitleSelectionKey,
+  const selection = resolveSubtitleSelection(
+    primarySubtitleUrl, subtitleSelectionKey, failedPrimarySubtitleKey, fallbackSubtitleState,
   );
-  const fallbackSubtitleUrl =
-    fallbackSubtitleState.key === subtitleSelectionKey
-      ? fallbackSubtitleState.url
-      : null;
-  const activeSubtitleUrl =
-    !primarySubtitleLoadFailed && primarySubtitleUrl
-      ? primarySubtitleUrl
-      : fallbackSubtitleUrl;
+  const primarySubtitleLoadFailed = selection.failed;
+  const activeSubtitleUrl = selection.activeUrl;
 
   const activeSubtitleFontPreset = normalizeSubtitleFontPreset(
     status?.subtitleFontPreset,
@@ -162,29 +180,7 @@ export function usePublicBroadcastSubtitles({
       && status.subtitleUrl,
     );
 
-    const syncSubtitleTrackModes = () => {
-      const trackList = video.textTracks;
-      let activatedTrack = false;
-
-      for (let i = 0; i < trackList.length; i += 1) {
-        const track = trackList[i];
-        const isSubtitleTrack =
-          track.kind === 'subtitles' || track.kind === 'captions';
-
-        if (!shouldShowSubtitles || !isSubtitleTrack) {
-          track.mode = 'disabled';
-          continue;
-        }
-
-        if (!activatedTrack) {
-          track.mode = 'showing';
-          activatedTrack = true;
-          continue;
-        }
-
-        track.mode = 'disabled';
-      }
-    };
+    const syncSubtitleTrackModes = () => syncBroadcastTextTracks(video, shouldShowSubtitles);
 
     const syncTimerId = window.setTimeout(syncSubtitleTrackModes, 0);
     video.addEventListener('loadedmetadata', syncSubtitleTrackModes);

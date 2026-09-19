@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FocusEvent, FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type FormEvent,
+} from 'react';
 import {
   getConfiguredApiBaseUrl,
   getRuntimeApiBaseUrl,
@@ -21,6 +27,7 @@ import {
   TV_PAIRING_DEVICE_NAME_MAX_LENGTH,
   TV_PAIRING_DEVICE_PLATFORM_MAX_LENGTH,
 } from './tvPairingAuthPanel.helpers';
+import { TvPageShell } from '../../navigation/components/TvPageShell';
 import './TvPairingAuthPanel.css';
 
 interface TvPairingAuthPanelProps {
@@ -67,9 +74,7 @@ export function TvPairingAuthPanel({
 
       setPairing(response);
       setSecondsRemaining(secondsUntil(response.expiresAt));
-      setStatusMessage(
-        'Open Yeen on your phone or computer, then enter this code in Settings -> TV Login.',
-      );
+      setStatusMessage('Waiting for approval from your other device.');
     } catch (requestError) {
       setPairing(null);
       setError(
@@ -247,79 +252,101 @@ export function TvPairingAuthPanel({
   }, [onAuthenticated, pairing]);
 
   return (
-    <main className="auth-page tv-pairing-page">
-      <section className="auth-panel tv-pairing-panel" onFocusCapture={handlePanelFocus}>
-        <p className="eyebrow">Yeen for TV</p>
-        <h1>Sign In with a Code</h1>
-        <p className="subline">
-          Enter this code in your profile settings from another device.
-        </p>
+    <TvPageShell pageKey="tv-login">
+      <main className="auth-page tv-pairing-page">
+        <section className="auth-panel tv-pairing-panel" onFocusCapture={handlePanelFocus}>
+          <header className="tv-pairing-header">
+            <p className="eyebrow">Yeen for TV</p>
+            <h1>Sign In with a Code</h1>
+            <p className="subline">
+              On another device, open Settings → TV Login and enter the code below.
+            </p>
+          </header>
 
-        <form className="auth-form tv-pairing-server-form" onSubmit={handleSaveServer}>
-          <label>
-            Server URL
-            <input
-              type="text"
-              value={apiBaseInput}
-              onChange={(event) => setApiBaseInput(event.target.value)}
-              placeholder="https://yeen.f0x.app/api"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </label>
+          <div className="tv-pairing-layout">
+            <div className="tv-pairing-primary">
+              {pairing ? (
+                <p className="tv-pairing-code" aria-live="polite">{formatCode(pairing.code)}</p>
+              ) : (
+                <p className="tv-pairing-code is-loading">Generating code…</p>
+              )}
 
-          <div className="tv-pairing-server-actions">
-            <button type="submit" disabled={loadingPairing}>
-              Save and Connect
-            </button>
+              <div className="tv-pairing-meta">
+                <p className="tv-pairing-countdown">
+                  Expires in {formatCountdown(displayedSecondsRemaining)}
+                </p>
+                {statusMessage ? <p className="scan-success">{statusMessage}</p> : null}
+                {error ? <p className="error-text">{error}</p> : null}
+              </div>
 
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={handleUseDefaultServer}
-              disabled={loadingPairing}
-            >
-              Use Default Server
-            </button>
+              <div className="tv-pairing-actions" data-tv-focus-lane-id="pairing-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void startPairing();
+                  }}
+                  autoFocus
+                  data-tv-initial-focus
+                  data-tv-focus-key="request-code"
+                  disabled={loadingPairing}
+                >
+                  {loadingPairing ? 'Generating…' : 'New Code'}
+                </button>
+
+                <button
+                  type="button"
+                  className="ghost-button"
+                  data-tv-focus-key="password-login"
+                  onClick={onUsePasswordLogin}
+                >
+                  Password Login
+                </button>
+              </div>
+            </div>
+
+            <aside className="tv-pairing-server-card" aria-label="Server connection">
+              <div>
+                <p className="eyebrow">Server</p>
+                <p className="tv-pairing-server-help">Change this only when connecting to another Yeen server.</p>
+              </div>
+
+              <form className="auth-form tv-pairing-server-form" onSubmit={handleSaveServer}>
+                <label>
+                  Server URL
+                  <input
+                    type="text"
+                    value={apiBaseInput}
+                    onChange={(event) => setApiBaseInput(event.target.value)}
+                    placeholder="https://yeen.f0x.app/api"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-tv-focus-key="server-url"
+                  />
+                </label>
+
+                <div className="tv-pairing-server-actions">
+                  <button type="submit" data-tv-focus-key="connect-server" disabled={loadingPairing}>
+                    Connect
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    data-tv-focus-key="default-server"
+                    onClick={handleUseDefaultServer}
+                    disabled={loadingPairing}
+                  >
+                    Use Default
+                  </button>
+                </div>
+              </form>
+
+              <p className="tv-pairing-active-server">Connected to {activeApiBase}</p>
+            </aside>
           </div>
-        </form>
-
-        <p className="tv-pairing-active-server">Active server: {activeApiBase}</p>
-
-        {pairing ? (
-          <p className="tv-pairing-code" aria-live="polite">{formatCode(pairing.code)}</p>
-        ) : (
-          <p className="subline">Generating pairing code...</p>
-        )}
-
-        <div className="tv-pairing-meta">
-          <p className="tv-pairing-countdown">Code expires in {formatCountdown(displayedSecondsRemaining)}</p>
-          {statusMessage ? <p className="scan-success">{statusMessage}</p> : null}
-          {error ? <p className="error-text">{error}</p> : null}
-        </div>
-
-        <div className="tv-pairing-actions">
-          <button
-            type="button"
-            onClick={() => {
-              void startPairing();
-            }}
-            autoFocus
-            disabled={loadingPairing}
-          >
-            {loadingPairing ? 'Generating...' : 'Request New Code'}
-          </button>
-
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={onUsePasswordLogin}
-          >
-            Use Email and Password
-          </button>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </TvPageShell>
   );
 }

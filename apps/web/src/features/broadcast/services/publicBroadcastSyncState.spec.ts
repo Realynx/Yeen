@@ -68,15 +68,22 @@ describe('publicBroadcastSyncState', () => {
     });
   });
 
-  it('clears tracked sourceEpoch when status is not live', () => {
+  it('invalidates the active manifest immediately when a standby source epoch changes', () => {
     expect(
       resolveSourceEpochTransition(
         7,
-        createStatus({ enabled: true, isLive: false, manifestUrl: null }),
+        createStatus({
+          enabled: true,
+          isLive: false,
+          manifestUrl: null,
+          sourceEpoch: 8,
+          mediaId: null,
+          streamKey: null,
+        }),
       ),
     ).toEqual({
-      nextSourceEpoch: null,
-      shouldResetManifest: false,
+      nextSourceEpoch: 8,
+      shouldResetManifest: true,
     });
   });
 

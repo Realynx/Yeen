@@ -3,6 +3,7 @@ import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge'
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import type { User } from '../../shared/services/types';
+import { MediaHomeButton } from '../../navigation/components/MediaHomeButton';
 
 interface PlayerTopBarProps {
   title: string;
@@ -46,6 +47,7 @@ export function PlayerTopBar({
       </div>
 
       <div className="top-nav-right" data-tv-focus-lane-id="top-nav-actions">
+        <MediaHomeButton />
         <LibrarySearchForm
           query={query}
           onQueryChange={onQueryChange}

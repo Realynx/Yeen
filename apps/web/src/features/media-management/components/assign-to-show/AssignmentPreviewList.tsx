@@ -28,6 +28,24 @@ interface AssignmentPreviewListProps {
   onConfirmDeletePreviewItem: (row: AssignmentRow) => Promise<void>;
 }
 
+function rowIndicatorClass(row: AssignmentRow, overridden: boolean): string {
+  if (overridden) return 'metadata-row-indicator is-edited';
+  const suffixBySource: Partial<Record<AssignmentRow['detectionSource'], string>> = {
+    pattern: 'is-pattern', keyword: 'is-keyword', sample: 'is-sample',
+  };
+  const suffix = suffixBySource[row.detectionSource] ?? (row.detected ? 'is-detected' : '');
+  return `metadata-row-indicator${suffix ? ` ${suffix}` : ''}`;
+}
+
+function previewTagClass(row: AssignmentRow): string {
+  const suffixBySource: Partial<Record<AssignmentRow['detectionSource'], string>> = {
+    pattern: 'is-pattern', keyword: 'is-keyword', sample: 'is-sample',
+    existing: 'is-existing', builtin: 'is-detected',
+  };
+  const suffix = suffixBySource[row.detectionSource];
+  return `metadata-preview-tag${suffix ? ` ${suffix}` : ''}`;
+}
+
 export function AssignmentPreviewList({
   effectiveRows,
   rows,
@@ -74,37 +92,13 @@ export function AssignmentPreviewList({
             return (
               <li key={row.item.id} className="metadata-preview-row">
                 <span
-                  className={
-                    overrides[row.item.id]
-                      ? 'metadata-row-indicator is-edited'
-                      : row.detectionSource === 'pattern'
-                        ? 'metadata-row-indicator is-pattern'
-                        : row.detectionSource === 'keyword'
-                          ? 'metadata-row-indicator is-keyword'
-                          : row.detectionSource === 'sample'
-                            ? 'metadata-row-indicator is-sample'
-                            : row.detected
-                              ? 'metadata-row-indicator is-detected'
-                              : 'metadata-row-indicator'
-                  }
+                  className={rowIndicatorClass(row, Boolean(overrides[row.item.id]))}
                   title={
                     overrides[row.item.id] ? 'Manually edited' : detectionTitle(row)
                   }
                 />
                 <span
-                  className={`metadata-preview-tag${
-                    row.detectionSource === 'pattern'
-                      ? ' is-pattern'
-                      : row.detectionSource === 'keyword'
-                        ? ' is-keyword'
-                        : row.detectionSource === 'sample'
-                          ? ' is-sample'
-                          : row.detectionSource === 'existing'
-                            ? ' is-existing'
-                            : row.detectionSource === 'builtin'
-                              ? ' is-detected'
-                              : ''
-                  }`}
+                  className={previewTagClass(row)}
                   title={detectionTitle(row)}
                 >
                   {detectionBadgeLabel(row)}

@@ -2,6 +2,7 @@ node_modules/
 apps/*/node_modules/
 apps/*/dist/
 apps/server/data/
+/data/
 apps/server/.env
 apps/web/.env
 apps/web/android/.gradle/
@@ -12,5 +13,11 @@ apps/web/android/.idea/
 apps/web/android/capacitor-cordova-android-plugins/
 deploy/
 artifacts/
+.private/
+private/
+.yeen-addons/
+*.private.pem
+*.yeen-addon.zip
 *.log
 /.vs
+.codex-tmp/

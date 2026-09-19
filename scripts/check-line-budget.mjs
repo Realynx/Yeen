@@ -91,6 +91,43 @@ function parseAllowlistDate(value) {
   return parsed;
 }
 
+function normalizeAllowlistEntry(entry, now) {
+  if (!entry || typeof entry !== 'object') {
+    return { kind: 'invalid', value: { reason: 'Entry is not an object.' } };
+  }
+  const scopedPath = typeof entry.path === 'string'
+    ? entry.path.trim().replace(/^\/+/, '')
+    : '';
+  const owner = typeof entry.owner === 'string' ? entry.owner.trim() : '';
+  const expiresOnRaw = typeof entry.expiresOn === 'string' ? entry.expiresOn.trim() : '';
+  if (!scopedPath || !owner || !expiresOnRaw) {
+    return {
+      kind: 'invalid',
+      value: {
+        path: scopedPath || '(missing path)',
+        reason: 'path, owner, and expiresOn are required.',
+      },
+    };
+  }
+  const expiresOn = parseAllowlistDate(expiresOnRaw);
+  if (!expiresOn) {
+    return {
+      kind: 'invalid',
+      value: { path: scopedPath, reason: `Invalid expiresOn value: ${expiresOnRaw}` },
+    };
+  }
+  const pathValue = scopedPath.split('\\').join('/');
+  const value = {
+    path: pathValue,
+    owner,
+    expiresOn: expiresOnRaw,
+    reason: typeof entry.reason === 'string' ? entry.reason : '',
+  };
+  return expiresOn.getTime() < now.getTime()
+    ? { kind: 'expired', value }
+    : { kind: 'active', value };
+}
+
 async function loadAllowlist(repoRoot) {
   const allowlistPath = path.join(repoRoot, allowlistFileName);
 
@@ -108,50 +145,13 @@ async function loadAllowlist(repoRoot) {
     const now = new Date();
 
     for (const entry of parsed) {
-      if (!entry || typeof entry !== 'object') {
-        invalid.push({ reason: 'Entry is not an object.' });
-        continue;
+      const normalized = normalizeAllowlistEntry(entry, now);
+      if (normalized.kind === 'invalid') invalid.push(normalized.value);
+      if (normalized.kind === 'expired') expired.push(normalized.value);
+      if (normalized.kind === 'active') {
+        const { path: normalizedPath, ...allowlistValue } = normalized.value;
+        activeByPath.set(normalizedPath, allowlistValue);
       }
-
-      const scopedPath =
-        typeof entry.path === 'string' ? entry.path.trim().replace(/^\/+/, '') : '';
-      const owner = typeof entry.owner === 'string' ? entry.owner.trim() : '';
-      const expiresOnRaw =
-        typeof entry.expiresOn === 'string' ? entry.expiresOn.trim() : '';
-
-      if (!scopedPath || !owner || !expiresOnRaw) {
-        invalid.push({
-          path: scopedPath || '(missing path)',
-          reason: 'path, owner, and expiresOn are required.',
-        });
-        continue;
-      }
-
-      const expiresOn = parseAllowlistDate(expiresOnRaw);
-      if (!expiresOn) {
-        invalid.push({
-          path: scopedPath,
-          reason: `Invalid expiresOn value: ${expiresOnRaw}`,
-        });
-        continue;
-      }
-
-      const normalizedPath = scopedPath.split('\\').join('/');
-      if (expiresOn.getTime() < now.getTime()) {
-        expired.push({
-          path: normalizedPath,
-          owner,
-          expiresOn: expiresOnRaw,
-          reason: typeof entry.reason === 'string' ? entry.reason : '',
-        });
-        continue;
-      }
-
-      activeByPath.set(normalizedPath, {
-        owner,
-        expiresOn: expiresOnRaw,
-        reason: typeof entry.reason === 'string' ? entry.reason : '',
-      });
     }
 
     return { activeByPath, expired, invalid };
@@ -174,6 +174,52 @@ function printRows(rows) {
       `  ${String(row.lines).padStart(6)}  ${row.path.padEnd(longestPath)}  ${row.allowlist}`,
     );
   }
+}
+
+function printViolationSections(unallowlistedViolations, allowlistedViolations) {
+  if (unallowlistedViolations.length > 0) {
+    console.log('\nOver budget (not allowlisted):');
+    printRows(unallowlistedViolations.map((entry) => ({
+      path: entry.path, lines: entry.lines, allowlist: 'no',
+    })));
+  }
+  if (allowlistedViolations.length > 0) {
+    console.log('\nOver budget (temporary allowlist):');
+    printRows(allowlistedViolations.map((entry) => ({
+      path: entry.path,
+      lines: entry.lines,
+      allowlist: `${entry.allowlistEntry.owner} until ${entry.allowlistEntry.expiresOn}`,
+    })));
+  }
+}
+
+function printAllowlistIssues(allowlist) {
+  if (allowlist.expired.length > 0) {
+    console.log('\nExpired allowlist entries:');
+    for (const entry of allowlist.expired) {
+      console.log(`  - ${entry.path} (owner: ${entry.owner}, expired: ${entry.expiresOn})`);
+    }
+  }
+  if (allowlist.invalid.length > 0) {
+    console.log('\nInvalid allowlist entries:');
+    for (const entry of allowlist.invalid) {
+      console.log(`  - ${entry.path ?? '(unknown)'}: ${entry.reason}`);
+    }
+  }
+}
+
+function applyBudgetOutcome(unallowlistedViolations) {
+  if (unallowlistedViolations.length === 0) return;
+  if (hardMode) {
+    process.exitCode = 1;
+    console.error(
+      `\nLine budget hard-fail: ${unallowlistedViolations.length} file(s) exceed ${MAX_LINES} lines without active allowlist entries.`,
+    );
+    return;
+  }
+  console.warn(
+    `\nLine budget warning: ${unallowlistedViolations.length} file(s) exceed ${MAX_LINES} lines.`,
+  );
 }
 
 async function main() {
@@ -259,28 +305,7 @@ async function main() {
     console.log('  Result: No files over budget.');
   } else {
     console.log(`  Result: ${violations.length} file(s) over budget.`);
-
-    if (unallowlistedViolations.length > 0) {
-      console.log('\nOver budget (not allowlisted):');
-      printRows(
-        unallowlistedViolations.map((entry) => ({
-          path: entry.path,
-          lines: entry.lines,
-          allowlist: 'no',
-        })),
-      );
-    }
-
-    if (allowlistedViolations.length > 0) {
-      console.log('\nOver budget (temporary allowlist):');
-      printRows(
-        allowlistedViolations.map((entry) => ({
-          path: entry.path,
-          lines: entry.lines,
-          allowlist: `${entry.allowlistEntry.owner} until ${entry.allowlistEntry.expiresOn}`,
-        })),
-      );
-    }
+    printViolationSections(unallowlistedViolations, allowlistedViolations);
   }
 
   if (borderline.length > 0) {
@@ -296,35 +321,8 @@ async function main() {
     );
   }
 
-  if (allowlist.expired.length > 0) {
-    console.log('\nExpired allowlist entries:');
-    for (const entry of allowlist.expired) {
-      console.log(
-        `  - ${entry.path} (owner: ${entry.owner}, expired: ${entry.expiresOn})`,
-      );
-    }
-  }
-
-  if (allowlist.invalid.length > 0) {
-    console.log('\nInvalid allowlist entries:');
-    for (const entry of allowlist.invalid) {
-      console.log(`  - ${entry.path ?? '(unknown)'}: ${entry.reason}`);
-    }
-  }
-
-  if (hardMode && unallowlistedViolations.length > 0) {
-    process.exitCode = 1;
-    console.error(
-      `\nLine budget hard-fail: ${unallowlistedViolations.length} file(s) exceed ${MAX_LINES} lines without active allowlist entries.`,
-    );
-    return;
-  }
-
-  if (!hardMode && unallowlistedViolations.length > 0) {
-    console.warn(
-      `\nLine budget warning: ${unallowlistedViolations.length} file(s) exceed ${MAX_LINES} lines.`,
-    );
-  }
+  printAllowlistIssues(allowlist);
+  applyBudgetOutcome(unallowlistedViolations);
 }
 
 await main();

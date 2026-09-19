@@ -1,10 +1,16 @@
-import Hls, { type FragLoadedData } from 'hls.js';
-import { useEffect, useRef, useState } from 'react';
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type { PlaybackSource } from './usePlayerData';
-import { toHlsLevelLabel, type HlsLevelOption } from './playerUtils';
-import { createHlsInstance } from './hls/createHls';
-import { attachHlsErrorRecovery } from './hls/useHlsErrorRecovery';
+import Hls, { type FragLoadedData } from "hls.js";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
+import type { PlaybackSource } from "./usePlayerData";
+import { toHlsLevelLabel, type HlsLevelOption } from "./playerUtils";
+import { createHlsInstance } from "./hls/createHls";
+import { attachHlsErrorRecovery } from "./hls/useHlsErrorRecovery";
 
 const THROUGHPUT_SAMPLE_WINDOW_MS = 16000;
 const THROUGHPUT_SAMPLE_LIMIT = 12;
@@ -24,7 +30,7 @@ function toThroughputSample(data: FragLoadedData): ThroughputSample | null {
       ? stats.total
       : stats.loaded;
   const mediaDurationSeconds =
-    typeof segment.duration === 'number' && Number.isFinite(segment.duration)
+    typeof segment.duration === "number" && Number.isFinite(segment.duration)
       ? segment.duration
       : null;
 
@@ -58,8 +64,8 @@ interface UsePlayerMediaSourceOptions {
 
 interface UsePlayerMediaSourceResult {
   hlsLevels: HlsLevelOption[];
-  qualityMode: 'auto' | number;
-  setQualityMode: Dispatch<SetStateAction<'auto' | number>>;
+  qualityMode: "auto" | number;
+  setQualityMode: Dispatch<SetStateAction<"auto" | number>>;
   currentAutoLevel: number | null;
   estimatedBandwidthBps: number | null;
   attemptedHlsFallbackRef: MutableRefObject<boolean>;
@@ -81,9 +87,11 @@ export function usePlayerMediaSource({
   const attemptedHlsFallbackRef = useRef(false);
 
   const [hlsLevels, setHlsLevels] = useState<HlsLevelOption[]>([]);
-  const [qualityMode, setQualityMode] = useState<'auto' | number>('auto');
+  const [qualityMode, setQualityMode] = useState<"auto" | number>("auto");
   const [currentAutoLevel, setCurrentAutoLevel] = useState<number | null>(null);
-  const [estimatedBandwidthBps, setEstimatedBandwidthBps] = useState<number | null>(null);
+  const [estimatedBandwidthBps, setEstimatedBandwidthBps] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     attemptedHlsFallbackRef.current = Boolean(source?.hls);
@@ -111,12 +119,12 @@ export function usePlayerMediaSource({
 
     function resetPlayerState() {
       setPlayerError(null);
-      setIsBuffering(true);
+      setIsBuffering(false);
       setCurrentTime(0);
       setDuration(0);
       setSeekValue(0);
       setBufferedPercent(0);
-      setQualityMode('auto');
+      setQualityMode("auto");
       setCurrentAutoLevel(null);
       setHlsLevels([]);
       setEstimatedBandwidthBps(null);
@@ -126,7 +134,7 @@ export function usePlayerMediaSource({
     function resetVideoElement(target: HTMLVideoElement) {
       destroyHls();
       target.pause();
-      target.removeAttribute('src');
+      target.removeAttribute("src");
       target.load();
     }
 
@@ -146,7 +154,10 @@ export function usePlayerMediaSource({
         const publishMeasuredThroughput = () => {
           const cutoffMs = Date.now() - THROUGHPUT_SAMPLE_WINDOW_MS;
 
-          while (throughputSamples.length > 0 && throughputSamples[0].completedAtMs < cutoffMs) {
+          while (
+            throughputSamples.length > 0 &&
+            throughputSamples[0].completedAtMs < cutoffMs
+          ) {
             throughputSamples.shift();
           }
 
@@ -163,9 +174,12 @@ export function usePlayerMediaSource({
             return sum + sample.bitsLoaded;
           }, 0);
 
-          const totalMediaDurationSeconds = throughputSamples.reduce((sum, sample) => {
-            return sum + sample.mediaDurationSeconds;
-          }, 0);
+          const totalMediaDurationSeconds = throughputSamples.reduce(
+            (sum, sample) => {
+              return sum + sample.mediaDurationSeconds;
+            },
+            0,
+          );
 
           if (totalBits <= 0 || totalMediaDurationSeconds <= 0) {
             setEstimatedBandwidthBps(null);
@@ -174,7 +188,9 @@ export function usePlayerMediaSource({
 
           // Effective stream throughput is based on media time, not burst download
           // speed, so it aligns with transcoder bitrate caps in Stats for Nerds.
-          setEstimatedBandwidthBps(Math.round(totalBits / totalMediaDurationSeconds));
+          setEstimatedBandwidthBps(
+            Math.round(totalBits / totalMediaDurationSeconds),
+          );
         };
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -214,13 +230,13 @@ export function usePlayerMediaSource({
         return;
       }
 
-      if (target.canPlayType('application/vnd.apple.mpegurl')) {
+      if (target.canPlayType("application/vnd.apple.mpegurl")) {
         target.src = url;
         return;
       }
 
       window.setTimeout(() => {
-        setPlayerError('This browser does not support HLS playback.');
+        setPlayerError("This browser does not support HLS playback.");
       }, 0);
     }
   }, [
@@ -242,7 +258,7 @@ export function usePlayerMediaSource({
       return;
     }
 
-    hls.currentLevel = qualityMode === 'auto' ? -1 : qualityMode;
+    hls.currentLevel = qualityMode === "auto" ? -1 : qualityMode;
   }, [qualityMode]);
 
   return {

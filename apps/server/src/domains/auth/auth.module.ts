@@ -4,7 +4,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { MediaModule } from '../media/media.module';
 import { ProgressModule } from '../progress/progress.module';
-import { TorrentModule } from '../torrent/torrent.module';
 import { AccountsStore } from './infrastructure/stores/accounts.store';
 import { AuthController } from './presentation/controllers/auth.controller';
 import { AuthAvatarService } from './application/services/auth-avatar.service';
@@ -22,7 +21,6 @@ import { JwtStrategy } from './infrastructure/jwt.strategy';
     PassportModule,
     ProgressModule,
     MediaModule,
-    TorrentModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

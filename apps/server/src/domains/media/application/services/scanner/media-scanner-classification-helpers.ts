@@ -1,4 +1,9 @@
 import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
+import type {
+  MediaLibraryType,
+  MusicMetadata,
+} from '../../../domain/entities/media-item.entity';
+import { buildMediaDedupeKey } from '../../../domain/media-dedupe-key';
 
 export function buildDedupeKey(input: {
   mediaType: 'movie' | 'show' | 'other';
@@ -7,21 +12,19 @@ export function buildDedupeKey(input: {
   seasonNumber: number | null;
   episodeNumber: number | null;
   durationSeconds: number;
+  libraryType?: MediaLibraryType;
+  musicMetadata?: MusicMetadata | null;
 }): string {
-  const safeTitle = input.normalizedTitle || 'untitled';
-
-  if (input.mediaType === 'show') {
-    const season = input.seasonNumber ?? 0;
-    const episode = input.episodeNumber ?? 0;
-    return `show:${safeTitle}:s${season}:e${episode}`;
-  }
-
-  if (input.mediaType === 'movie') {
-    return `movie:${safeTitle}:y${input.releaseYear ?? 0}`;
-  }
-
-  const durationBucket = Math.max(0, Math.round(input.durationSeconds / 300));
-  return `other:${safeTitle}:y${input.releaseYear ?? 0}:d${durationBucket}`;
+  return buildMediaDedupeKey({
+    type: input.mediaType,
+    normalizedTitle: input.normalizedTitle,
+    releaseYear: input.releaseYear,
+    seasonNumber: input.seasonNumber,
+    episodeNumber: input.episodeNumber,
+    durationSeconds: input.durationSeconds,
+    libraryType: input.libraryType ?? 'video',
+    musicMetadata: input.musicMetadata ?? null,
+  });
 }
 
 export function extractEpisodeTitleFromTags(

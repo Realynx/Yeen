@@ -1,5 +1,6 @@
 import type {
   ApiCacheClearResult,
+  MediaLibraryLocation,
   MediaItem,
   MediaMetadataClearResult,
   MediaMetadataExportPayload,
@@ -10,6 +11,7 @@ import type {
   PlaybackPlan,
   PurgeRecycleDeletionsResult,
   RecycleDeletionsListResponse,
+  RemoteSeriesEpisodeCatalogResult,
   SeriesEpisodeTrackerResult,
 } from './types';
 import { jsonBody, request } from './api-core';
@@ -101,12 +103,13 @@ export async function scanLibrary(
   token: string,
   libraryPath?: string,
   libraryPaths?: string[],
+  libraryLocations?: MediaLibraryLocation[],
 ) {
   return request<MediaScanProgress>(
     '/media/scan',
     {
       method: 'POST',
-      body: jsonBody({ libraryPath, libraryPaths }),
+      body: jsonBody({ libraryPath, libraryPaths, libraryLocations }),
     },
     token,
   );
@@ -142,6 +145,17 @@ export async function getEpisodeNavigation(token: string, mediaId: string) {
 export async function getRemoteMedia(token: string, remoteId: string) {
   return request<MediaItem>(
     `/media/remote/${encodeURIComponent(remoteId)}`,
+    {},
+    token,
+  );
+}
+
+export async function getRemoteSeriesEpisodeCatalog(
+  token: string,
+  remoteId: string,
+) {
+  return request<RemoteSeriesEpisodeCatalogResult>(
+    `/media/remote/${encodeURIComponent(remoteId)}/series-catalog`,
     {},
     token,
   );

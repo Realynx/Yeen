@@ -100,65 +100,28 @@ export async function searchCandidatesValue(
     page: '1',
   });
 
-  if (input.mediaType === 'movie' && input.releaseYear) {
-    params.set('year', String(input.releaseYear));
-  }
-  if (input.mediaType === 'show' && input.releaseYear) {
-    params.set('first_air_date_year', String(input.releaseYear));
-  }
+  addReleaseYearParameter(params, input.mediaType, input.releaseYear);
 
   const requestKey = `${endpoint}?${params.toString()}`;
 
   try {
-    const cachedPayload =
-      await context.metadataApiCacheStore.get<TmdbSearchResponse>(
-        context.cacheProvider,
-        requestKey,
-      );
-
-    let payload: TmdbSearchResponse;
-    if (cachedPayload !== undefined) {
-      payload = cachedPayload;
-    } else {
-      const requestParams = new URLSearchParams(params);
-      requestParams.set('api_key', apiKey);
-      const url = `https://api.themoviedb.org/3/search/${endpoint}?${requestParams.toString()}`;
-      payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
-      await context.metadataApiCacheStore.set(
-        context.cacheProvider,
-        requestKey,
-        payload,
-      );
-    }
+    const payload = await loadSearchPayload(
+      context,
+      apiKey,
+      endpoint,
+      params,
+      requestKey,
+      true,
+    );
 
     const results = Array.isArray(payload.results) ? payload.results : [];
     const limit = Math.max(1, Math.min(input.limit ?? 8, 20));
     const candidates: TmdbSearchCandidate[] = [];
 
     for (const raw of results) {
-      const candidate = toCandidate(
-        raw,
-        input.mediaType,
-        context.posterImageBaseUrl,
-        context.backdropImageBaseUrl,
-      );
+      const candidate = toSearchCandidate(context, raw, input.mediaType);
       if (!candidate) continue;
-
-      const rawRecord = raw as Record<string, unknown>;
-      const sourceId = resolveTmdbSourceId(rawRecord.id);
-      if (!sourceId) continue;
-
-      candidates.push({
-        title: candidate.title,
-        mediaType: resolveCandidateMediaType(rawRecord, input.mediaType),
-        tags: candidate.tags,
-        overview: candidate.overview,
-        releaseYear: candidate.releaseYear,
-        posterUrl: candidate.posterUrl,
-        backdropUrl: candidate.backdropUrl,
-        remoteSource: 'tmdb',
-        remoteSourceId: sourceId,
-      });
+      candidates.push(candidate);
 
       if (candidates.length >= limit) break;
     }
@@ -190,65 +153,23 @@ export async function searchRemoteCandidatesValue(
   const requestKey = `remote:multi?${params.toString()}`;
 
   try {
-    let payload: TmdbSearchResponse | undefined;
-
-    if (useCache) {
-      payload = await context.metadataApiCacheStore.get<TmdbSearchResponse>(
-        context.cacheProvider,
-        requestKey,
-      );
-    }
-
-    if (payload === undefined) {
-      const requestParams = new URLSearchParams(params);
-      requestParams.set('api_key', apiKey);
-      const url = `https://api.themoviedb.org/3/search/multi?${requestParams.toString()}`;
-      payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
-
-      if (useCache) {
-        await context.metadataApiCacheStore.set(
-          context.cacheProvider,
-          requestKey,
-          payload,
-        );
-      }
-    }
+    const payload = await loadSearchPayload(
+      context,
+      apiKey,
+      'multi',
+      params,
+      requestKey,
+      useCache,
+    );
 
     const results = Array.isArray(payload.results) ? payload.results : [];
     const limit = Math.max(1, Math.min(input.limit ?? 16, 40));
     const candidates: TmdbRemoteCandidate[] = [];
 
     for (const raw of results) {
-      if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
-        continue;
-
-      const value = raw as Record<string, unknown>;
-      const candidateType = resolveCandidateMediaType(value, 'other');
-      if (candidateType !== 'movie' && candidateType !== 'show') continue;
-
-      const providerId = extractNumericId(value.id);
-      if (!providerId) continue;
-
-      const candidate = toCandidate(
-        value,
-        'other',
-        context.posterImageBaseUrl,
-        context.backdropImageBaseUrl,
-      );
+      const candidate = toRemoteSearchCandidate(context, raw);
       if (!candidate) continue;
-
-      candidates.push({
-        provider: 'tmdb',
-        providerId,
-        title: candidate.title,
-        mediaType: candidateType,
-        tags: candidate.tags,
-        overview: candidate.overview,
-        releaseYear: candidate.releaseYear,
-        posterUrl: candidate.posterUrl,
-        backdropUrl: candidate.backdropUrl,
-        runtimeSeconds: null,
-      });
+      candidates.push(candidate);
 
       if (candidates.length >= limit) break;
     }
@@ -261,6 +182,106 @@ export async function searchRemoteCandidatesValue(
     );
     return [];
   }
+}
+
+function addReleaseYearParameter(
+  params: URLSearchParams,
+  mediaType: 'movie' | 'show' | 'other',
+  releaseYear: number | null,
+): void {
+  if (!releaseYear) return;
+  if (mediaType === 'movie') params.set('year', String(releaseYear));
+  if (mediaType === 'show') {
+    params.set('first_air_date_year', String(releaseYear));
+  }
+}
+
+async function loadSearchPayload(
+  context: TmdbSearchContext,
+  apiKey: string,
+  endpoint: string,
+  params: URLSearchParams,
+  requestKey: string,
+  useCache: boolean,
+): Promise<TmdbSearchResponse> {
+  if (useCache) {
+    const cached = await context.metadataApiCacheStore.get<TmdbSearchResponse>(
+      context.cacheProvider,
+      requestKey,
+    );
+    if (cached !== undefined) return cached;
+  }
+  const requestParams = new URLSearchParams(params);
+  requestParams.set('api_key', apiKey);
+  const url = `https://api.themoviedb.org/3/search/${endpoint}?${requestParams.toString()}`;
+  const payload = (await context.fetchJson(url, 15000)) as TmdbSearchResponse;
+  if (useCache) {
+    await context.metadataApiCacheStore.set(
+      context.cacheProvider,
+      requestKey,
+      payload,
+    );
+  }
+  return payload;
+}
+
+function toSearchCandidate(
+  context: TmdbSearchContext,
+  raw: unknown,
+  requestedType: 'movie' | 'show' | 'other',
+): TmdbSearchCandidate | null {
+  const candidate = toCandidate(
+    raw,
+    requestedType,
+    context.posterImageBaseUrl,
+    context.backdropImageBaseUrl,
+  );
+  if (!candidate || typeof raw !== 'object' || raw === null) return null;
+  const rawRecord = raw as Record<string, unknown>;
+  const sourceId = resolveTmdbSourceId(rawRecord.id);
+  if (!sourceId) return null;
+  return {
+    title: candidate.title,
+    mediaType: resolveCandidateMediaType(rawRecord, requestedType),
+    tags: candidate.tags,
+    overview: candidate.overview,
+    releaseYear: candidate.releaseYear,
+    posterUrl: candidate.posterUrl,
+    backdropUrl: candidate.backdropUrl,
+    remoteSource: 'tmdb',
+    remoteSourceId: sourceId,
+  };
+}
+
+function toRemoteSearchCandidate(
+  context: TmdbSearchContext,
+  raw: unknown,
+): TmdbRemoteCandidate | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+    return null;
+  const value = raw as Record<string, unknown>;
+  const mediaType = resolveCandidateMediaType(value, 'other');
+  if (mediaType !== 'movie' && mediaType !== 'show') return null;
+  const providerId = extractNumericId(value.id);
+  const candidate = toCandidate(
+    value,
+    'other',
+    context.posterImageBaseUrl,
+    context.backdropImageBaseUrl,
+  );
+  if (!providerId || !candidate) return null;
+  return {
+    provider: 'tmdb',
+    providerId,
+    title: candidate.title,
+    mediaType,
+    tags: candidate.tags,
+    overview: candidate.overview,
+    releaseYear: candidate.releaseYear,
+    posterUrl: candidate.posterUrl,
+    backdropUrl: candidate.backdropUrl,
+    runtimeSeconds: null,
+  };
 }
 
 export async function searchRemoteCandidatesByTagValue(

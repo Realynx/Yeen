@@ -8,9 +8,9 @@ export interface SystemSettingsNavItem {
     | 'media'
     | 'runtime'
     | 'playback'
-    | 'torrent'
     | 'metadata'
-    | 'maintenance';
+    | 'maintenance'
+    | 'addon';
   note?: string;
 }
 
@@ -44,14 +44,6 @@ function renderSystemSettingsNavIcon(icon: SystemSettingsNavItem['icon']) {
           <path d="M6 5.5v13l11-6.5Z" />
         </svg>
       );
-    case 'torrent':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 4v10" />
-          <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
-          <path d="M5 18.5h14" />
-        </svg>
-      );
     case 'maintenance':
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -64,6 +56,15 @@ function renderSystemSettingsNavIcon(icon: SystemSettingsNavItem['icon']) {
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" />
           <path d="M9 9h6M9 12h6M9 15h4" />
+        </svg>
+      );
+    case 'addon':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4.5" y="4.5" width="6" height="6" rx="1.2" />
+          <rect x="13.5" y="4.5" width="6" height="6" rx="1.2" />
+          <rect x="4.5" y="13.5" width="6" height="6" rx="1.2" />
+          <rect x="13.5" y="13.5" width="6" height="6" rx="1.2" />
         </svg>
       );
     default:

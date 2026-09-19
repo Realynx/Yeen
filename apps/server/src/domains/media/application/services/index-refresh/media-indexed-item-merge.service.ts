@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { normalizeForKey } from '../../../infrastructure/helpers/title-normalizer';
 import { MediaItem } from '../../../domain/entities/media-item.entity';
+import { buildMediaDedupeKey } from '../../../domain/media-dedupe-key';
 import {
   JikanMetadataService,
   type JikanRemoteCandidate,
@@ -29,14 +30,25 @@ export class MediaIndexedItemMergeService {
       ...scanned,
       id: existing.id,
     };
+    this.applyAuthoritativeMetadata(merged, existing, scanned);
+    this.applyTechnicalFallbacks(merged, existing, scanned);
+    this.applyRemoteMetadata(merged, existing);
+    this.finalizeMergedItem(merged, existing, scanned);
+    return merged;
+  }
 
-    // Existing indexed metadata is authoritative. Scanner results should
-    // refresh technical probe fields and fill missing metadata only.
+  private applyAuthoritativeMetadata(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
     merged.title = this.hasNonEmptyString(existing.title)
       ? existing.title
       : scanned.title;
     merged.releaseYear = existing.releaseYear ?? scanned.releaseYear;
     merged.type = existing.type;
+    merged.libraryType = existing.libraryType;
+    merged.musicMetadata = existing.musicMetadata ?? scanned.musicMetadata;
     merged.seasonNumber = existing.seasonNumber ?? scanned.seasonNumber;
     merged.episodeNumber = existing.episodeNumber ?? scanned.episodeNumber;
     merged.episodeTitle = this.hasNonEmptyString(existing.episodeTitle)
@@ -54,7 +66,33 @@ export class MediaIndexedItemMergeService {
     )
       ? existing.backdropImagePath
       : scanned.backdropImagePath;
+  }
 
+  private applyTechnicalFallbacks(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
+    this.applyScalarFallbacks(merged, existing, scanned);
+    this.applyCodecFallbacks(merged, existing, scanned);
+    this.applyCollectionFallbacks(merged, existing, scanned);
+    merged.mediaDetails = {
+      formatName:
+        scanned.mediaDetails?.formatName ?? existing.mediaDetails.formatName,
+      bitRate: scanned.mediaDetails?.bitRate ?? existing.mediaDetails.bitRate,
+      frameRate:
+        scanned.mediaDetails?.frameRate ?? existing.mediaDetails.frameRate,
+      audioChannels:
+        scanned.mediaDetails?.audioChannels ??
+        existing.mediaDetails.audioChannels,
+    };
+  }
+
+  private applyScalarFallbacks(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
     if (
       !this.hasNonEmptyString(scanned.container) &&
       this.hasNonEmptyString(existing.container)
@@ -74,6 +112,16 @@ export class MediaIndexedItemMergeService {
       merged.height = existing.height;
     }
 
+    if (scanned.sizeBytes <= 0 && existing.sizeBytes > 0) {
+      merged.sizeBytes = existing.sizeBytes;
+    }
+  }
+
+  private applyCodecFallbacks(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
     if (
       !this.hasNonEmptyString(scanned.videoCodec) &&
       this.hasNonEmptyString(existing.videoCodec)
@@ -87,7 +135,13 @@ export class MediaIndexedItemMergeService {
     ) {
       merged.audioCodec = existing.audioCodec;
     }
+  }
 
+  private applyCollectionFallbacks(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
     if (
       (!Array.isArray(scanned.subtitleDetails) ||
         scanned.subtitleDetails.length === 0) &&
@@ -106,22 +160,9 @@ export class MediaIndexedItemMergeService {
     ) {
       merged.chapterThumbnails = existing.chapterThumbnails;
     }
+  }
 
-    merged.mediaDetails = {
-      formatName:
-        scanned.mediaDetails?.formatName ?? existing.mediaDetails.formatName,
-      bitRate: scanned.mediaDetails?.bitRate ?? existing.mediaDetails.bitRate,
-      frameRate:
-        scanned.mediaDetails?.frameRate ?? existing.mediaDetails.frameRate,
-      audioChannels:
-        scanned.mediaDetails?.audioChannels ??
-        existing.mediaDetails.audioChannels,
-    };
-
-    if (scanned.sizeBytes <= 0 && existing.sizeBytes > 0) {
-      merged.sizeBytes = existing.sizeBytes;
-    }
-
+  private applyRemoteMetadata(merged: MediaItem, existing: MediaItem): void {
     if (existing.remoteSource && existing.remoteSourceId) {
       merged.remoteSource = existing.remoteSource;
       merged.remoteSourceId = existing.remoteSourceId;
@@ -136,12 +177,14 @@ export class MediaIndexedItemMergeService {
       merged.remoteSourceLabel = null;
     }
 
-    if (existing.seriesAssignmentRules) {
-      merged.seriesAssignmentRules = existing.seriesAssignmentRules;
-    } else {
-      merged.seriesAssignmentRules = null;
-    }
+    merged.seriesAssignmentRules = existing.seriesAssignmentRules ?? null;
+  }
 
+  private finalizeMergedItem(
+    merged: MediaItem,
+    existing: MediaItem,
+    scanned: MediaItem,
+  ): void {
     this.reconcileEpisodeCatalogLink(merged, existing, null, false);
 
     if (merged.type === 'show' && merged.seasonNumber === null) {
@@ -161,23 +204,10 @@ export class MediaIndexedItemMergeService {
     merged.tags = this.normalizeEditableTags(merged.tags);
     merged.normalizedTitle = normalizeForKey(merged.title);
     merged.dedupeKey = this.buildDedupeKey(merged);
-
-    return merged;
   }
 
   private buildDedupeKey(item: MediaItem): string {
-    if (item.type === 'show') {
-      const season = item.seasonNumber ?? 1;
-      const episode = item.episodeNumber ?? 1;
-      return `show:${item.normalizedTitle}:s${season}:e${episode}`;
-    }
-
-    if (item.type === 'movie') {
-      return `movie:${item.normalizedTitle}:y${item.releaseYear ?? 0}`;
-    }
-
-    const durationBucket = Math.max(0, Math.round(item.durationSeconds / 300));
-    return `other:${item.normalizedTitle}:y${item.releaseYear ?? 0}:d${durationBucket}`;
+    return buildMediaDedupeKey(item);
   }
 
   private normalizeEditableTags(tags: readonly string[]): string[] {

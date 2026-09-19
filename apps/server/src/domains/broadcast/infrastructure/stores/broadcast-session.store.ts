@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'node:path';
-import type { BroadcastSubtitleFontPreset } from '../../domain/entities/broadcast-session.entity';
 import { JsonFileStore } from '../../../core/infrastructure/shared/json-file-store';
-import { BroadcastSession } from '../../domain/entities/broadcast-session.entity';
+import {
+  BroadcastSession,
+  type BroadcastSubtitleFontPreset,
+} from '../../domain/entities/broadcast-session.entity';
 
 const BROADCAST_SUBTITLE_FONT_PRESETS = new Set<BroadcastSubtitleFontPreset>([
   'clear',

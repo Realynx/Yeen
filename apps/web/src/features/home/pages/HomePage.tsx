@@ -1,22 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { User } from '../../shared/services/types';
-import { useMediaStorageSummary } from '../../library/services/useMediaStorageSummary';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import type { User } from "../../shared/services/types";
+import { useMediaStorageSummary } from "../../library/services/useMediaStorageSummary";
 import {
   artworkUrlForMedia,
   toProgressPercent,
-} from '../services/homePageUtils';
-import { HomeFeaturedHero } from '../components/HomeFeaturedHero';
-import { HomeContinueWatchingSection } from '../components/HomeContinueWatchingSection';
-import { HomeDiscoverSections } from '../components/HomeDiscoverSections';
-import { HomeFooter } from '../components/HomeFooter';
-import { HomeLoadingSkeleton } from '../components/HomeLoadingSkeleton';
-import { HomeMediaShelfRow } from '../components/HomeMediaShelfRow';
-import { HomeTopNav } from '../components/HomeTopNav';
-import { toLibraryPath, toLibrarySearchPath } from '../../library/services/librarySearchUtils';
-import { useHomeFeed } from '../services/useHomeFeed';
-import { useHomeCuration } from '../services/useHomeCuration';
+} from "../services/homePageUtils";
+import { HomeFeaturedHero } from "../components/HomeFeaturedHero";
+import { HomeContinueWatchingSection } from "../components/HomeContinueWatchingSection";
+import { HomeDiscoverSections } from "../components/HomeDiscoverSections";
+import { HomeFooter } from "../components/HomeFooter";
+import { HomeLoadingSkeleton } from "../components/HomeLoadingSkeleton";
+import { HomeMediaShelfRow } from "../components/HomeMediaShelfRow";
+import { HomeTopNav } from "../components/HomeTopNav";
+import { toLibrarySearchPath } from "../../library/services/librarySearchUtils";
+import { useHomeFeed } from "../services/useHomeFeed";
+import { useHomeCuration } from "../services/useHomeCuration";
 
 interface HomePageProps {
   token: string;
@@ -32,19 +37,28 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
     error: storageSummaryError,
   } = useMediaStorageSummary(token);
 
-  const openDetails = useCallback((mediaId: string) => {
-    navigate(`/details/${mediaId}`);
-  }, [navigate]);
-  const openPlayer = useCallback((mediaId: string) => {
-    navigate(`/player/${mediaId}`);
-  }, [navigate]);
+  const openDetails = useCallback(
+    (mediaId: string) => {
+      navigate(`/details/${mediaId}`);
+    },
+    [navigate],
+  );
+  const openPlayer = useCallback(
+    (mediaId: string) => {
+      navigate(`/player/${mediaId}`);
+    },
+    [navigate],
+  );
 
-  const [query, setQuery] = useState('');
-  const [randomRowSeed] = useState(() => Math.floor(Math.random() * 2_147_483_647));
+  const [query, setQuery] = useState("");
+  const [randomRowSeed] = useState(() =>
+    Math.floor(Math.random() * 2_147_483_647),
+  );
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [pauseFeaturedRotation, setPauseFeaturedRotation] = useState(false);
   const { mediaItems, progressItems, loading, error } = useHomeFeed(token, {
-    initialErrorMessage: 'Failed to load media library.',
+    accountId: user.id,
+    initialErrorMessage: "Failed to load media library.",
     refreshIntervalMs: 5000,
   });
 
@@ -58,7 +72,7 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
     mediaItems,
     progressItems,
     randomSeed: randomRowSeed,
-    experience: 'desktop',
+    experience: "desktop",
   });
   const {
     progressMap,
@@ -72,9 +86,11 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
   } = feed;
   const hasContinueWatching = continueWatching.length > 0;
 
-  const activeFeaturedIndex = featuredItems.length > 0
-    ? ((featuredIndex % featuredItems.length) + featuredItems.length) % featuredItems.length
-    : 0;
+  const activeFeaturedIndex =
+    featuredItems.length > 0
+      ? ((featuredIndex % featuredItems.length) + featuredItems.length) %
+        featuredItems.length
+      : 0;
 
   const featuredItem = featuredItems[activeFeaturedIndex] ?? null;
 
@@ -114,20 +130,21 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
 
   const featuredDescription = useMemo(() => {
     if (!featuredItem) {
-      return 'Open settings and run a media scan to begin building your home shelf.';
+      return "Open settings and run a media scan to begin building your home shelf.";
     }
 
     if (featuredItem.description?.trim()) {
       return featuredItem.description;
     }
 
-    const typeLabel = featuredItem.type === 'movie'
-      ? 'Movie'
-      : featuredItem.type === 'show'
-        ? 'Series'
-        : 'Media';
+    const typeLabel =
+      featuredItem.type === "movie"
+        ? "Movie"
+        : featuredItem.type === "show"
+          ? "Series"
+          : "Media";
 
-    return `${typeLabel} from ${featuredItem.relativePath}`;
+    return `${typeLabel} ready to watch from your library.`;
   }, [featuredItem]);
 
   const heroBackgroundImage = useMemo(() => {
@@ -139,8 +156,8 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
   }, [featuredItem]);
 
   const firstName = useMemo(() => {
-    const name = user.name.trim().split(/\s+/)[0] ?? '';
-    return name || 'you';
+    const name = user.name.trim().split(/\s+/)[0] ?? "";
+    return name || "you";
   }, [user.name]);
 
   const featuredProgress = featuredItem
@@ -157,7 +174,9 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * randomDetailsCandidates.length);
+    const randomIndex = Math.floor(
+      Math.random() * randomDetailsCandidates.length,
+    );
     openDetails(randomDetailsCandidates[randomIndex].id);
   }, [openDetails, randomDetailsCandidates]);
 
@@ -186,16 +205,16 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             featuredDescription={featuredDescription}
             featuredPercent={featuredPercent}
             featuredPlayLabel={
-              typeof featuredPercent === 'number'
+              typeof featuredPercent === "number"
                 ? `Resume ${Math.round(featuredPercent)}%`
-                : 'Play'
+                : "Play"
             }
             onShowPrevious={showPreviousFeatured}
             onShowNext={showNextFeatured}
             onSelectFeatured={setFeaturedIndex}
             onPlay={openPlayer}
             onOpenDetails={openDetails}
-            onManageLibrary={() => navigate('/settings')}
+            onManageLibrary={() => navigate("/settings")}
             onHeroInteractionChange={setPauseFeaturedRotation}
           />
 
@@ -208,17 +227,29 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             />
           ) : null}
 
-          <HomeMediaShelfRow
-            className={hasContinueWatching ? 'browse-section' : 'browse-section is-first-row'}
-            id="row-new"
-            title="New on Yeen"
-            items={recentItems}
-            progressMap={progressMap}
-            onOpen={openDetails}
-            onViewAll={() => navigate(toLibraryPath({ shelf: 'new' }))}
-          />
+          {recentItems.length > 0 ? (
+            <HomeMediaShelfRow
+              className={
+                hasContinueWatching
+                  ? "browse-section"
+                  : "browse-section is-first-row"
+              }
+              id="row-new"
+              title="New on Yeen"
+              items={recentItems}
+              progressMap={progressMap}
+              onOpen={openDetails}
+            />
+          ) : null}
           {becauseYouWatchedItems.length > 0 ? (
-            <HomeMediaShelfRow className="browse-section" id="row-because-you-watched" title="Because You Watched" items={becauseYouWatchedItems} progressMap={progressMap} onOpen={openDetails} onViewAll={() => navigate(toLibraryPath({ shelf: 'because-you-watched', filters: { watchStatusFilter: 'unwatched' } }))} />
+            <HomeMediaShelfRow
+              className="browse-section"
+              id="row-because-you-watched"
+              title="Because You Watched"
+              items={becauseYouWatchedItems}
+              progressMap={progressMap}
+              onOpen={openDetails}
+            />
           ) : null}
 
           <HomeDiscoverSections
@@ -226,8 +257,6 @@ export function HomePage({ token, user, onLogout }: HomePageProps) {
             movieRowsByTag={taggedRows}
             progressMap={progressMap}
             onOpenDetails={openDetails}
-            onViewDiscover={() => navigate(toLibraryPath({ shelf: 'discover', filters: { watchStatusFilter: 'unwatched' } }))}
-            onViewTag={(tag) => navigate(toLibraryPath({ shelf: 'tag', filters: { typeFilter: 'movie', tagFilter: tag, sortOrder: 'title-asc' } }))}
           />
         </>
       )}

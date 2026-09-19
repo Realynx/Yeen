@@ -91,94 +91,6 @@ textarea {
   padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
 }
 
-.prepare-stream-page {
-  min-height: 100vh;
-  padding: 1.1rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
-  animation: rise-in 540ms ease;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.prepare-stream-panel {
-  max-width: 720px;
-  margin: 2rem auto;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 2rem 2.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.prepare-stream-title {
-  margin: 0;
-  font-size: 1.65rem;
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-.prepare-stream-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.prepare-stream-progress-bar {
-  width: 100%;
-  height: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.prepare-stream-progress-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #5e9bff, #8a6bff);
-  transition: width 400ms ease;
-}
-
-.prepare-stream-progress-text {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.95rem;
-}
-
-.prepare-stream-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem 1.5rem;
-  margin: 0;
-}
-
-.prepare-stream-stats > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.prepare-stream-stats dt {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.prepare-stream-stats dd {
-  margin: 0;
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.prepare-stream-status {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
 .auth-page {
   display: grid;
   place-items: center;
@@ -274,6 +186,31 @@ textarea {
 .auth-page .success-text,
 .error-boundary-page .success-text {
   color: #b8f7c5;
+}
+
+.native-server-form {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.native-server-active,
+.auth-server-notice {
+  margin: 0;
+  color: rgba(239, 239, 242, 0.7);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.auth-server-notice {
+  color: #b8f7c5;
+}
+
+.native-server-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
 }
 
 .auth-reset-link {

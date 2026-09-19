@@ -6,8 +6,15 @@ import {
 } from '../../player/services/playbackPreferences';
 import { UserSettingsCategorySection } from './UserSettingsCategorySection';
 
-export function UserPlaybackPreferencesSection() {
-  const [isOpen, setIsOpen] = useState(false);
+interface UserPlaybackPreferencesSectionProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function UserPlaybackPreferencesSection({
+  isOpen,
+  onToggle,
+}: UserPlaybackPreferencesSectionProps) {
   const [preferences, setPreferences] = useState<PlaybackPreferences>(() =>
     readPlaybackPreferences(),
   );
@@ -27,7 +34,7 @@ export function UserPlaybackPreferencesSection() {
       description="Choose whether playback starts with subtitles and which language to prefer."
       badge={preferences.subtitlesEnabled ? 'Auto' : 'Off'}
       isOpen={isOpen}
-      onToggle={() => setIsOpen((value) => !value)}
+      onToggle={onToggle}
     >
       <div className="tv-display-preference-grid" role="group" aria-label="Subtitle defaults">
         <button

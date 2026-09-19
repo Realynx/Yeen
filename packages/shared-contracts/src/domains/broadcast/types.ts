@@ -14,14 +14,33 @@ export interface BroadcastOwnerSessionStatus {
   audioBitrateKbps: number | null;
   maxOutputHeight: number | null;
   viewerCount: number;
+  viewers: BroadcastViewerStatus[];
   updatedAt: string | null;
 }
 
+export type BroadcastViewerClientType = "web" | "vlc";
+
+export interface BroadcastViewerStatus {
+  ipAddress: string;
+  clientType: BroadcastViewerClientType;
+  networkSpeedBytesPerSecond: number | null;
+  ipLocationStatus: "pending" | "resolved" | "private" | "unavailable";
+  ipLocation: BroadcastViewerIpLocation | null;
+  lastSeenAt: string;
+}
+
+export interface BroadcastViewerIpLocation {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  organization: string | null;
+}
+
 export type BroadcastSubtitleFontPreset =
-  | 'clear'
-  | 'rounded'
-  | 'mono'
-  | 'condensed';
+  "clear" | "rounded" | "mono" | "condensed";
 
 export interface BroadcastStreamSegmentTrackingStatus {
   segmentSeconds: number | null;

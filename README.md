@@ -6,6 +6,10 @@ Focused media server baseline built with NestJS + React + TypeScript.
 
 - Accounts: register/login/JWT bearer session
 - Media scan: recursive library scan with FFprobe metadata
+- Music library:
+  - MP3, M4A/AAC, FLAC, OGG/Opus, WAV, and additional archival audio indexing
+  - artist, album, track, genre, duration, and embedded artwork metadata
+  - persisted Video/Music mode with a dedicated music player experience
 - Transcoding: on-demand FFmpeg HLS pipeline
 - Subtitles:
   - embedded stream detection
@@ -17,12 +21,18 @@ Focused media server baseline built with NestJS + React + TypeScript.
   - automatic HLS fallback
   - subtitle track selection
   - watch progress sync
+- Add-on host:
+  - ZIP upload from the administrator portal
+  - signed packages by default, with explicit unsigned-package trust
+  - graceful or instant activation restart
+- Installable Progressive Web App for supported mobile and desktop browsers
 
 ## Project structure
 
 - apps/server: NestJS API
-- apps/web: React app (Netflix-inspired UI)
+- apps/web: React app with video and Spotify-inspired music experiences
 - packages/shared-contracts: shared TypeScript contracts for frontend/backend
+- packages/addon-sdk: stable interfaces for separately maintained Yeen add-ons
 
 ## Prerequisites
 
@@ -72,9 +82,10 @@ npm run dev
 1. Start the server with apps/server/.env configured.
 2. Sign in using the default admin credentials from the env file.
 3. Use Rescan in the web UI and provide your media path (or set MEDIA_LIBRARY_PATH).
-4. Open any title.
-5. If direct play is unsupported, HLS transcoding will auto-start.
-6. Use subtitle panel to extract embedded subtitle streams when needed.
+4. Use the Video/Music selector to switch libraries; the selected mode is remembered per account.
+5. Open any title or track.
+6. If video direct play is unsupported, HLS transcoding will auto-start.
+7. Use subtitle panel to extract embedded subtitle streams when needed.
 
 ## Notes
 
@@ -85,6 +96,38 @@ npm run dev
   - apps/server/data/media-metadata.sqlite
 - HLS and extracted subtitles are written to apps/server/data/
 - OpenSubtitles lookup requires OPENSUBTITLES_API_KEY.
+- Torrent and download tooling is not included in Core Yeen. It is supplied by a separately maintained Downloader Add-on.
+
+## Add-ons
+
+Administrators manage Add-on Packages at `/admin/add-ons`. Upload a ZIP, review its publisher and signature status, enable it, then choose graceful or instant Add-on Activation. Graceful activation waits for active Playback to drain; instant activation restarts immediately.
+
+Signed packages are required by default. Allowing unsigned packages is an explicit administrator trust setting and still requires acknowledging the package warning. Configure trusted Ed25519 publisher keys with `YEEN_ADDON_TRUSTED_KEYS`; see `scripts/addons/README.md` for package and key tooling.
+
+Core Yeen keeps the Downloader Account Role so an installed Downloader Add-on can preserve authorization and user experience. The public UI calls the role **Downloader** (plural **Downloaders**); persisted accounts may retain the legacy `sailer` code for compatibility.
+
+Before publishing Core Yeen, verify that it compiles without any Downloader implementation:
+
+```bash
+npm run verify:core-only
+```
+
+## Code quality
+
+Run the local CodeFactor-equivalent gate before committing:
+
+```bash
+npm run codefactor:check
+```
+
+It enforces zero lint warnings, rejects duplicate imports, and limits cyclomatic
+complexity to 15 across Core, shared packages, deployment tooling, and the private
+Downloader Add-on when that checkout is present. Run the wider test, typecheck, and
+production-build matrix with:
+
+```bash
+npm run quality:check
+```
 
 ## Next upgrades
 
@@ -105,8 +148,10 @@ That means Cloudflared only needs one local origin, for example http://localhost
 ## Build and package for deployment
 
 - npm run build builds server + web.
-- npm run build:deploy creates a slim deploy/ folder for production.
+- npm run build:deploy verifies the Core-only deletion test, then creates a slim deploy/ folder for production.
 - npm run build:zip creates artifacts/yeen-deploy.zip.
+- Version tags publish a checksummed Core deployment through GitHub Actions; see [docs/github-releases.md](docs/github-releases.md).
+- Tagged multi-platform GHCR images and Docker Compose usage are documented in [docs/docker.md](docs/docker.md).
 
 ## Android APK (Capacitor)
 
@@ -122,6 +167,10 @@ npm run android:open
 npm run android:build:debug
 npm run android:build:release
 ```
+
+Run `npm run android:test` and `npm run android:audit` before opening Android
+Studio. The tagged release workflow also runs these checks, Gradle unit tests,
+Android Lint, and a debug APK build.
 
 Google TV emulator workflow (development):
 
@@ -168,14 +217,38 @@ Notes:
 
 - android:configure-sdk auto-detects Android SDK and writes
   apps/web/android/local.properties.
-- android:build:release builds an unsigned release APK by default.
+- android:build:release refuses to build an unsigned APK. Configure the four
+  signing variables below with the same long-lived key for every release.
 - android:build:debug publishes the built APK to artifacts/tv/yeen-tv.apk.
 - android:build:release publishes release APK output to artifacts/tv/yeen-tv.apk.
+- Packaged Android phone and TV clients support explicitly configured HTTP home-server
+  URLs. On first sign-in, set **Yeen Server** to the reachable LAN or HTTPS API URL
+  (for example `http://192.168.1.25:4000/api`); `localhost` refers to the Android
+  device itself.
+  HTTP exposes credentials and playback traffic on the network, so use HTTPS
+  whenever possible.
 - TV browsers are auto-gated to an install page when detected as `tv` UI.
 - The install page downloads from `/api/install/android-tv-apk` by default.
   By default this serves artifacts/tv/yeen-tv.apk (latest published build).
   Configure `TV_APK_FILE_PATH` in `apps/server/.env` to override.
 - Optional frontend override: `VITE_TV_APK_DOWNLOAD_URL` in `apps/web/.env`.
+
+Signed release variables:
+
+```bash
+export YEEN_ANDROID_KEYSTORE_PATH=/absolute/path/to/yeen-release.jks
+export YEEN_ANDROID_KEYSTORE_PASSWORD='...'
+export YEEN_ANDROID_KEY_ALIAS='yeen'
+export YEEN_ANDROID_KEY_PASSWORD='...'
+npm run android:build:release
+```
+
+GitHub Actions uses the corresponding repository secrets and expects the
+keystore itself in `YEEN_ANDROID_KEYSTORE_BASE64`. When all four secrets are
+present, a checksummed signed APK is attached to the GitHub Release. The CI
+debug APK remains a workflow artifact and is deliberately not published as a
+release download because its disposable debug signature cannot support safe
+in-place upgrades.
 
 ## Line Budget Guardrail
 
@@ -192,94 +265,54 @@ Notes:
 build:zip excludes node_modules and does not copy local apps/server/data state.
 Install production dependencies on the server after extraction.
 
-## Ubuntu deployment with SFTP + SSH + systemd
+## Ubuntu deployment with SSH + systemd
 
-These steps assume Ubuntu 22.04+ and a non-root SSH user with sudo access.
+Use the native installer in [docs/installation-linux.md](docs/installation-linux.md)
+for both fresh installations and upgrades. Current release archives use
+`/opt/yeen/current` for immutable code and `/opt/yeen/shared` for persistent
+state. Do not extract a current archive over `/var/www/yeen` or copy the static
+systemd unit into that legacy layout.
 
-1. Install base packages, Node.js 22, and FFmpeg:
+This repository also includes a deployment wrapper for the existing Proxmox
+installation. Its defaults are the OpenSSH alias `zen` and container `139`.
+The alias must resolve to an account that can run `pct` without an interactive
+sudo prompt. The wrapper performs a read-only preflight and only proceeds when
+an existing environment and account database are present in `/opt/yeen/shared`
+or `/var/www/yeen`; fresh installation remains an explicit native-installer
+workflow.
 
-```bash
-sudo apt update
-sudo apt install -y curl unzip ca-certificates gnupg ffmpeg
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-node -v
-npm -v
-ffmpeg -version
-```
+The Proxmox wrapper is a coordinated Core + Downloader Add-on deployment. It
+rebuilds and signs `private/yeen-downloader-addon`, embeds the signed package
+and public publisher metadata in the checksummed Core archive, and accepts the
+cutover only when production reports the exact expected add-on version and
+digest as active. A failed Core or add-on health check restores the previous
+Core release, add-on registry/packages, and `yeen.env` together.
 
-2. Build deployment zip on your local machine:
-
-```bash
-npm install
-npm --prefix apps/server install
-npm --prefix apps/web install
-npm run build:zip
-```
-
-3. Upload zip via SFTP:
+Create the long-lived signing key once, outside the repository:
 
 ```bash
-sftp youruser@your-server
-sftp> put ./artifacts/yeen-deploy.zip /tmp/
-sftp> exit
+npm run addon:keygen -- --out "$HOME/.yeen/keys/downloader"
 ```
 
-4. SSH into Ubuntu and extract:
+The wrapper defaults to `~/.yeen/keys/downloader.private.pem`. Override it with
+`--addon-key` or `YEEN_DOWNLOADER_ADDON_SIGNING_KEY`; override the private
+workspace with `--addon-root` or `YEEN_DOWNLOADER_ADDON_ROOT`.
 
 ```bash
-ssh youruser@your-server
-sudo mkdir -p /var/www/yeen
-sudo chown -R $USER:$USER /var/www/yeen
-cd /var/www/yeen
-unzip -o /tmp/yeen-deploy.zip -d .
+npm run test:deploy:ssh
+npm run deploy:ssh -- --host zen --container 139
 ```
 
-5. Configure environment:
+Override the target and layout with `--host`, `--container`, `--deploy-root`,
+`--legacy-root`, `--service-name`, `--addon-root`, and `--addon-key`, or the
+corresponding `YEEN_*` environment variables. The deployment uploads only the
+coordinated release archive and installer scripts. Accounts, settings, SQLite
+metadata, environment values, and unrelated add-ons stay authoritative on the
+server; the bundled Downloader Add-on is staged for the same restart.
 
-```bash
-cd /var/www/yeen
-cp .env.example .env
-nano .env
-```
-
-Recommended minimum values:
-
-```env
-PORT=4000
-NODE_ENV=production
-CORS_ORIGIN=https://your-domain.example.com
-JWT_SECRET=replace-with-a-long-random-secret
-DEFAULT_ADMIN_EMAIL=admin@example.com
-DEFAULT_ADMIN_NAME=Yeen Admin
-DEFAULT_ADMIN_PASSWORD=change-this-password
-MEDIA_LIBRARY_PATH=/srv/media
-MEDIA_LIBRARY_PATHS=/srv/media/movies;/srv/media/tv
-FFMPEG_PATH=ffmpeg
-FFPROBE_PATH=ffprobe
-```
-
-6. Install production dependencies and smoke test:
-
-```bash
-cd /var/www/yeen
-npm install --omit=dev
-npm start
-```
-
-Stop with Ctrl+C after verifying startup.
-
-7. Install systemd service:
-
-```bash
-sudo cp /var/www/yeen/deployment/systemd/yeen.service /etc/systemd/system/yeen.service
-sudo chown -R www-data:www-data /var/www/yeen
-sudo systemctl daemon-reload
-sudo systemctl enable --now yeen
-sudo systemctl status yeen
-```
-
-If you deploy to a different path, update WorkingDirectory and EnvironmentFile inside /etc/systemd/system/yeen.service.
+`--skip-build` reuses the already-built coordinated archive and is intended
+only for retrying an unchanged artifact. Do not use it after changing Core or
+the Downloader Add-on.
 
 View logs:
 

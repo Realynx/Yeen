@@ -1,6 +1,7 @@
 import {
   useCallback,
   useMemo,
+  useState,
   type CSSProperties,
 } from 'react';
 import { withAccessToken } from '../../shared/services/api';
@@ -19,6 +20,63 @@ import type {
   PlayerVideoPanelProps,
 } from './video-panel/PlayerVideoPanel.types';
 
+function subtitlePresentation(
+  activeSubtitle: PlayerVideoPanelProps['activeSubtitle'],
+  revision: number,
+  loadedKey: string | null,
+) {
+  const key = activeSubtitle?.url ? `${activeSubtitle.id}-${activeSubtitle.url}-${revision}` : null;
+  return { key, confirmed: key && loadedKey === key ? activeSubtitle : null };
+}
+
+function controlsVisibility(input: {
+  isControlsVisible: boolean; isPlaying: boolean; isSeeking: boolean; isBuffering: boolean;
+  openMenu: unknown; contextMenu: unknown;
+}) {
+  return {
+    show: input.isControlsVisible || !input.isPlaying || input.isSeeking || input.isBuffering
+      || input.openMenu !== null || input.contextMenu !== null,
+    dismissible: input.isControlsVisible || input.openMenu !== null || input.contextMenu !== null,
+  };
+}
+
+function subtitleFontFamilyFor(preset: PlayerVideoPanelProps['subtitleFontPreset']): string {
+  return SUBTITLE_FONT_OPTIONS.find((option) => option.id === preset)?.family
+    ?? SUBTITLE_FONT_OPTIONS[0].family;
+}
+
+function videoShellClass(showControls: boolean, fullscreen: boolean, tvMode: boolean): string {
+  return `video-shell ${showControls ? 'controls-visible' : 'controls-hidden'} ${fullscreen ? 'is-fullscreen' : ''} ${tvMode ? 'is-tv-mode' : ''}`;
+}
+
+function SubtitleTrackElement({ activeSubtitle, subtitleKey, token, onLoadedKey }: {
+  activeSubtitle: PlayerVideoPanelProps['activeSubtitle']; subtitleKey: string | null;
+  token: string; onLoadedKey: React.Dispatch<React.SetStateAction<string | null>>;
+}) {
+  if (!activeSubtitle?.url || !subtitleKey) return null;
+  return <track key={subtitleKey} kind="subtitles" src={withAccessToken(activeSubtitle.url, token)}
+    srcLang={activeSubtitle.language ?? 'en'} label={activeSubtitle.label} default
+    onLoad={() => onLoadedKey(subtitleKey)}
+    onError={() => onLoadedKey((loadedKey) => loadedKey === subtitleKey ? null : loadedKey)} />;
+}
+
+function BufferingBadge({ buffering }: { buffering: boolean }) {
+  return buffering ? <div className="player-buffering-badge" aria-label="Buffering" aria-live="polite">
+    <span className="player-spinner-ring-gradient" aria-hidden="true" /></div> : null;
+}
+
+type SkipAction = NonNullable<ReturnType<typeof resolveActiveChapterSkipAction>>;
+function SkipSegmentButton({ action, onSkip }: { action: SkipAction | null; onSkip: () => void }) {
+  if (!action) return null;
+  const ariaLabel = action.chapterName ? `${action.label}: ${action.chapterName}` : action.label;
+  return <button type="button" className="player-skip-segment-cta" onClick={onSkip}
+    aria-label={ariaLabel} title={`${action.label} to ${formatClock(action.targetSeconds)}`}>
+    <span className="player-skip-segment-text"><span className="player-skip-segment-label">{action.label}</span>
+      <span className="player-skip-segment-target">{`to ${formatClock(action.targetSeconds)}`}</span></span>
+    <span className="player-skip-segment-icon" aria-hidden="true"><ChevronRightIcon /></span>
+  </button>;
+}
+
 export function PlayerVideoPanel({
   token,
   media,
@@ -28,6 +86,7 @@ export function PlayerVideoPanel({
   activeSubtitle,
   subtitleTracks,
   selectedSubtitleId,
+  subtitleTrackRevision,
   onSelectSubtitle,
   onExtractSubtitle,
   extractingSubtitleTrackId,
@@ -79,7 +138,6 @@ export function PlayerVideoPanel({
   hlsSessionStatsError,
   hlsSessionStatsUpdatedAt,
   videoTelemetry,
-  downloadingTorrent,
   onRevealControls,
   onHideControls,
   onToggleNerdStats,
@@ -116,6 +174,10 @@ export function PlayerVideoPanel({
   onVideoCanPlay,
   onVideoError,
 }: PlayerVideoPanelProps) {
+  const [loadedSubtitleElementKey, setLoadedSubtitleElementKey] = useState<string | null>(null);
+  const subtitle = subtitlePresentation(activeSubtitle, subtitleTrackRevision, loadedSubtitleElementKey);
+  const subtitleElementKey = subtitle.key;
+  const confirmedActiveSubtitle = subtitle.confirmed;
   const {
     openMenu,
     contextMenu,
@@ -127,18 +189,10 @@ export function PlayerVideoPanel({
     runContextAction,
   } = usePlayerVideoPanelMenus({ onRevealControls });
 
-  const showControls =
-    isControlsVisible
-    || !isPlaying
-    || isSeeking
-    || isBuffering
-    || openMenu !== null
-    || contextMenu !== null;
-  const controlsCanBeDismissed =
-    isControlsVisible || openMenu !== null || contextMenu !== null;
-  const subtitleFontFamily =
-    SUBTITLE_FONT_OPTIONS.find((option) => option.id === subtitleFontPreset)?.family
-    ?? SUBTITLE_FONT_OPTIONS[0].family;
+  const visibility = controlsVisibility({ isControlsVisible, isPlaying, isSeeking, isBuffering, openMenu, contextMenu });
+  const showControls = visibility.show;
+  const controlsCanBeDismissed = visibility.dismissible;
+  const subtitleFontFamily = subtitleFontFamilyFor(subtitleFontPreset);
   const videoStyle: CSSProperties = {
     ['--player-subtitle-font-family' as string]: subtitleFontFamily,
   };
@@ -174,7 +228,7 @@ export function PlayerVideoPanel({
   return (
     <div
       ref={videoShellRef}
-      className={`video-shell ${showControls ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'is-fullscreen' : ''} ${isTvMode ? 'is-tv-mode' : ''}`}
+      className={videoShellClass(showControls, isFullscreen, isTvMode)}
       tabIndex={isTvMode ? 0 : undefined}
       aria-label={isTvMode ? 'Video player surface' : undefined}
       data-player-video-surface={isTvMode ? 'true' : undefined}
@@ -211,16 +265,8 @@ export function PlayerVideoPanel({
         onCanPlay={onVideoCanPlay}
         onError={onVideoError}
       >
-        {activeSubtitle?.url ? (
-          <track
-            key={`${activeSubtitle.id}-${activeSubtitle.url}`}
-            kind="subtitles"
-            src={withAccessToken(activeSubtitle.url, token)}
-            srcLang={activeSubtitle.language ?? 'en'}
-            label={activeSubtitle.label}
-            default
-          />
-        ) : null}
+        <SubtitleTrackElement activeSubtitle={activeSubtitle} subtitleKey={subtitleElementKey}
+          token={token} onLoadedKey={setLoadedSubtitleElementKey} />
       </video>
 
       <div className="player-overlay-scrim" aria-hidden="true" />
@@ -248,11 +294,7 @@ export function PlayerVideoPanel({
         onToggleNerdStats={onToggleNerdStats}
       />
 
-      {isBuffering ? (
-        <div className="player-buffering-badge" aria-label="Buffering" aria-live="polite">
-          <span className="player-spinner-ring-gradient" aria-hidden="true" />
-        </div>
-      ) : null}
+      <BufferingBadge buffering={isBuffering} />
 
       <PlayerNerdStatsPanel
         showNerdStats={showNerdStats}
@@ -267,33 +309,10 @@ export function PlayerVideoPanel({
         hlsSessionStats={hlsSessionStats}
         hlsSessionStatsError={hlsSessionStatsError}
         streamUrl={streamUrl}
-        downloadingTorrent={downloadingTorrent}
         estimatedBandwidthBps={estimatedBandwidthBps}
       />
 
-      {activeSkipAction ? (
-        <button
-          type="button"
-          className="player-skip-segment-cta"
-          onClick={handleSkipSegment}
-          aria-label={
-            activeSkipAction.chapterName
-              ? `${activeSkipAction.label}: ${activeSkipAction.chapterName}`
-              : activeSkipAction.label
-          }
-          title={`${activeSkipAction.label} to ${formatClock(activeSkipAction.targetSeconds)}`}
-        >
-          <span className="player-skip-segment-text">
-            <span className="player-skip-segment-label">{activeSkipAction.label}</span>
-            <span className="player-skip-segment-target">
-              {`to ${formatClock(activeSkipAction.targetSeconds)}`}
-            </span>
-          </span>
-          <span className="player-skip-segment-icon" aria-hidden="true">
-            <ChevronRightIcon />
-          </span>
-        </button>
-      ) : null}
+      <SkipSegmentButton action={activeSkipAction} onSkip={handleSkipSegment} />
 
       <PlayerControlsPanel
         showControls={showControls}
@@ -330,7 +349,7 @@ export function PlayerVideoPanel({
         selectedAudioStreamIndex={selectedAudioStreamIndex}
         audioTracks={audioTracks}
         onSelectAudioTrack={onSelectAudioTrack}
-        activeSubtitle={activeSubtitle}
+        activeSubtitle={confirmedActiveSubtitle}
         selectedSubtitleId={selectedSubtitleId}
         subtitleTracks={subtitleTracks}
         extractingSubtitleTrackId={extractingSubtitleTrackId}

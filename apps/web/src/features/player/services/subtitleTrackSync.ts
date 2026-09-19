@@ -226,7 +226,10 @@ function normalizeUrl(value: string) {
   try {
     const url = new URL(value, window.location.href);
     url.searchParams.delete('access_token');
-    return url.toString();
+    // Subtitle selection responses use API-relative URLs, while the rendered
+    // <track> resolves them through the configured API origin. Match the
+    // authenticated resource identity, not whichever web/API host resolved it.
+    return `${url.pathname}${url.search}`;
   } catch {
     return value
       .replace(/([?&])access_token=[^&]+/gi, '$1')
@@ -240,6 +243,46 @@ function normalizeOptionalUrl(value: string | null): string | null {
   }
 
   return normalizeUrl(value);
+}
+
+function subtitleTextTracks(video: HTMLVideoElement): TextTrack[] {
+  return Array.from(video.textTracks).filter(
+    (track) => track.kind === 'subtitles' || track.kind === 'captions',
+  );
+}
+
+function disableTracks(tracks: TextTrack[], except?: TextTrack): void {
+  tracks.forEach((track) => {
+    if (track !== except) track.mode = 'disabled';
+  });
+}
+
+function syncVideoSubtitleTracks(video: HTMLVideoElement, activeSubtitleUrl: string | null): boolean {
+  const textTracks = subtitleTextTracks(video);
+  if (!activeSubtitleUrl) {
+    disableTracks(textTracks);
+    return true;
+  }
+  const normalizedActiveUrl = normalizeOptionalUrl(activeSubtitleUrl);
+  const activeTrackElement = Array.from(video.querySelectorAll('track')).find((track) => {
+    const src = track.getAttribute('src');
+    return Boolean(src) && normalizeOptionalUrl(src) === normalizedActiveUrl;
+  });
+  if (!activeTrackElement) {
+    disableTracks(textTracks);
+    return false;
+  }
+  const trackToShow = activeTrackElement.track;
+  disableTracks(textTracks, trackToShow);
+  try {
+    if (trackToShow.mode === 'disabled') trackToShow.mode = 'hidden';
+    if (activeTrackElement.readyState !== 2) return false;
+    normalizeTextTrackCues(trackToShow);
+    trackToShow.mode = 'showing';
+    return trackToShow.mode === 'showing';
+  } catch {
+    return false;
+  }
 }
 
 export function setupSubtitleTrackSync(
@@ -256,55 +299,7 @@ export function setupSubtitleTrackSync(
   };
 
   const syncSubtitleTracks = () => {
-    const subtitleTextTracks: TextTrack[] = [];
-
-    for (let index = 0; index < video.textTracks.length; index += 1) {
-      const textTrack = video.textTracks[index];
-      if (textTrack.kind === 'subtitles' || textTrack.kind === 'captions') {
-        subtitleTextTracks.push(textTrack);
-      }
-    }
-
-    for (const textTrack of subtitleTextTracks) {
-      textTrack.mode = 'disabled';
-    }
-
-    if (!activeSubtitleUrl) {
-      return true;
-    }
-
-    const trackElements = Array.from(video.querySelectorAll('track'));
-    const normalizedActiveUrl = normalizeOptionalUrl(activeSubtitleUrl);
-
-    let activeTrack: TextTrack | null = null;
-
-    for (const trackElement of trackElements) {
-      const src = trackElement.getAttribute('src');
-      if (!src) {
-        continue;
-      }
-
-      if (normalizeOptionalUrl(src) === normalizedActiveUrl) {
-        activeTrack = trackElement.track;
-        break;
-      }
-    }
-
-    const fallbackTrackFromElement = trackElements[0]?.track ?? null;
-    const fallbackTrack = subtitleTextTracks[0] ?? null;
-    const trackToShow = activeTrack ?? fallbackTrackFromElement ?? fallbackTrack;
-    if (!trackToShow) {
-      return false;
-    }
-
-    try {
-      trackToShow.mode = 'hidden';
-      normalizeTextTrackCues(trackToShow);
-      trackToShow.mode = 'showing';
-      return trackToShow.mode === 'showing';
-    } catch {
-      return false;
-    }
+    return syncVideoSubtitleTracks(video, activeSubtitleUrl);
   };
 
   const scheduleSubtitleSyncRetry = (attempt: number) => {
@@ -333,6 +328,7 @@ export function setupSubtitleTrackSync(
       }
 
       trackElement.addEventListener('load', syncSubtitleTracks);
+      trackElement.addEventListener('error', syncSubtitleTracks);
       registeredTrackElements.add(trackElement);
     }
 
@@ -362,6 +358,7 @@ export function setupSubtitleTrackSync(
 
     for (const trackElement of registeredTrackElements) {
       trackElement.removeEventListener('load', syncSubtitleTracks);
+      trackElement.removeEventListener('error', syncSubtitleTracks);
     }
 
     video.textTracks.removeEventListener('addtrack', handleTrackMutation);

@@ -172,8 +172,9 @@
 
 .series-card {
   border-radius: 12px;
-  border: 1px solid rgba(149, 181, 230, 0.22);
-  background: rgba(10, 15, 24, 0.72);
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--card-foreground));
+  background: hsl(var(--card) / 0.88);
   overflow: hidden;
   text-align: left;
   padding: 0;
@@ -185,8 +186,8 @@
   display: grid;
   place-items: center;
   background:
-    linear-gradient(122deg, rgba(255, 95, 31, 0.65), rgba(47, 163, 255, 0.55)),
-    #1a2437;
+    linear-gradient(122deg, hsl(var(--primary) / 0.58), hsl(var(--accent) / 0.48)),
+    hsl(var(--muted));
 }
 
 .series-card-thumb img {
@@ -206,7 +207,7 @@
 .series-card p {
   margin: 0;
   padding: 0.32rem 0.7rem 0.72rem;
-  color: #9cb0cb;
+  color: hsl(var(--muted-foreground));
   font-size: 0.82rem;
 }
 

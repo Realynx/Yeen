@@ -1,5 +1,4 @@
-import { useCallback, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MediaDetailsPage } from './MediaDetailsPage';
 import { toLibrarySearchPath } from '../../library/services/librarySearchUtils';
@@ -35,7 +34,6 @@ export function MediaDetailsPagePhone({ token, user, onLogout }: MediaDetailsPag
 				user={user}
 				onLogout={onLogout}
 				hideTopNav
-				usePhoneTorrentPopover
 				headerContent={(
 					<PhonePageHeader
 						user={user}

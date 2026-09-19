@@ -2,10 +2,8 @@ import { NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import type { MediaItem } from '../../domain/entities/media-item.entity';
-import type {
-  MediaTorrentDownloadProgressItem,
-  PlaybackAudioTrack,
-} from './media.service.types';
+import type { PlaybackAudioTrack } from './media.service.types';
+import type { MediaLibraryLocation } from '@yeen/shared-contracts';
 
 interface MediaScanStoreLike {
   get(): { status: string };
@@ -13,22 +11,20 @@ interface MediaScanStoreLike {
 }
 
 interface MediaFileResolutionLike {
-  resolveScanLocations(
+  resolveScanLibraryLocations(
     libraryPath?: string,
     libraryPaths?: string[],
-  ): Promise<string[]>;
+    libraryLocations?: MediaLibraryLocation[],
+  ): Promise<MediaLibraryLocation[]>;
 }
 
 interface MediaScanExecutionLike {
-  runScan(scanId: string, sourcePaths: string[]): Promise<void>;
+  runScan(scanId: string, sourcePaths: MediaLibraryLocation[]): Promise<void>;
 }
 
 interface MediaPlaybackLike {
   getPlaybackAudioTracks(media: MediaItem): Promise<PlaybackAudioTrack[]>;
   getPlaybackPlan(media: MediaItem): Promise<unknown>;
-  getTorrentDownloadProgressByMediaIds(
-    mediaIds: string[],
-  ): Promise<{ items: MediaTorrentDownloadProgressItem[] }>;
 }
 
 interface MediaImageStreamLike {
@@ -54,27 +50,30 @@ export async function scanValue(
   context: MediaPlaybackOpsContext,
   libraryPath?: string,
   libraryPaths?: string[],
+  libraryLocations?: MediaLibraryLocation[],
 ) {
   const existing = context.mediaScanStore.get();
   if (existing.status === 'running') {
     return existing;
   }
 
-  const sourcePaths =
-    await context.mediaFileResolutionService.resolveScanLocations(
+  const sourceLocations =
+    await context.mediaFileResolutionService.resolveScanLibraryLocations(
       libraryPath,
       libraryPaths,
+      libraryLocations,
     );
 
-  if (sourcePaths.length === 0) {
+  if (sourceLocations.length === 0) {
     throw new NotFoundException(
       'No media locations configured. Add locations in settings or set MEDIA_LIBRARY_PATH.',
     );
   }
 
+  const sourcePaths = sourceLocations.map((location) => location.path);
   const scanId = randomUUID();
   const started = context.mediaScanStore.start(scanId, sourcePaths);
-  void context.mediaScanExecutionService.runScan(scanId, sourcePaths);
+  void context.mediaScanExecutionService.runScan(scanId, sourceLocations);
 
   return started;
 }
@@ -93,15 +92,6 @@ export async function getPlaybackPlanValue(
 ) {
   const item = await context.getById(mediaId);
   return context.mediaPlaybackService.getPlaybackPlan(item);
-}
-
-export function getTorrentDownloadProgressByMediaIdsValue(
-  context: MediaPlaybackOpsContext,
-  mediaIds: string[],
-): Promise<{ items: MediaTorrentDownloadProgressItem[] }> {
-  return context.mediaPlaybackService.getTorrentDownloadProgressByMediaIds(
-    mediaIds,
-  );
 }
 
 export async function streamPreviewImageValue(

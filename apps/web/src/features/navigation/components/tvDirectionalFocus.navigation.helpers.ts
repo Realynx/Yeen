@@ -14,6 +14,25 @@ interface DirectionalCandidateScore {
   overlapsOrthogonalAxis: boolean;
 }
 
+interface ScoredCandidate extends DirectionalCandidateScore {
+  element: HTMLElement;
+  zone: FocusZone;
+}
+
+function isHorizontal(direction: Direction): boolean {
+  return direction === 'left' || direction === 'right';
+}
+
+function isInDirection(deltaX: number, deltaY: number, direction: Direction): boolean {
+  const distanceByDirection: Record<Direction, number> = {
+    left: -deltaX,
+    right: deltaX,
+    up: -deltaY,
+    down: deltaY,
+  };
+  return distanceByDirection[direction] > 2;
+}
+
 export function directionForKey(key: string): Direction | null {
   switch (key) {
     case 'ArrowLeft':
@@ -147,34 +166,19 @@ function scoreDirectionalCandidate(
   const deltaX = candidateCenterX - currentCenterX;
   const deltaY = candidateCenterY - currentCenterY;
 
-  if (direction === 'left' && deltaX >= -2) {
-    return null;
-  }
-
-  if (direction === 'right' && deltaX <= 2) {
-    return null;
-  }
-
-  if (direction === 'up' && deltaY >= -2) {
-    return null;
-  }
-
-  if (direction === 'down' && deltaY <= 2) {
-    return null;
-  }
-
-  const primaryDistance = direction === 'left' || direction === 'right'
+  if (!isInDirection(deltaX, deltaY, direction)) return null;
+  const primaryDistance = isHorizontal(direction)
     ? Math.abs(deltaX)
     : Math.abs(deltaY);
   if (primaryDistance > maxPrimaryDistancePx()) {
     return null;
   }
 
-  const orthogonalDistance = direction === 'left' || direction === 'right'
+  const orthogonalDistance = isHorizontal(direction)
     ? Math.abs(deltaY)
     : Math.abs(deltaX);
 
-  const orthogonalOverlap = direction === 'left' || direction === 'right'
+  const orthogonalOverlap = isHorizontal(direction)
     ? Math.min(currentRect.bottom, candidateRect.bottom) - Math.max(currentRect.top, candidateRect.top)
     : Math.min(currentRect.right, candidateRect.right) - Math.max(currentRect.left, candidateRect.left);
   const overlapsOrthogonalAxis = orthogonalOverlap > 1;
@@ -186,6 +190,37 @@ function scoreDirectionalCandidate(
   };
 }
 
+function preferCandidates(
+  candidates: ScoredCandidate[],
+  predicate: (candidate: ScoredCandidate) => boolean,
+): ScoredCandidate[] {
+  const preferred = candidates.filter(predicate);
+  return preferred.length > 0 ? preferred : candidates;
+}
+
+function preferMediaTiles(
+  candidates: ScoredCandidate[],
+  currentTile: HTMLElement | null,
+  direction: Direction,
+): ScoredCandidate[] {
+  if (!currentTile) return candidates;
+  if (isHorizontal(direction)) {
+    return preferCandidates(candidates, (candidate) => Boolean(mediaTileFor(candidate.element)));
+  }
+  const currentRow = mediaRowFor(currentTile);
+  const differentRow = candidates.filter((candidate) => {
+    const tile = mediaTileFor(candidate.element);
+    const row = tile ? mediaRowFor(tile) : null;
+    return Boolean(tile && tile !== currentTile && row && currentRow && row !== currentRow);
+  });
+  if (differentRow.length > 0) return differentRow;
+  return preferCandidates(candidates, (candidate) => {
+    const tile = mediaTileFor(candidate.element);
+    const row = tile ? mediaRowFor(tile) : null;
+    return !tile || !(row && currentRow && row === currentRow);
+  });
+}
+
 export function nextDirectionalElement(
   current: HTMLElement,
   candidates: HTMLElement[],
@@ -194,12 +229,7 @@ export function nextDirectionalElement(
   const currentRect = current.getBoundingClientRect();
   const currentZone = focusZoneFor(current);
   const currentLaneId = focusLaneIdFor(current);
-  const scoredCandidates: Array<{
-    element: HTMLElement;
-    zone: FocusZone;
-    score: number;
-    overlapsOrthogonalAxis: boolean;
-  }> = [];
+  const scoredCandidates: ScoredCandidate[] = [];
 
   for (const candidate of candidates) {
     const candidateScore = scoreDirectionalCandidate(
@@ -226,78 +256,26 @@ export function nextDirectionalElement(
 
   let workingCandidates = scoredCandidates;
 
-  if (currentLaneId && (direction === 'left' || direction === 'right')) {
-    const sameLaneCandidates = workingCandidates.filter(
+  if (currentLaneId && isHorizontal(direction)) {
+    workingCandidates = preferCandidates(
+      workingCandidates,
       (candidate) => focusLaneIdFor(candidate.element) === currentLaneId,
     );
-    if (sameLaneCandidates.length > 0) {
-      workingCandidates = sameLaneCandidates;
-    }
   }
-
-  const currentTile = mediaTileFor(current);
-  if (currentTile) {
-    if (direction === 'left' || direction === 'right') {
-      const mediaTileCandidates = workingCandidates.filter(
-        (candidate) => mediaTileFor(candidate.element),
-      );
-      if (mediaTileCandidates.length > 0) {
-        workingCandidates = mediaTileCandidates;
-      }
-    } else {
-      const currentTileRow = mediaRowFor(currentTile);
-      const differentRowMediaTileCandidates = workingCandidates.filter(
-        (candidate) => {
-          const candidateTile = mediaTileFor(candidate.element);
-          if (!candidateTile || candidateTile === currentTile) {
-            return false;
-          }
-
-          const candidateTileRow = mediaRowFor(candidateTile);
-          return Boolean(
-            candidateTileRow &&
-            currentTileRow &&
-            candidateTileRow !== currentTileRow,
-          );
-        },
-      );
-
-      if (differentRowMediaTileCandidates.length > 0) {
-        workingCandidates = differentRowMediaTileCandidates;
-      } else {
-        const withoutSameRowMediaTiles = workingCandidates.filter((candidate) => {
-          const candidateTile = mediaTileFor(candidate.element);
-          if (!candidateTile) {
-            return true;
-          }
-
-          const candidateTileRow = mediaRowFor(candidateTile);
-          return !(candidateTileRow && currentTileRow && candidateTileRow === currentTileRow);
-        });
-
-        if (withoutSameRowMediaTiles.length > 0) {
-          workingCandidates = withoutSameRowMediaTiles;
-        }
-      }
-    }
-  }
+  workingCandidates = preferMediaTiles(workingCandidates, mediaTileFor(current), direction);
 
   const preferredZones = preferredZonesFor(currentZone, direction);
   if (preferredZones.length > 0) {
-    const preferredZoneCandidates = workingCandidates.filter((candidate) =>
-      preferredZones.includes(candidate.zone),
+    workingCandidates = preferCandidates(
+      workingCandidates,
+      (candidate) => preferredZones.includes(candidate.zone),
     );
-    if (preferredZoneCandidates.length > 0) {
-      workingCandidates = preferredZoneCandidates;
-    }
   }
 
   const alignedCandidates = workingCandidates.filter(
     (candidate) => candidate.overlapsOrthogonalAxis,
   );
-  if (alignedCandidates.length > 0) {
-    workingCandidates = alignedCandidates;
-  }
+  if (alignedCandidates.length > 0) workingCandidates = alignedCandidates;
 
   let bestCandidate = workingCandidates[0];
   for (const candidate of workingCandidates) {

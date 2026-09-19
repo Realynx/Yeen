@@ -31,6 +31,54 @@ interface TvPageShellProps {
   autoFocusFirst?: boolean;
 }
 
+function handleTvBackKey(
+  event: KeyboardEvent,
+  pageKey: string,
+  shell: HTMLElement,
+  active: Element | null,
+  navigateBack: () => void,
+): boolean {
+  if (!shouldHandleBackKey(event, pageKey)) return false;
+  if (hasOpenDialogLayer()) return true;
+  if (active instanceof HTMLElement && isEditableElement(active) && !isSelectElement(active)) {
+    if (event.key === 'Backspace' && editableHasText(active)) return true;
+    event.preventDefault();
+    active.blur();
+    initialFocusTarget(shell)?.focus({ preventScroll: true });
+    return true;
+  }
+  if (pageKey === 'player' && playerControlsCanBeDismissed(shell)) {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent(PLAYER_DISMISS_CONTROLS_EVENT));
+    return true;
+  }
+  event.preventDefault();
+  navigateBack();
+  return true;
+}
+
+function nextTvFocusTarget(
+  root: HTMLElement,
+  active: HTMLElement,
+  direction: TvFocusDirection,
+  activeIsSelect: boolean,
+): HTMLElement | null {
+  const focusables = focusableElementsWithin(root);
+  let next = nextDirectionalElement(active, focusables.filter((element) => element !== active), direction);
+  if (!next && activeIsSelect) next = nextElementByDomOrder(active, focusables, direction);
+  return next ? rememberedLaneTarget(root, active, next, direction) ?? next : null;
+}
+
+function focusTvTarget(active: HTMLElement, next: HTMLElement, direction: TvFocusDirection): void {
+  next.focus({ preventScroll: true });
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  next.scrollIntoView({
+    block: shouldCenterFocusedMediaTile(active, next, direction) ? 'center' : 'nearest',
+    inline: 'nearest',
+    behavior: reducedMotion ? 'auto' : 'smooth',
+  });
+}
+
 function routeMemoryKey(pageKey: string): string {
   return `${pageKey}:${window.location.pathname}${window.location.search}`;
 }
@@ -169,31 +217,59 @@ export function TvPageShell({
 
   useEffect(() => {
     const shellElement = shellRef.current;
-    if (!shellElement) {
+    if (!shellElement || !autoFocusFirst) {
       return;
     }
+    const currentShellElement = shellElement;
 
-    if (autoFocusFirst) {
-      const frameId = window.requestAnimationFrame(() => {
-        const routeKey = routeMemoryKey(pageKey);
-        const rememberedFocus = focusTargetFromMemory(
-          shellElement,
-          routeFocusMemory.get(routeKey),
-        );
-        const nextFocus = rememberedFocus ?? initialFocusTarget(shellElement);
-        if (!nextFocus) {
+    let frameId: number | null = null;
+
+    function requestPreferredFocus() {
+      if (currentShellElement.contains(document.activeElement)) {
+        return;
+      }
+
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        if (currentShellElement.contains(document.activeElement)) {
           return;
         }
 
-        focusElement(nextFocus);
+        const routeKey = routeMemoryKey(pageKey);
+        const rememberedFocus = focusTargetFromMemory(
+          currentShellElement,
+          routeFocusMemory.get(routeKey),
+        );
+        const nextFocus = rememberedFocus ?? initialFocusTarget(currentShellElement);
+        if (nextFocus) {
+          focusElement(nextFocus);
+        }
       });
-
-      return () => {
-        window.cancelAnimationFrame(frameId);
-      };
     }
 
-    return;
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        requestPreferredFocus();
+      }
+    }
+
+    requestPreferredFocus();
+    window.addEventListener('focus', requestPreferredFocus);
+    window.addEventListener('pageshow', requestPreferredFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener('focus', requestPreferredFocus);
+      window.removeEventListener('pageshow', requestPreferredFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [autoFocusFirst, pageKey]);
 
   useEffect(() => {
@@ -236,36 +312,7 @@ export function TvPageShell({
       }
 
       const activeElement = document.activeElement;
-      if (shouldHandleBackKey(event, pageKey)) {
-        if (hasOpenDialogLayer()) {
-          return;
-        }
-
-        if (
-          activeElement instanceof HTMLElement
-          && isEditableElement(activeElement)
-          && !isSelectElement(activeElement)
-        ) {
-          if (event.key === 'Backspace' && editableHasText(activeElement)) {
-            return;
-          }
-
-          event.preventDefault();
-          activeElement.blur();
-          initialFocusTarget(shellElement)?.focus({ preventScroll: true });
-          return;
-        }
-
-        if (pageKey === 'player' && playerControlsCanBeDismissed(shellElement)) {
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent(PLAYER_DISMISS_CONTROLS_EVENT));
-          return;
-        }
-
-        event.preventDefault();
-        navigateBackSafely();
-        return;
-      }
+      if (handleTvBackKey(event, pageKey, shellElement, activeElement, navigateBackSafely)) return;
 
       const direction = directionForKey(event.key);
       if (!direction) {
@@ -273,6 +320,11 @@ export function TvPageShell({
       }
 
       if (!(activeElement instanceof HTMLElement) || !shellElement.contains(activeElement)) {
+        const firstTarget = initialFocusTarget(shellElement);
+        if (firstTarget) {
+          event.preventDefault();
+          focusElement(firstTarget);
+        }
         return;
       }
 
@@ -282,19 +334,17 @@ export function TvPageShell({
         return;
       }
 
-      const focusables = focusableElementsWithin(shellElement);
-      const focusableCandidates = focusables
-        .filter((element) => element !== activeElement);
-
-      let nextElement = nextDirectionalElement(activeElement, focusableCandidates, direction);
-      if (!nextElement && activeIsSelect) {
-        nextElement = nextElementByDomOrder(activeElement, focusables, direction);
+      const openLayer = shellElement.querySelector<HTMLElement>(
+        '[data-yeen-layer-open="true"]',
+      );
+      const focusRoot = openLayer ?? shellElement;
+      if (!focusRoot.contains(activeElement)) {
+        initialFocusTarget(focusRoot)?.focus({ preventScroll: true });
+        event.preventDefault();
+        return;
       }
 
-      if (nextElement) {
-        nextElement = rememberedLaneTarget(shellElement, activeElement, nextElement, direction)
-          ?? nextElement;
-      }
+      const nextElement = nextTvFocusTarget(focusRoot, activeElement, direction, activeIsSelect);
 
       if (!nextElement) {
         if (activeIsSelect) {
@@ -305,17 +355,7 @@ export function TvPageShell({
       }
 
       event.preventDefault();
-      nextElement.focus({ preventScroll: true });
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const block = shouldCenterFocusedMediaTile(activeElement, nextElement, direction)
-        ? 'center'
-        : 'nearest';
-
-      nextElement.scrollIntoView({
-        block,
-        inline: 'nearest',
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-      });
+      focusTvTarget(activeElement, nextElement, direction);
     }
 
     window.addEventListener('keydown', handleDirectionalKeydown, true);

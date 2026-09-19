@@ -16,6 +16,8 @@ const MEDIA_METADATA_REQUIRED_COLUMNS: Array<{
   { name: 'series_assignment_rules_json', definition: 'TEXT' },
   { name: 'episode_catalog_source', definition: 'TEXT' },
   { name: 'episode_catalog_source_id', definition: 'TEXT' },
+  { name: 'library_type', definition: "TEXT NOT NULL DEFAULT 'video'" },
+  { name: 'music_metadata_json', definition: 'TEXT' },
 ];
 
 function getExistingColumns(
@@ -50,5 +52,17 @@ export function ensureMediaMetadataColumnsValue(db: Database.Database): void {
 
   for (const column of MEDIA_METADATA_REQUIRED_COLUMNS) {
     ensureColumn(db, existingColumns, column.name, column.definition);
+  }
+
+  // Catalogs created before library_type existed may already contain audio
+  // items. Preserve their meaning instead of silently presenting them in the
+  // video experience after migration.
+  if (existingColumns.has('digital_media_type')) {
+    db.exec(`
+      UPDATE media_metadata
+      SET library_type = 'music'
+      WHERE digital_media_type = 'audio'
+        AND library_type = 'video'
+    `);
   }
 }

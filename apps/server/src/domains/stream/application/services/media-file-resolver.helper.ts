@@ -50,8 +50,8 @@ export async function pathExistsWithTimeoutValue(
 }
 
 /**
- * Resolves the actual on-disk path for a media file. qBittorrent renames
- * downloading files to <name>.!qB, so we fall back to that variant when the
+ * Resolves the actual on-disk path for a Media Item. Some external sources append
+ * a legacy partial-file suffix, so we fall back to that variant when the
  * canonical path doesn't exist yet. Uses pathExistsWithTimeoutValue to ensure
  * an unresponsive media volume cannot block the event loop.
  *
@@ -63,10 +63,8 @@ export async function resolveActualFilePathValue(
   timeoutMs: number,
   logger: Logger,
 ): Promise<string> {
-  // Probe the canonical path first. The `.!qB` in-progress variant is only
-  // produced by qBittorrent when its "Append .!qB extension to incomplete
-  // files" option is enabled, so most setups only ever need the canonical
-  // lookup. Falling back to the `.!qB` probe only when canonical is genuinely
+  // Probe the canonical path first. Most setups only need that lookup.
+  // Falling back to the legacy partial variant only when canonical is genuinely
   // missing avoids a wasted SMB roundtrip per segment request and halves the
   // wait when the share is unreachable.
   const canonicalProbe = await pathExistsWithTimeoutValue(
@@ -97,5 +95,5 @@ export async function resolveActualFilePathValue(
     throw new SourceUnreachableError(canonicalPath);
   }
 
-  return canonicalPath;
+  throw new SourceUnreachableError(canonicalPath);
 }

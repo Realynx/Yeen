@@ -20,6 +20,10 @@ import {
 import type {
   PublicBroadcastPageWatchdogState,
 } from './publicBroadcastPage.types';
+import {
+  resumePublicBroadcastHlsLoading,
+  resumePublicBroadcastNativePlayback,
+} from '../services/publicBroadcastHlsRecovery';
 
 function resolveBufferedAheadSeconds(
   video: HTMLVideoElement,
@@ -51,6 +55,104 @@ interface UsePublicBroadcastPlaybackRecoveryOptions {
   setError: Dispatch<SetStateAction<string | null>>;
   resetPlaybackWatchdog: () => void;
   destroyHlsInstance: () => void;
+}
+
+type WatchdogObservation = 'initialized' | 'progressed' | 'weak';
+
+function observePlayback(
+  watchdog: PublicBroadcastPageWatchdogState,
+  currentTime: number,
+  nowMs: number,
+): WatchdogObservation {
+  if (watchdog.lastObservedAtMs === 0) {
+    watchdog.lastObservedCurrentTime = currentTime;
+    watchdog.lastObservedAtMs = nowMs;
+    watchdog.lastPlaybackProgressAtMs = nowMs;
+    if (watchdog.lastFragmentLoadedAtMs === 0) watchdog.lastFragmentLoadedAtMs = nowMs;
+    return 'initialized';
+  }
+  const elapsedMs = Math.max(1, nowMs - watchdog.lastObservedAtMs);
+  const minimumProgress = Math.max(
+    PLAYBACK_PROGRESS_DELTA_SECONDS,
+    (elapsedMs / 1000) * MIN_EXPECTED_PROGRESS_FACTOR,
+  );
+  const progressed = currentTime - watchdog.lastObservedCurrentTime >= minimumProgress;
+  watchdog.lastObservedCurrentTime = currentTime;
+  watchdog.lastObservedAtMs = nowMs;
+  if (progressed) {
+    watchdog.lastPlaybackProgressAtMs = nowMs;
+    watchdog.consecutiveWeakProgressSamples = 0;
+    watchdog.recoveryStage = 0;
+    return 'progressed';
+  }
+  watchdog.consecutiveWeakProgressSamples += 1;
+  return 'weak';
+}
+
+function playbackStalled(
+  watchdog: PublicBroadcastPageWatchdogState,
+  nowMs: number,
+  bufferedAhead: number,
+): boolean {
+  const hardStall = nowMs - watchdog.lastPlaybackProgressAtMs >= PLAYBACK_STALL_WINDOW_MS;
+  const fragmentStall = nowMs - watchdog.lastFragmentLoadedAtMs >= FRAGMENT_STALL_WINDOW_MS;
+  const nearStall = watchdog.consecutiveWeakProgressSamples >= WEAK_PROGRESS_SAMPLE_THRESHOLD
+    && fragmentStall && bufferedAhead <= LOW_BUFFER_AHEAD_SECONDS;
+  return hardStall || nearStall;
+}
+
+function runLoaderRecovery(
+  watchdog: PublicBroadcastPageWatchdogState,
+  video: HTMLVideoElement,
+  activeHls: Hls | null,
+  setError: (value: string) => void,
+  runSync: () => void,
+): boolean {
+  if (watchdog.recoveryStage !== 0) return false;
+  watchdog.recoveryStage = 1;
+  watchdog.consecutiveWeakProgressSamples = 0;
+  setError('Playback appears stalled. Retrying stream loader...');
+  if (video.paused) void video.play().catch(() => { /* Continue with loader nudges. */ });
+  if (activeHls) {
+    try { activeHls.startLoad(); } catch { /* Escalate on the next cycle. */ }
+  }
+  runSync();
+  return true;
+}
+
+function runSessionRecovery(
+  watchdog: PublicBroadcastPageWatchdogState,
+  video: HTMLVideoElement,
+  activeHls: Hls | null,
+  manifestUrl: string | null,
+  nowMs: number,
+  options: Pick<UsePublicBroadcastPlaybackRecoveryOptions,
+    'setError' | 'resetPlaybackWatchdog' | 'playbackWatchdogRef' | 'lastStallRecoveryAtRef' | 'runPlaybackSyncRef'>,
+): boolean {
+  if (watchdog.recoveryStage < 1 || !manifestUrl) return false;
+  watchdog.recoveryStage = 2;
+  watchdog.consecutiveWeakProgressSamples = 0;
+  try {
+    options.setError('Playback still stalled. Restarting stream loader...');
+    if (activeHls) {
+      resumePublicBroadcastHlsLoading(video, activeHls);
+    } else {
+      resumePublicBroadcastNativePlayback(video, () => undefined);
+    }
+    options.resetPlaybackWatchdog();
+    const reset = options.playbackWatchdogRef.current;
+    reset.recoveryStage = 2;
+    reset.lastObservedAtMs = nowMs;
+    reset.lastPlaybackProgressAtMs = nowMs;
+    reset.lastFragmentLoadedAtMs = nowMs;
+    options.lastStallRecoveryAtRef.current = nowMs + Math.max(
+      0, WATCHDOG_SESSION_RELOAD_SETTLE_MS - WATCHDOG_RECOVERY_COOLDOWN_MS,
+    );
+    options.runPlaybackSyncRef.current();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function usePublicBroadcastPlaybackRecovery({
@@ -104,6 +206,8 @@ export function usePublicBroadcastPlaybackRecovery({
         } catch {
           // Ignore and rely on status-driven playback sync.
         }
+      } else {
+        resumePublicBroadcastNativePlayback(video, runPlaybackSyncRef.current);
       }
     };
 
@@ -114,7 +218,7 @@ export function usePublicBroadcastPlaybackRecovery({
       video.removeEventListener('waiting', handlePlaybackStall);
       video.removeEventListener('stalled', handlePlaybackStall);
     };
-  }, [hlsRef, lastStallRecoveryAtRef, status?.enabled, status?.isLive, status?.manifestUrl, statusRef, videoRef]);
+  }, [hlsRef, lastStallRecoveryAtRef, runPlaybackSyncRef, status?.enabled, status?.isLive, status?.manifestUrl, statusRef, videoRef]);
 
   useEffect(() => {
     if (!(status?.enabled && status.isLive && status.manifestUrl)) {
@@ -144,53 +248,13 @@ export function usePublicBroadcastPlaybackRecovery({
         ? video.currentTime
         : watchdog.lastObservedCurrentTime;
 
-      if (watchdog.lastObservedAtMs === 0) {
-        watchdog.lastObservedCurrentTime = currentTime;
-        watchdog.lastObservedAtMs = nowMs;
-        watchdog.lastPlaybackProgressAtMs = nowMs;
-        if (watchdog.lastFragmentLoadedAtMs === 0) {
-          watchdog.lastFragmentLoadedAtMs = nowMs;
-        }
-        return;
-      }
-
-      const elapsedSinceLastSampleMs = Math.max(1, nowMs - watchdog.lastObservedAtMs);
-      const minExpectedProgressSeconds = Math.max(
-        PLAYBACK_PROGRESS_DELTA_SECONDS,
-        (elapsedSinceLastSampleMs / 1000) * MIN_EXPECTED_PROGRESS_FACTOR,
-      );
-      const progressed =
-        currentTime - watchdog.lastObservedCurrentTime >= minExpectedProgressSeconds;
-
-      watchdog.lastObservedCurrentTime = currentTime;
-      watchdog.lastObservedAtMs = nowMs;
-
-      if (progressed) {
-        watchdog.lastPlaybackProgressAtMs = nowMs;
-        watchdog.consecutiveWeakProgressSamples = 0;
-        watchdog.recoveryStage = 0;
-        return;
-      }
-
-      watchdog.consecutiveWeakProgressSamples += 1;
+      if (observePlayback(watchdog, currentTime, nowMs) !== 'weak') return;
 
       if (video.seeking || nowMs < suppressSeekGuardUntilRef.current) {
         return;
       }
 
-      const secondsBufferedAhead = resolveBufferedAheadSeconds(video, currentTime);
-      const hardStallDetected =
-        nowMs - watchdog.lastPlaybackProgressAtMs >= PLAYBACK_STALL_WINDOW_MS;
-      const fragmentFlowStalled =
-        nowMs - watchdog.lastFragmentLoadedAtMs >= FRAGMENT_STALL_WINDOW_MS;
-      const nearStallDetected =
-        watchdog.consecutiveWeakProgressSamples >= WEAK_PROGRESS_SAMPLE_THRESHOLD
-        && fragmentFlowStalled
-        && secondsBufferedAhead <= LOW_BUFFER_AHEAD_SECONDS;
-
-      if (!hardStallDetected && !nearStallDetected) {
-        return;
-      }
+      if (!playbackStalled(watchdog, nowMs, resolveBufferedAheadSeconds(video, currentTime))) return;
 
       if (
         !shouldRunStallRecovery(
@@ -205,54 +269,11 @@ export function usePublicBroadcastPlaybackRecovery({
       lastStallRecoveryAtRef.current = nowMs;
 
       const activeHls = hlsRef.current;
-      if (watchdog.recoveryStage === 0) {
-        watchdog.recoveryStage = 1;
-        watchdog.consecutiveWeakProgressSamples = 0;
-        setError('Playback appears stalled. Retrying stream loader...');
-
-        if (video.paused) {
-          void video.play().catch(() => {
-            // Ignore and continue with loader nudges.
-          });
-        }
-
-        if (activeHls) {
-          try {
-            activeHls.startLoad();
-          } catch {
-            // Ignore and escalate on next watchdog cycle if needed.
-          }
-        }
-
-        runPlaybackSyncRef.current();
-        return;
-      }
-
-      if (watchdog.recoveryStage === 1) {
-        watchdog.recoveryStage = 2;
-        watchdog.consecutiveWeakProgressSamples = 0;
-        const currentManifestUrl = manifestUrlRef.current;
-
-        if (activeHls && currentManifestUrl) {
-          try {
-            setError('Playback still stalled. Restarting stream session...');
-            activeHls.stopLoad();
-            activeHls.loadSource(currentManifestUrl);
-            activeHls.startLoad(-1);
-            resetPlaybackWatchdog();
-            lastStallRecoveryAtRef.current =
-              nowMs
-              + Math.max(
-                0,
-                WATCHDOG_SESSION_RELOAD_SETTLE_MS - WATCHDOG_RECOVERY_COOLDOWN_MS,
-              );
-            runPlaybackSyncRef.current();
-            return;
-          } catch {
-            // Fall through to final reconnect path.
-          }
-        }
-      }
+      if (runLoaderRecovery(watchdog, video, activeHls, setError, runPlaybackSyncRef.current)) return;
+      if (runSessionRecovery(watchdog, video, activeHls, manifestUrlRef.current, nowMs, {
+        setError, resetPlaybackWatchdog, playbackWatchdogRef,
+        lastStallRecoveryAtRef, runPlaybackSyncRef,
+      })) return;
 
       watchdog.recoveryStage = 0;
       watchdog.consecutiveWeakProgressSamples = 0;

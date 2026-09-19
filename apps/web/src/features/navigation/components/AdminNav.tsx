@@ -1,39 +1,21 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge';
 import { ProfileMenu } from './ProfileMenu';
 import type { User } from '../../shared/services/types';
-import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
+import { useAddonHost } from '../../addons/runtime/AddonHostContext';
+import { MediaModeSwitchSlot } from '../../media-mode/components/MediaModeSwitcher';
+import { createSettingsNavigation } from '../../settings/components/settingsNavigation';
+import { MediaHomeButton } from './MediaHomeButton';
 
 interface AdminNavProps {
   user: User;
   onLogout: () => void;
 }
 
-interface AdminNavLink {
-  to: string;
-  label: string;
-  end?: boolean;
-  adminOnly?: boolean;
-  torrentAccessOnly?: boolean;
-}
-
-const ADMIN_NAV_LINKS: AdminNavLink[] = [
-  { to: '/settings', label: 'Profile', end: true },
-  { to: '/admin/system', label: 'System', adminOnly: true },
-  { to: '/admin/accounts', label: 'Accounts', adminOnly: true },
-  { to: '/admin/downloads', label: 'Downloads', torrentAccessOnly: true },
-];
-
 export function AdminNav({ user, onLogout }: AdminNavProps) {
-  const navigate = useNavigate();
-  const isAdmin = isAdminRole(user.role);
-  const hasTorrentAccess = canAccessTorrentTools(user.role);
-
-  const visibleLinks = ADMIN_NAV_LINKS.filter(
-    (link) =>
-      (!link.adminOnly || isAdmin)
-      && (!link.torrentAccessOnly || hasTorrentAccess),
-  );
+  const { navigation } = useAddonHost();
+  const visibleLinks = createSettingsNavigation(user.role, navigation)
+    .flatMap((group) => group.items);
 
   return (
     <header className="top-nav" data-tv-focus-zone="top-nav">
@@ -42,7 +24,7 @@ export function AdminNav({ user, onLogout }: AdminNavProps) {
         <nav className="browse-links" aria-label="Admin">
           {visibleLinks.map((link) => (
             <NavLink
-              key={link.to}
+              key={link.id}
               className={({ isActive }) =>
                 isActive ? 'browse-link active' : 'browse-link'
               }
@@ -55,18 +37,14 @@ export function AdminNav({ user, onLogout }: AdminNavProps) {
         </nav>
       </div>
 
+      <MediaModeSwitchSlot placement="top-nav" />
+
       <div data-tv-focus-lane-id="top-nav-broadcast">
         <BroadcastNavBadge />
       </div>
 
       <div className="top-nav-right" data-tv-focus-lane-id="top-nav-actions">
-        <button
-          className="ghost-button"
-          type="button"
-          onClick={() => navigate('/')}
-        >
-          Library
-        </button>
+        <MediaHomeButton />
         <ProfileMenu user={user} onLogout={onLogout} />
       </div>
     </header>

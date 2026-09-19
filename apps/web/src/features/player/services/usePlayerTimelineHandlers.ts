@@ -1,5 +1,10 @@
-import { useCallback, useEffect } from 'react';
-import type { ChangeEvent, MouseEvent as ReactMouseEvent, MutableRefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  type ChangeEvent,
+  type MouseEvent as ReactMouseEvent,
+  type MutableRefObject,
+} from 'react';
 import { clamp } from './playerUtils';
 
 const PLAYER_SCRUBBING_CLASS = 'is-player-scrubbing';

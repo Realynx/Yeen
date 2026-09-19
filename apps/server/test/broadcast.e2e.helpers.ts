@@ -1,12 +1,9 @@
-import { NotFoundException } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { NotFoundException, type INestApplication } from '@nestjs/common';
 import type { Response } from 'express';
 import { Readable } from 'node:stream';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import type {
-  BroadcastOwnerSessionStatus,
-} from '@yeen/shared-contracts';
+import type { BroadcastOwnerSessionStatus } from '@yeen/shared-contracts';
 import { BroadcastSessionStore } from '../src/domains/broadcast/infrastructure/stores/broadcast-session.store';
 import { BroadcastSession } from '../src/domains/broadcast/domain/entities/broadcast-session.entity';
 import { StreamService } from '../src/domains/stream/application/services/stream.service';
@@ -119,17 +116,66 @@ export function createStreamService(
       return {
         mediaId,
         segmentSeconds: 6,
+        totalSegments: 8,
+        totalDurationSeconds: 48,
         readyThroughSeconds: 84,
         contiguousReadySegments: 14,
         highestReadySegment: 13,
         nextSegmentIndex: 14,
       };
     }),
-    streamHlsFile: jest.fn((sessionId: string, fileName: string, response: Response) => {
-      response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      response.status(200).send(`#EXTM3U\n# ${sessionId}/${fileName}`);
-    }),
+    streamHlsFile: jest.fn(
+      (
+        sessionId: string,
+        fileName: string,
+        response: Response,
+        _accessToken?: string,
+        manifestTransform?: (manifest: string) => string,
+      ) => {
+        const manifest = buildTestManifest(sessionId, fileName);
+        response.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        response
+          .status(200)
+          .send(manifestTransform ? manifestTransform(manifest) : manifest);
+      },
+    ),
+    streamHlsCompatibilitySegment: jest.fn(
+      (_sessionId: string, _fileName: string, response: Response) => {
+        response.setHeader('Content-Type', 'video/mp2t');
+        response.status(200).send(Buffer.from('muxed transport stream'));
+      },
+    ),
   } as unknown as StreamService;
+}
+
+function buildTestManifest(sessionId: string, fileName: string): string {
+  if (fileName === 'master.m3u8') {
+    return [
+      '#EXTM3U',
+      `# ${sessionId}/${fileName}`,
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Primary",DEFAULT=YES,AUTOSELECT=YES,URI="audio.m3u8"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=5000000,AUDIO="audio"',
+      'video.m3u8',
+      '',
+    ].join('\n');
+  }
+
+  const segmentPrefix =
+    fileName === 'video.m3u8' ? 'segment' : fileName.replace('.m3u8', '');
+
+  return [
+    '#EXTM3U',
+    `# ${sessionId}/${fileName}`,
+    '#EXT-X-TARGETDURATION:6',
+    '#EXT-X-MEDIA-SEQUENCE:0',
+    '#EXT-X-PLAYLIST-TYPE:VOD',
+    ...Array.from({ length: 8 }, (_, index) => [
+      '#EXTINF:6.000,',
+      `${segmentPrefix}_${String(index).padStart(5, '0')}.ts`,
+    ]).flat(),
+    '#EXT-X-ENDLIST',
+    '',
+  ].join('\n');
 }
 
 export function createSubtitleListingService(): SubtitleListingService {

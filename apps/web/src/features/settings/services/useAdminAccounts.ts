@@ -24,6 +24,7 @@ export interface AdminAccountsState {
   updatingAccountId: string | null;
   accountsMessage: string | null;
   accountsError: string | null;
+  activityError: string | null;
   refreshAccounts: () => Promise<void>;
   refreshActivity: () => Promise<void>;
   createAccount: (input: {
@@ -72,6 +73,7 @@ export function useAdminAccounts(
   const [updatingAccountId, setUpdatingAccountId] = useState<string | null>(null);
   const [accountsMessage, setAccountsMessage] = useState<string | null>(null);
   const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const refreshAccounts = useCallback(async () => {
     if (!enabled) {
@@ -97,12 +99,13 @@ export function useAdminAccounts(
     }
 
     setLoadingActivity(true);
+    setActivityError(null);
 
     try {
       const response = await listAdminAccountsActivity(token);
       setActivityOverview(response);
     } catch (loadFailure) {
-      setAccountsError(
+      setActivityError(
         toApiErrorMessage(loadFailure, 'Failed to load account activity.'),
       );
       setActivityOverview(null);
@@ -111,15 +114,16 @@ export function useAdminAccounts(
     }
   }, [enabled, token]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
-    void Promise.all([refreshAccounts(), refreshActivity()]);
+    const timeoutId = window.setTimeout(() => {
+      void Promise.all([refreshAccounts(), refreshActivity()]);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [enabled, refreshAccounts, refreshActivity]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function createAccountAction(input: {
     email: string;
@@ -327,6 +331,7 @@ export function useAdminAccounts(
     updatingAccountId,
     accountsMessage,
     accountsError,
+    activityError,
     refreshAccounts,
     refreshActivity,
     createAccount: createAccountAction,

@@ -1,4 +1,15 @@
 import Hls, { type HlsConfig } from 'hls.js';
+import {
+  readStoredAccessToken,
+  withAccessToken,
+} from '../../../shared/services/api-core';
+
+export function withLatestHlsAccessToken(
+  url: string,
+  token = readStoredAccessToken(),
+): string {
+  return token ? withAccessToken(url, token) : url;
+}
 
 /**
  * Builds the Hls.js config used by the player.
@@ -9,6 +20,12 @@ import Hls, { type HlsConfig } from 'hls.js';
  * segment's PTS is non-zero (common with MPEG-TS output).
  */
 const HLS_CONFIG: Partial<HlsConfig> = {
+  xhrSetup(xhr, url) {
+    const authenticatedUrl = withLatestHlsAccessToken(url);
+    if (authenticatedUrl !== url) {
+      xhr.open('GET', authenticatedUrl, true);
+    }
+  },
   startPosition: -1,
   lowLatencyMode: false,
   manifestLoadingMaxRetry: 8,
@@ -32,6 +49,6 @@ const HLS_CONFIG: Partial<HlsConfig> = {
   highBufferWatchdogPeriod: 2,
 };
 
-export function createHlsInstance(): Hls {
-  return new Hls(HLS_CONFIG);
+export function createHlsInstance(overrides: Partial<HlsConfig> = {}): Hls {
+  return new Hls({ ...HLS_CONFIG, ...overrides });
 }

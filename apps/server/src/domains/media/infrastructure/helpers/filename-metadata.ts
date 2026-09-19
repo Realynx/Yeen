@@ -70,127 +70,101 @@ export function parseSeasonEpisode(
   fileName: string,
   relativePath?: string,
 ): SeasonEpisodeResult {
-  // Strongest signal: explicit S##E## (also handles S01.E02 / S01_E02).
-  const standard = fileName.match(/s(\d{1,2})[\s._-]?e(\d{1,3})/i);
-  if (standard) {
-    return {
-      seasonNumber: toInt(standard[1]),
-      episodeNumber: toInt(standard[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
-  // ##x## form (`1x02`, `01x002`).
-  const altMatch = fileName.match(/\b(\d{1,2})x(\d{1,3})\b/i);
-  if (altMatch) {
-    return {
-      seasonNumber: toInt(altMatch[1]),
-      episodeNumber: toInt(altMatch[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
-  // "Season 1 Episode 2" / "Season.01.Episode.02"
-  const verboseSeason = fileName.match(
-    /season[\s._-]*(\d{1,2})[\s._-]+episode[\s._-]*(\d{1,3})/i,
-  );
-  if (verboseSeason) {
-    return {
-      seasonNumber: toInt(verboseSeason[1]),
-      episodeNumber: toInt(verboseSeason[2]),
-      isAbsoluteEpisode: false,
-    };
-  }
-
   const seasonFromPath = parseSeasonFromPath(relativePath ?? '');
+  const parsers = [
+    () => parseStrongSeasonEpisode(fileName),
+    () => parseEpisodeOnly(fileName, seasonFromPath),
+    () => parseAnimeEpisode(fileName, seasonFromPath),
+    () => parseSeasonContextEpisode(fileName, seasonFromPath),
+  ];
+  for (const parse of parsers) {
+    const result = parse();
+    if (result) return result;
+  }
+  return seasonFromPath === null ? EMPTY : seasonOnly(seasonFromPath);
+}
 
-  // Episode-only markers in the filename: E02, Ep02, Episode 2.
-  const episodeOnly = fileName.match(
+function parseStrongSeasonEpisode(
+  fileName: string,
+): SeasonEpisodeResult | null {
+  const patterns = [
+    /s(\d{1,2})[\s._-]?e(\d{1,3})/i,
+    /\b(\d{1,2})x(\d{1,3})\b/i,
+    /season[\s._-]*(\d{1,2})[\s._-]+episode[\s._-]*(\d{1,3})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = fileName.match(pattern);
+    if (match) return seasonEpisode(toInt(match[1]), toInt(match[2]), false);
+  }
+  return null;
+}
+
+function parseEpisodeOnly(
+  fileName: string,
+  seasonFromPath: number | null,
+): SeasonEpisodeResult | null {
+  const match = fileName.match(
     /(?:^|[\s._-])(?:e|ep|episode)[\s._-]*(\d{1,3})\b/i,
   );
-  if (episodeOnly) {
-    const episodeNumber = toInt(episodeOnly[1]);
-    return {
-      seasonNumber: seasonFromPath,
-      episodeNumber,
-      isAbsoluteEpisode: seasonFromPath === null,
-    };
-  }
+  return match
+    ? seasonEpisode(seasonFromPath, toInt(match[1]), seasonFromPath === null)
+    : null;
+}
 
-  // Anime-style "Show Name - 01" / "Show Name - 245". We require the
-  // dash to be surrounded by whitespace-equivalent separators so we
-  // don't grab hyphenated title words ("Spider-Man-2002"). Numbers
-  // here are treated as absolute episodes — long-running anime like
-  // Naruto routinely hit 3-digit episodes and the dash convention is
-  // the strongest anime-numbering signal we have.
-  const animeDash = fileName.match(
-    /[\s._]-[\s._](\d{1,4})(?:v\d+)?(?:[\s._-]|$)/,
+function parseAnimeEpisode(
+  fileName: string,
+  seasonFromPath: number | null,
+): SeasonEpisodeResult | null {
+  const match = fileName.match(/[\s._]-[\s._](\d{1,4})(?:v\d+)?(?:[\s._-]|$)/);
+  const value = match ? toInt(match[1]) : null;
+  if (value === null || value <= 0 || value >= 2000) return null;
+  return seasonEpisode(seasonFromPath, value, seasonFromPath === null);
+}
+
+function parseSeasonContextEpisode(
+  fileName: string,
+  seasonFromPath: number | null,
+): SeasonEpisodeResult | null {
+  if (seasonFromPath === null) return null;
+  return (
+    parseLeadingEpisode(fileName, seasonFromPath) ??
+    parseCompactContextEpisode(fileName, seasonFromPath)
   );
-  if (animeDash) {
-    const value = toInt(animeDash[1]);
-    if (value !== null && value > 0 && value < 2000) {
-      return {
-        seasonNumber: seasonFromPath,
-        episodeNumber: value,
-        isAbsoluteEpisode: seasonFromPath === null,
-      };
-    }
-  }
+}
 
-  // Filename that starts with a bare episode number ("05 - Title.mkv",
-  // "05.Title.mkv"). Only consider this when a season folder told us
-  // we're inside a show, otherwise a movie like "300.mkv" would be
-  // misread as an episode.
-  if (seasonFromPath !== null) {
-    const leadingNumber = fileName.match(/^(\d{1,3})(?:[\s._-]|$)/);
-    if (leadingNumber) {
-      const value = toInt(leadingNumber[1]);
-      if (value !== null && value > 0) {
-        return {
-          seasonNumber: seasonFromPath,
-          episodeNumber: value,
-          isAbsoluteEpisode: false,
-        };
-      }
-    }
-  }
+function parseLeadingEpisode(
+  fileName: string,
+  season: number,
+): SeasonEpisodeResult | null {
+  const match = fileName.match(/^(\d{1,3})(?:[\s._-]|$)/);
+  const value = match ? toInt(match[1]) : null;
+  return value !== null && value > 0
+    ? seasonEpisode(season, value, false)
+    : null;
+}
 
-  // Compact 3/4-digit numbering ("Show.105" = S01E05, "Show.1205" = S12E05).
-  // Only attempted when we already know it's a show context (folder
-  // hinted a season) so we don't accidentally interpret a year-adjacent
-  // number as an episode.
-  if (seasonFromPath !== null) {
-    const compactMatch = fileName.match(/(?:^|[\s._-])(\d{3,4})(?:[\s._-]|$)/);
-    if (compactMatch) {
-      const value = toInt(compactMatch[1]);
-      if (value !== null && value >= 100 && value < 5000) {
-        const compact = splitCompactEpisode(value);
-        if (compact && compact.seasonNumber === seasonFromPath) {
-          return compact;
-        }
-        // Fall through: use folder season + the trailing digits as the
-        // episode index.
-        return {
-          seasonNumber: seasonFromPath,
-          episodeNumber: value % 100 || value,
-          isAbsoluteEpisode: false,
-        };
-      }
-    }
-  }
+function parseCompactContextEpisode(
+  fileName: string,
+  season: number,
+): SeasonEpisodeResult | null {
+  const match = fileName.match(/(?:^|[\s._-])(\d{3,4})(?:[\s._-]|$)/);
+  const value = match ? toInt(match[1]) : null;
+  if (value === null || value < 100 || value >= 5000) return null;
+  const compact = splitCompactEpisode(value);
+  if (compact?.seasonNumber === season) return compact;
+  return seasonEpisode(season, value % 100 || value, false);
+}
 
-  // No filename signal — but the folder told us a season. Surface that
-  // so the caller can still group episodes by season even if the
-  // episode index is unknown.
-  if (seasonFromPath !== null) {
-    return {
-      seasonNumber: seasonFromPath,
-      episodeNumber: null,
-      isAbsoluteEpisode: false,
-    };
-  }
+function seasonEpisode(
+  seasonNumber: number | null,
+  episodeNumber: number | null,
+  isAbsoluteEpisode: boolean,
+): SeasonEpisodeResult {
+  return { seasonNumber, episodeNumber, isAbsoluteEpisode };
+}
 
-  return EMPTY;
+function seasonOnly(seasonNumber: number): SeasonEpisodeResult {
+  return seasonEpisode(seasonNumber, null, false);
 }
 
 /**

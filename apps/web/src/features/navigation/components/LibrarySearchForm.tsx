@@ -1,5 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
-import type { FocusEventHandler, FormEventHandler, KeyboardEventHandler } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+  type FocusEventHandler,
+  type FormEventHandler,
+  type KeyboardEventHandler,
+} from 'react';
 import { useClientExperience } from '../services/clientExperience';
 
 interface LibrarySearchFormProps {

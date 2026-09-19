@@ -5,42 +5,51 @@ export function resolveDurationSeconds(
   fileSizeBytes: number,
 ): number {
   const directDuration = parseNumber(payload.format?.duration);
-  if (directDuration && directDuration > 0) {
-    return directDuration;
-  }
+  if (isPositive(directDuration)) return directDuration;
 
   const formatTagDuration = parseDurationFromTagCollection(
     payload.format?.tags,
   );
-  if (formatTagDuration && formatTagDuration > 0) {
-    return formatTagDuration;
-  }
+  if (isPositive(formatTagDuration)) return formatTagDuration;
 
-  for (const stream of payload.streams ?? []) {
-    const streamTagDuration = parseDurationFromTagCollection(stream.tags);
-    if (streamTagDuration && streamTagDuration > 0) {
-      return streamTagDuration;
-    }
-  }
+  const streamDuration = findStreamTagDuration(payload.streams ?? []);
+  if (streamDuration !== null) return streamDuration;
 
-  const formatBitRate = parseNumber(payload.format?.bit_rate);
+  return estimateDurationFromBitrate(payload.format?.bit_rate, fileSizeBytes);
+}
+
+function isPositive(value: number | null): value is number {
+  return value !== null && value > 0;
+}
+
+function findStreamTagDuration(
+  streams: NonNullable<FfprobePayload['streams']>,
+): number | null {
+  for (const stream of streams) {
+    const duration = parseDurationFromTagCollection(stream.tags);
+    if (isPositive(duration)) return duration;
+  }
+  return null;
+}
+
+function estimateDurationFromBitrate(
+  bitRateText: string | undefined,
+  fileSizeBytes: number,
+): number {
+  const bitRate = parseNumber(bitRateText);
   if (
-    formatBitRate &&
-    formatBitRate > 0 &&
-    Number.isFinite(fileSizeBytes) &&
-    fileSizeBytes > 0
+    !isPositive(bitRate) ||
+    !Number.isFinite(fileSizeBytes) ||
+    fileSizeBytes <= 0
   ) {
-    const estimatedSeconds = (fileSizeBytes * 8) / formatBitRate;
-    if (
-      Number.isFinite(estimatedSeconds) &&
-      estimatedSeconds > 30 &&
-      estimatedSeconds < 12 * 60 * 60
-    ) {
-      return estimatedSeconds;
-    }
+    return 0;
   }
-
-  return 0;
+  const estimatedSeconds = (fileSizeBytes * 8) / bitRate;
+  return Number.isFinite(estimatedSeconds) &&
+    estimatedSeconds > 30 &&
+    estimatedSeconds < 12 * 60 * 60
+    ? estimatedSeconds
+    : 0;
 }
 
 export function parseFrameRate(value?: string): number | null {

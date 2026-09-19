@@ -51,6 +51,17 @@ export function MetadataCommitReportSection({
         </div>
       </div>
 
+      {report.integrationWarnings?.length ? (
+        <div className="commit-status commit-status-error" role="alert">
+          <strong>Add-on protection warning</strong>
+          <ul>
+            {report.integrationWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {report.changes.length > 0 ? (
         <div className="commit-changes-list">
           {report.changes.map((change) => (

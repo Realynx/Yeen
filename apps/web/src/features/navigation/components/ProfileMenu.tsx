@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../../shared/services/types';
-import { canAccessTorrentTools, isAdminRole } from '../../auth/services/roles';
+import { isAdminRole } from '../../auth/services/roles';
 import { useBroadcast } from '../../broadcast/services/broadcast-context';
 import { useDialogLayer } from '../hooks/useDialogLayer';
+import { AddonProfileNavigationEntries } from '../../addons/runtime/AddonHostSlots';
 import './profile-menu.css';
 
 interface ProfileMenuProps {
@@ -18,7 +19,6 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const isAdmin = isAdminRole(user.role);
-  const hasTorrentAccess = canAccessTorrentTools(user.role);
 
   useDialogLayer({
     open,
@@ -82,9 +82,9 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
     navigate('/admin/accounts');
   }
 
-  function goToDownloadControl() {
+  function goToAddons() {
     setOpen(false);
-    navigate('/admin/downloads');
+    navigate('/admin/add-ons');
   }
 
   function handleSignOut() {
@@ -109,6 +109,8 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
         onClick={() => setOpen((previous) => !previous)}
         aria-label="Open profile menu"
         aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls="profile-menu-dropdown"
       >
         {user.avatarDataUrl ? (
           <img
@@ -122,47 +124,56 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
       </button>
 
       {open ? (
-        <div ref={dropdownRef} className="profile-dropdown" role="menu" aria-label="Profile menu">
+        <div
+          ref={dropdownRef}
+          id="profile-menu-dropdown"
+          className="profile-dropdown"
+          role="menu"
+          aria-label="Profile menu"
+        >
           <div className="profile-dropdown-header">
             <strong>{user.name}</strong>
             <span>{user.email}</span>
           </div>
 
-          <button className="profile-dropdown-item" type="button" onClick={goToSettings}>
+          <button className="profile-dropdown-item" type="button" role="menuitem" onClick={goToSettings}>
             User Settings
           </button>
 
           {isAdmin ? (
-            <button className="profile-dropdown-item" type="button" onClick={goToSystemSettings}>
+            <button className="profile-dropdown-item" type="button" role="menuitem" onClick={goToSystemSettings}>
               System Settings
             </button>
           ) : null}
 
           {isAdmin ? (
-            <button className="profile-dropdown-item" type="button" onClick={goToAccountsAccess}>
+            <button className="profile-dropdown-item" type="button" role="menuitem" onClick={goToAccountsAccess}>
               Accounts & Access
             </button>
           ) : null}
 
-          {hasTorrentAccess ? (
-            <button className="profile-dropdown-item" type="button" onClick={goToDownloadControl}>
-              Download Control
+          {isAdmin ? (
+            <button className="profile-dropdown-item" type="button" role="menuitem" onClick={goToAddons}>
+              Add-ons
             </button>
           ) : null}
+
+          <AddonProfileNavigationEntries onNavigate={() => setOpen(false)} />
 
           <button
             className={`profile-dropdown-item broadcast-toggle ${broadcast.isEnabled ? 'is-live' : ''}`}
             type="button"
+            role="menuitemcheckbox"
             onClick={handleToggleBroadcast}
             disabled={broadcast.updatingEnabled || broadcast.loading}
-            aria-pressed={broadcast.isEnabled}
+            aria-checked={broadcast.isEnabled}
           >
             {broadcast.updatingEnabled
               ? 'Updating Broadcast Mode...'
               : `Broadcast Mode: ${broadcast.isEnabled ? 'On' : 'Off'} (${viewerCountLabel})`}
           </button>
 
-          <button className="profile-dropdown-item" type="button" onClick={handleSignOut}>
+          <button className="profile-dropdown-item" type="button" role="menuitem" onClick={handleSignOut}>
             Sign Out
           </button>
         </div>

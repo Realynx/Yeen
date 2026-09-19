@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import {
   getMediaScanProgress,
   getMediaLocations,
@@ -7,12 +12,18 @@ import {
   setMediaLocations,
   toApiErrorMessage,
 } from '../../shared/services/api';
-import type { MediaScanProgress } from '../../shared/services/types';
+import type {
+  MediaLibraryLocation,
+  MediaLibraryType,
+  MediaScanProgress,
+} from '../../shared/services/types';
 
 export interface MediaLocationsState {
-  locations: string[];
+  locations: MediaLibraryLocation[];
   newLocation: string;
   setNewLocation: Dispatch<SetStateAction<string>>;
+  newLocationType: MediaLibraryType;
+  setNewLocationType: Dispatch<SetStateAction<MediaLibraryType>>;
   locationsSource: 'settings' | 'env' | null;
   loadingLocations: boolean;
   savingLocations: boolean;
@@ -32,8 +43,10 @@ export function useMediaLocations(
   token: string,
   enabled: boolean,
 ): MediaLocationsState {
-  const [locations, setLocations] = useState<string[]>([]);
+  const [locations, setLocations] = useState<MediaLibraryLocation[]>([]);
   const [newLocation, setNewLocation] = useState('');
+  const [newLocationType, setNewLocationType] =
+    useState<MediaLibraryType>('video');
   const [locationsSource, setLocationsSource] = useState<'settings' | 'env' | null>(
     null,
   );
@@ -88,7 +101,10 @@ export function useMediaLocations(
       try {
         const response = await getMediaLocations(token);
         if (!cancelled) {
-          setLocations(response.locations);
+          setLocations(
+            response.libraryLocations ??
+              response.locations.map((path) => ({ path, type: 'video' })),
+          );
           setLocationsSource(response.source);
         }
       } catch (loadFailure) {
@@ -193,14 +209,17 @@ export function useMediaLocations(
 
     if (
       locations.some(
-        (location) => location.toLowerCase() === candidate.toLowerCase(),
+        (location) => location.path.toLowerCase() === candidate.toLowerCase(),
       )
     ) {
       setLocationError('That media location is already listed.');
       return;
     }
 
-    setLocations((previous) => [...previous, candidate]);
+    setLocations((previous) => [
+      ...previous,
+      { path: candidate, type: newLocationType },
+    ]);
     setNewLocation('');
     setLocationError(null);
     setLocationMessage(null);
@@ -228,7 +247,7 @@ export function useMediaLocations(
 
     try {
       const response = await setMediaLocations(token, locations);
-      setLocations(response.locations);
+      setLocations(response.libraryLocations);
       setLocationsSource(response.source);
       setLocationMessage('Media locations saved.');
     } catch (saveFailure) {
@@ -249,7 +268,12 @@ export function useMediaLocations(
     setScanMessage(null);
 
     try {
-      const response = await scanLibrary(token, undefined, locations);
+      const response = await scanLibrary(
+        token,
+        undefined,
+        undefined,
+        locations,
+      );
       applyScanProgress(response);
     } catch (scanFailure) {
       setScanError(toApiErrorMessage(scanFailure, 'Library scan failed.'));
@@ -260,6 +284,8 @@ export function useMediaLocations(
     locations,
     newLocation,
     setNewLocation,
+    newLocationType,
+    setNewLocationType,
     locationsSource,
     loadingLocations,
     savingLocations,

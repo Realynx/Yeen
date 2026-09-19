@@ -5,7 +5,6 @@ import type {
   MediaItem,
   PlaybackAudioTrack,
   SubtitleTrack,
-  TorrentItem,
 } from '../../shared/services/types';
 import type { HlsLevelOption, SubtitleFontPreset } from '../services/playerUtils';
 import type { PlaybackSource } from '../services/usePlayerData';
@@ -17,6 +16,7 @@ interface PlayerTrackState {
   selectedAudioStreamIndex: number | null;
   subtitleTracks: SubtitleTrack[];
   selectedSubtitleId: string;
+  subtitleTrackRevision: number;
   extractingSubtitleTrackId: string | null;
 }
 
@@ -68,7 +68,6 @@ interface PlayerDiagnosticsState {
   hlsSessionStatsError: string | null;
   hlsSessionStatsUpdatedAt: string | null;
   videoTelemetry: PlayerVideoTelemetry | null;
-  downloadingTorrent: TorrentItem | null;
   toggleNerdStats: () => void;
 }
 
@@ -136,6 +135,7 @@ export function PlayerPanelContainer({
       activeSubtitle={playbackState.activeSubtitle}
       subtitleTracks={trackState.subtitleTracks}
       selectedSubtitleId={trackState.selectedSubtitleId}
+      subtitleTrackRevision={trackState.subtitleTrackRevision}
       onSelectSubtitle={selectionHandlers.onSelectSubtitle}
       onExtractSubtitle={selectionHandlers.onExtractSubtitle}
       extractingSubtitleTrackId={trackState.extractingSubtitleTrackId}
@@ -186,7 +186,6 @@ export function PlayerPanelContainer({
       hlsSessionStatsError={diagnostics.hlsSessionStatsError}
       hlsSessionStatsUpdatedAt={diagnostics.hlsSessionStatsUpdatedAt}
       videoTelemetry={diagnostics.videoTelemetry}
-      downloadingTorrent={diagnostics.downloadingTorrent}
       onRevealControls={runtime.revealControls}
       onHideControls={runtime.hideControls}
       onToggleNerdStats={diagnostics.toggleNerdStats}

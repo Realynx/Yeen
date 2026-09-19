@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { PlayerPreparingPanel } from '../components/PlayerPreparingPanel';
 import { PlayerPlaybackPage } from './PlayerPlaybackPage';
 import type { User } from '../../shared/services/types';
+import { AddonPreparationBoundary } from '../../addons/runtime/AddonHostSlots';
 
 interface PlayerPageProps {
   token: string;
@@ -21,35 +20,16 @@ export function PlayerPage({
   headerContent = null,
   isTvMode = false,
 }: PlayerPageProps) {
-  const { mediaId = '' } = useParams();
-  const [searchParams] = useSearchParams();
-
-  const prepareHash = searchParams.get('prepareHash')?.trim() ?? '';
-  const fallbackTitle = searchParams.get('title') ?? '';
-
-  if (prepareHash) {
-    return (
-      <PlayerPreparingPanel
+  return (
+    <AddonPreparationBoundary headerContent={headerContent}>
+      <PlayerPlaybackPage
         token={token}
         user={user}
         onLogout={onLogout}
-        mediaId={mediaId}
-        hash={prepareHash}
-        fallbackTitle={fallbackTitle}
         hideTopNav={hideTopNav}
         headerContent={headerContent}
+        isTvMode={isTvMode}
       />
-    );
-  }
-
-  return (
-    <PlayerPlaybackPage
-      token={token}
-      user={user}
-      onLogout={onLogout}
-      hideTopNav={hideTopNav}
-      headerContent={headerContent}
-      isTvMode={isTvMode}
-    />
+    </AddonPreparationBoundary>
   );
 }

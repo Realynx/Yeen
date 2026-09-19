@@ -1,0 +1,30 @@
+services:
+  yeen:
+    image: ${YEEN_IMAGE:-ghcr.io/realynx/yeen}:${YEEN_VERSION:-latest}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${YEEN_ENV_FILE:-.env}
+    environment:
+      YEEN_DEPLOYMENT_MODE: docker
+    ports:
+      - "${YEEN_HTTP_PORT:-4000}:4000"
+    volumes:
+      - yeen-shared:/opt/yeen/shared
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "http://127.0.0.1:4000/api/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  yeen-shared:
+    name: ${YEEN_DATA_VOLUME:-yeen-shared}

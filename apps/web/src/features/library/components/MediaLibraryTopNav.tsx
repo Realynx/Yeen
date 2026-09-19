@@ -4,6 +4,8 @@ import { BroadcastNavBadge } from '../../broadcast/components/BroadcastNavBadge'
 import { LibrarySearchForm } from '../../navigation/components/LibrarySearchForm';
 import { ProfileMenu } from '../../navigation/components/ProfileMenu';
 import type { User } from '../../shared/services/types';
+import { AddonNavigationEntries } from '../../addons/runtime/AddonHostSlots';
+import { MediaModeSwitchSlot } from '../../media-mode/components/MediaModeSwitcher';
 
 interface MediaLibraryTopNavProps {
   query: string;
@@ -32,8 +34,11 @@ export function MediaLibraryTopNav({
           <NavLink className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')} end to="/">Home</NavLink>
           <NavLink className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')} to="/library">Library</NavLink>
           <NavLink className={({ isActive }) => (isActive ? 'browse-link active' : 'browse-link')} to="/explore">Explore</NavLink>
+          <AddonNavigationEntries placement="browse" user={user} />
         </nav>
       </div>
+
+      <MediaModeSwitchSlot placement="top-nav" />
 
       <div data-tv-focus-lane-id="top-nav-broadcast">
         <BroadcastNavBadge />

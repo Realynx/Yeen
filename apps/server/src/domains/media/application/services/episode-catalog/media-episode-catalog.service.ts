@@ -14,6 +14,10 @@ import {
   resolveEpisodeCatalogLink,
   normalizeOptionalString,
 } from './media-episode-catalog-helpers';
+import type {
+  RemoteSeriesEpisodeCatalogResult,
+  RemoteSeriesSeason,
+} from '../media.service.types';
 
 export interface EpisodeCatalogRemoteCandidate {
   provider: 'tmdb' | 'jikan';
@@ -57,6 +61,7 @@ interface NormalizedSeriesCatalogEpisode {
   episodeNumber: number;
   title: string;
   synopsis: string | null;
+  airedAt: string | null;
 }
 
 interface NormalizedSeriesEpisodeCatalog {
@@ -65,6 +70,11 @@ interface NormalizedSeriesEpisodeCatalog {
   totalEpisodeCount: number;
   episodes: NormalizedSeriesCatalogEpisode[];
   updatedAt: string;
+}
+
+interface LocalEpisodeCollection {
+  seasonNumbers: Set<number>;
+  episodesBySeason: Map<number, Set<number>>;
 }
 
 @Injectable()
@@ -123,27 +133,8 @@ export class MediaEpisodeCatalogService {
       catalogLink,
     );
 
-    const seasonNumbers = new Set<number>();
-    const localEpisodesBySeason = new Map<number, Set<number>>();
-
-    for (const item of seriesItems) {
-      if (item.type !== 'show') {
-        continue;
-      }
-
-      const episode = coercePositiveEpisodeNumber(item.episodeNumber);
-      if (!episode) {
-        continue;
-      }
-
-      const season = coerceSeasonForTracker(item.seasonNumber);
-      seasonNumbers.add(season);
-
-      const existingSeasonEpisodes =
-        localEpisodesBySeason.get(season) ?? new Set<number>();
-      existingSeasonEpisodes.add(episode);
-      localEpisodesBySeason.set(season, existingSeasonEpisodes);
-    }
+    const { seasonNumbers, episodesBySeason: localEpisodesBySeason } =
+      this.collectLocalEpisodes(seriesItems);
 
     const seasonsSeen = [...seasonNumbers].sort((left, right) => left - right);
     const expectedSeasons = [
@@ -212,13 +203,106 @@ export class MediaEpisodeCatalogService {
       missingSeasons,
       missingEpisodes,
       updatedAt: catalog.updatedAt,
-      note:
-        expectedSeasons.length > 1
-          ? `Multiple seasons are tracked against the linked ${sourceLabel} episode catalog.`
-          : extraSeasons.length > 0
-            ? `Local episodes include seasons outside the linked ${sourceLabel} catalog.`
-            : null,
+      note: this.episodeTrackerNote(
+        expectedSeasons.length,
+        extraSeasons.length,
+        sourceLabel,
+      ),
     };
+  }
+
+  async getRemoteSeriesEpisodeCatalog(
+    current: MediaItem,
+  ): Promise<RemoteSeriesEpisodeCatalogResult> {
+    if (!current.isRemote || current.type !== 'show') {
+      return {
+        status: 'unavailable',
+        reason: 'Episode catalogs are only available for remote series.',
+        source: null,
+      };
+    }
+
+    const catalogLink = resolveEpisodeCatalogLink(current);
+    if (!catalogLink) {
+      return {
+        status: 'unavailable',
+        reason: 'This remote series is not linked to an episode provider.',
+        source: null,
+      };
+    }
+
+    const catalog = await this.loadSeriesEpisodeCatalog(catalogLink);
+    if (!catalog || catalog.episodes.length === 0) {
+      return {
+        status: 'unavailable',
+        reason: `Episodes could not be loaded from ${remoteSourceLabel(catalogLink.source)}.`,
+        source: null,
+      };
+    }
+
+    const seasonsByNumber = new Map<number, RemoteSeriesSeason>();
+    for (const episode of catalog.episodes) {
+      const season = seasonsByNumber.get(episode.seasonNumber) ?? {
+        seasonNumber: episode.seasonNumber,
+        episodes: [],
+      };
+      season.episodes.push(episode);
+      seasonsByNumber.set(episode.seasonNumber, season);
+    }
+
+    const seasons = [...seasonsByNumber.values()]
+      .sort((left, right) => left.seasonNumber - right.seasonNumber)
+      .map((season) => ({
+        ...season,
+        episodes: season.episodes.sort(
+          (left, right) => left.episodeNumber - right.episodeNumber,
+        ),
+      }));
+
+    return {
+      status: 'ready',
+      source: catalog.source,
+      sourceLabel: remoteSourceLabel(catalog.source),
+      providerId: catalog.providerId,
+      totalEpisodeCount: Math.max(
+        catalog.totalEpisodeCount,
+        catalog.episodes.length,
+      ),
+      seasons,
+      updatedAt: catalog.updatedAt,
+    };
+  }
+
+  private collectLocalEpisodes(items: MediaItem[]): LocalEpisodeCollection {
+    const collection: LocalEpisodeCollection = {
+      seasonNumbers: new Set<number>(),
+      episodesBySeason: new Map<number, Set<number>>(),
+    };
+    for (const item of items) {
+      if (item.type !== 'show') continue;
+      const episode = coercePositiveEpisodeNumber(item.episodeNumber);
+      if (!episode) continue;
+      const season = coerceSeasonForTracker(item.seasonNumber);
+      collection.seasonNumbers.add(season);
+      const episodes = collection.episodesBySeason.get(season) ?? new Set();
+      episodes.add(episode);
+      collection.episodesBySeason.set(season, episodes);
+    }
+    return collection;
+  }
+
+  private episodeTrackerNote(
+    expectedSeasonCount: number,
+    extraSeasonCount: number,
+    sourceLabel: string,
+  ): string | null {
+    if (expectedSeasonCount > 1) {
+      return `Multiple seasons are tracked against the linked ${sourceLabel} episode catalog.`;
+    }
+    if (extraSeasonCount > 0) {
+      return `Local episodes include seasons outside the linked ${sourceLabel} catalog.`;
+    }
+    return null;
   }
 
   reconcileEpisodeCatalogLink(
@@ -316,6 +400,7 @@ export class MediaEpisodeCatalogService {
             episodeNumber: episode.episodeNumber,
             title: episode.title,
             synopsis: episode.synopsis,
+            airedAt: episode.airedAt,
           })),
           updatedAt: catalog.updatedAt,
         };
@@ -337,6 +422,7 @@ export class MediaEpisodeCatalogService {
           episodeNumber: episode.episodeNumber,
           title: episode.title,
           synopsis: episode.synopsis,
+          airedAt: episode.airedAt,
         })),
         updatedAt: catalog.updatedAt,
       };

@@ -128,71 +128,52 @@ export function isPromptCancellation(error: unknown): boolean {
     && error.name === 'AbortError';
 }
 
+const DOM_CAST_ERROR_MESSAGES: Record<string, string> = {
+  NotFoundError: 'No castable devices were found on your network.',
+  InvalidStateError: 'The stream is not ready for casting yet. Try again in a moment.',
+  NotAllowedError: 'The browser blocked the cast picker. Click the player once, then try cast again.',
+  NotSupportedError: 'This browser cannot open a cast picker for this stream format.',
+  SecurityError: 'Casting requires a secure browsing context (HTTPS or localhost).',
+};
+
+const CAST_CODE_ERROR_MESSAGES: Record<string, string> = {
+  receiver_unavailable: 'No castable devices were found on your network.',
+  api_not_initialized: 'Cast services are still initializing. Wait a moment and try again.',
+  timeout: 'Timed out while contacting cast devices. Try again.',
+  extension_missing: 'Google Cast sender components are unavailable in this browser profile.',
+  channel_error: 'Could not connect to the selected cast device. Try again.',
+  session_error: 'Cast session could not be started. Try again.',
+};
+
+function domCastErrorMessage(error: DOMException, fallback: string): string {
+  const knownMessage = DOM_CAST_ERROR_MESSAGES[error.name];
+  if (knownMessage) return knownMessage;
+  const detail = error.message?.trim();
+  if (detail) return `${fallback} (${error.name}: ${detail})`;
+  return error.name?.trim() ? `${fallback} (${error.name})` : fallback;
+}
+
+function codedCastErrorMessage(error: object): string | null {
+  const code = String((error as { code?: string | number }).code ?? '').toLowerCase();
+  return CAST_CODE_ERROR_MESSAGES[code] ?? null;
+}
+
 export function toCastErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof DOMException) {
-    if (error.name === 'NotFoundError') {
-      return 'No castable devices were found on your network.';
-    }
-
-    if (error.name === 'InvalidStateError') {
-      return 'The stream is not ready for casting yet. Try again in a moment.';
-    }
-
-    if (error.name === 'NotAllowedError') {
-      return 'The browser blocked the cast picker. Click the player once, then try cast again.';
-    }
-
-    if (error.name === 'NotSupportedError') {
-      return 'This browser cannot open a cast picker for this stream format.';
-    }
-
-    if (error.name === 'SecurityError') {
-      return 'Casting requires a secure browsing context (HTTPS or localhost).';
-    }
-
-    const domMessage = error.message?.trim();
-    if (domMessage) {
-      return `${fallback} (${error.name}: ${domMessage})`;
-    }
-
-    if (error.name?.trim()) {
-      return `${fallback} (${error.name})`;
-    }
+    return domCastErrorMessage(error, fallback);
   }
 
   if (error && typeof error === 'object') {
-    const maybeError = error as { code?: string | number };
+    const maybeError = error as { code?: string | number; message?: unknown };
     const code = String(maybeError.code ?? '').toLowerCase();
-
-    if (code === 'receiver_unavailable') {
-      return 'No castable devices were found on your network.';
-    }
-
-    if (code === 'api_not_initialized') {
-      return 'Cast services are still initializing. Wait a moment and try again.';
-    }
-
-    if (code === 'timeout') {
-      return 'Timed out while contacting cast devices. Try again.';
-    }
-
-    if (code === 'extension_missing') {
-      return 'Google Cast sender components are unavailable in this browser profile.';
-    }
-
-    if (code === 'channel_error') {
-      return 'Could not connect to the selected cast device. Try again.';
-    }
-
-    if (code === 'session_error') {
-      return 'Cast session could not be started. Try again.';
-    }
+    const knownMessage = codedCastErrorMessage(error);
+    if (knownMessage) return knownMessage;
 
     if (code === 'invalid_parameter') {
       return 'The cast request was rejected by the browser. Reload and try again.';
     }
 
-    const message = (maybeError as { message?: unknown }).message;
+    const message = maybeError.message;
     if (typeof message === 'string' && message.trim()) {
       return `${fallback} (${message.trim()})`;
     }
@@ -239,6 +220,10 @@ export function inferCastContentType(sourceUrl: string, sourceIsHls: boolean): s
   }
 
   return 'video/mp4';
+}
+
+export function toAbsoluteCastMediaUrl(sourceUrl: string): string {
+  return new URL(sourceUrl, window.location.href).toString();
 }
 
 export function isGoogleCastCancellation(error: unknown): boolean {

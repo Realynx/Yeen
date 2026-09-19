@@ -1,4 +1,13 @@
-import { createTvVariant } from '../../navigation/components/createTvVariant';
-import { SystemSettingsPage } from './SystemSettingsPage';
+import { TvPageShell } from '../../navigation/components/TvPageShell';
+import {
+  SystemSettingsPage,
+  type SystemSettingsPageProps,
+} from './SystemSettingsPage';
 
-export const SystemSettingsPageTv = createTvVariant(SystemSettingsPage, 'system-settings');
+export function SystemSettingsPageTv(props: SystemSettingsPageProps) {
+  return (
+    <TvPageShell pageKey="system-settings">
+      <SystemSettingsPage {...props} experience="tv" />
+    </TvPageShell>
+  );
+}
