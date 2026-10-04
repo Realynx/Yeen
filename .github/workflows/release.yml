@@ -106,12 +106,7 @@ jobs:
             "artifacts/android/yeen-android-debug-${RELEASE_TAG}.apk"
 
       - name: Build signed Android release APK
-        if: >-
-          github.event_name == 'push' &&
-          secrets.YEEN_ANDROID_KEYSTORE_BASE64 != '' &&
-          secrets.YEEN_ANDROID_KEYSTORE_PASSWORD != '' &&
-          secrets.YEEN_ANDROID_KEY_ALIAS != '' &&
-          secrets.YEEN_ANDROID_KEY_PASSWORD != ''
+        if: github.event_name == 'push'
         shell: bash
         env:
           YEEN_ANDROID_KEYSTORE_BASE64: ${{ secrets.YEEN_ANDROID_KEYSTORE_BASE64 }}
@@ -119,6 +114,16 @@ jobs:
           YEEN_ANDROID_KEY_ALIAS: ${{ secrets.YEEN_ANDROID_KEY_ALIAS }}
           YEEN_ANDROID_KEY_PASSWORD: ${{ secrets.YEEN_ANDROID_KEY_PASSWORD }}
         run: |
+          for signing_key in \
+            YEEN_ANDROID_KEYSTORE_BASE64 \
+            YEEN_ANDROID_KEYSTORE_PASSWORD \
+            YEEN_ANDROID_KEY_ALIAS \
+            YEEN_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!signing_key:-}" ]]; then
+              printf 'Skipping signed APK: release signing credentials are incomplete.\n'
+              exit 0
+            fi
+          done
           signing_file="$RUNNER_TEMP/yeen-android-release.jks"
           trap 'rm -f "$signing_file"' EXIT
           umask 077
