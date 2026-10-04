@@ -7,12 +7,13 @@ bash -n \
   "$SCRIPT_DIR/install-lib.sh" \
   "$SCRIPT_DIR/install.sh" \
   "$SCRIPT_DIR/install-release.sh" \
+  "$SCRIPT_DIR/install-compose.sh" \
   "$SCRIPT_DIR/../updater/yeen-apply-staged-update.sh" \
   "$SCRIPT_DIR/tests/install-layout.test.sh"
 
-node --check "$SCRIPT_DIR/addon-deploy.mjs"
 
 bash "$SCRIPT_DIR/install.sh" --help >/dev/null
+bash "$SCRIPT_DIR/tests/install-compose.test.sh"
 bash "$SCRIPT_DIR/tests/install-layout.test.sh"
 (
   cd "$SCRIPT_DIR/../.."

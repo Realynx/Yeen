@@ -571,13 +571,10 @@ export class BroadcastService {
     const existing = viewers.get(viewerKey);
     const isPrivateAddress =
       this.ipLocationService?.isPrivateAddress(ipAddress) ?? true;
-    const smoothedSpeed =
-      speedBytesPerSecond === null
-        ? (existing?.networkSpeedBytesPerSecond ?? null)
-        : existing?.networkSpeedBytesPerSecond
-          ? existing.networkSpeedBytesPerSecond * 0.7 +
-            speedBytesPerSecond * 0.3
-          : speedBytesPerSecond;
+    const smoothedSpeed = smoothNetworkSpeed(
+      existing?.networkSpeedBytesPerSecond ?? null,
+      speedBytesPerSecond,
+    );
 
     viewers.set(viewerKey, {
       ipAddress,
@@ -748,4 +745,12 @@ function normalizeViewerIpAddress(value?: string | null): string {
 
 function normalizeViewerUserAgent(value?: string | null): string {
   return value?.trim().slice(0, 512) ?? '';
+}
+
+function smoothNetworkSpeed(
+  previous: number | null,
+  sample: number | null,
+): number | null {
+  if (sample === null) return previous;
+  return previous ? previous * 0.7 + sample * 0.3 : sample;
 }

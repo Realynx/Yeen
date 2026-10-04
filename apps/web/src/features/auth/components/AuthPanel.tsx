@@ -1,10 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import {
-  confirmPasswordReset,
   getConfiguredApiBaseUrl,
   getRuntimeApiBaseUrl,
   login,
-  requestPasswordReset,
   setRuntimeApiBaseUrl,
   toApiErrorMessage,
 } from '../../shared/services/api';
@@ -18,11 +16,10 @@ interface AuthPanelProps {
   showServerConfiguration?: boolean;
 }
 
-type AuthMode = 'login' | 'request-reset' | 'confirm-reset';
+type AuthMode = 'login' | 'request-reset';
 const AUTH_COPY: Record<AuthMode, { title: string; subline: string }> = {
   login: { title: 'Welcome Back', subline: 'Sign in with your existing account. New accounts require an invite link from an existing user.' },
-  'request-reset': { title: 'Reset Password', subline: 'Enter your account email and Yeen will generate a short-lived reset link.' },
-  'confirm-reset': { title: 'Choose New Password', subline: 'Enter the reset token from your link and choose a new password.' },
+  'request-reset': { title: 'Password recovery', subline: 'Contact your Yeen administrator. They can reset your password from Accounts in Settings.' },
 };
 
 function AuthMessages({ notice, error }: { notice?: string | null; error: string | null }) {
@@ -54,15 +51,10 @@ export function AuthPanel({
   showServerConfiguration = false,
 }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(
-    initialResetToken ? 'confirm-reset' : 'login',
+    initialResetToken ? 'request-reset' : 'login',
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [resetToken, setResetToken] = useState(initialResetToken ?? '');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
-  const [resetPath, setResetPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [apiBaseInput, setApiBaseInput] = useState(() =>
@@ -114,70 +106,14 @@ export function AuthPanel({
     }
   }
 
-  async function handleRequestReset(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    setResetPath(null);
-
-    try {
-      const response = await requestPasswordReset({ email });
-      setNotice(response.message);
-      setResetPath(response.resetPath);
-    } catch (requestError) {
-      setError(
-        toApiErrorMessage(requestError, 'Unable to create a reset link.'),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleConfirmReset(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-
-    if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match.');
-      setBusy(false);
-      return;
-    }
-
-    try {
-      const response = await confirmPasswordReset({
-        token: resetToken,
-        newPassword,
-      });
-      setNotice(response.message);
-      setPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setMode('login');
-      window.history.replaceState({}, '', '/');
-    } catch (confirmError) {
-      setError(
-        toApiErrorMessage(confirmError, 'Unable to reset your password.'),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   function openLoginMode() {
     setMode('login');
     setError(null);
-    setNotice(null);
-    setResetPath(null);
   }
 
   function openRequestResetMode() {
     setMode('request-reset');
     setError(null);
-    setNotice(null);
-    setResetPath(null);
   }
 
   return (
@@ -220,7 +156,7 @@ export function AuthPanel({
               />
             </label>
 
-            <AuthMessages notice={notice} error={error} />
+            <AuthMessages error={error} />
 
             <button
               type="submit"
@@ -254,94 +190,9 @@ export function AuthPanel({
           ) : null}
 
           {mode === 'request-reset' ? (
-            <form onSubmit={handleRequestReset} className="auth-form">
-            <label>
-              Email
-              <input
-                required
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@domain.com"
-              />
-            </label>
-
-            <AuthMessages notice={notice} error={error} />
-            {resetPath ? (
-              <a className="auth-reset-link" href={resetPath}>
-                Open reset link
-              </a>
-            ) : null}
-            <button type="submit" disabled={busy}>
-              {busy ? 'Generating...' : 'Generate Reset Link'}
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={openLoginMode}
-              disabled={busy}
-            >
+            <button type="button" className="ghost-button" onClick={openLoginMode}>
               Back to sign in
             </button>
-            </form>
-          ) : null}
-
-          {mode === 'confirm-reset' ? (
-            <form onSubmit={handleConfirmReset} className="auth-form">
-            <label>
-              Reset Token
-              <input
-                required
-                type="text"
-                autoComplete="one-time-code"
-                value={resetToken}
-                onChange={(event) => setResetToken(event.target.value)}
-                minLength={16}
-                maxLength={256}
-              />
-            </label>
-            <label>
-              New Password
-              <input
-                required
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                minLength={8}
-                maxLength={72}
-                placeholder="At least 8 characters"
-              />
-            </label>
-            <label>
-              Confirm New Password
-              <input
-                required
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                minLength={8}
-                maxLength={72}
-                placeholder="Repeat your new password"
-              />
-            </label>
-
-            <AuthMessages error={error} />
-
-            <button type="submit" disabled={busy}>
-              {busy ? 'Resetting...' : 'Reset Password'}
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={openLoginMode}
-              disabled={busy}
-            >
-              Back to sign in
-            </button>
-            </form>
           ) : null}
         </div>
       </section>

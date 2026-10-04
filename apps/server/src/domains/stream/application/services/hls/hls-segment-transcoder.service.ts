@@ -2,8 +2,10 @@ import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { rename, rm } from 'node:fs/promises';
-import { buildSegmentFfmpegArgs } from '../../../infrastructure/hls/hls-ffmpeg-args';
-import type { VideoEncoder } from '../../../infrastructure/hls/hls-ffmpeg-args';
+import {
+  buildSegmentFfmpegArgs,
+  type VideoEncoder,
+} from '../../../infrastructure/hls/hls-ffmpeg-args';
 
 export interface SegmentTranscodeRequest {
   mediaKind: 'video' | 'audio';

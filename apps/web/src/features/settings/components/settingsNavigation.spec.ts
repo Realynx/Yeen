@@ -7,7 +7,7 @@ import {
 
 const downloaderNavigation: RegisteredAddonNavigation = {
   addon: {
-    id: 'com.yeen.downloader',
+    id: 'com.example.catalog',
     name: 'Downloader Add-on',
     version: '1.0.0',
   },

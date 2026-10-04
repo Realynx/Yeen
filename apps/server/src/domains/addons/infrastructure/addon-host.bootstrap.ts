@@ -1,6 +1,7 @@
+import { writeJsonAtomic } from '../../core/infrastructure/shared/atomic-json-file';
 import type { Type } from '@nestjs/common';
 import { createRequire, Module as NodeModule } from 'node:module';
-import { mkdir, open, readFile, rename } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { delimiter, dirname, join, relative, resolve } from 'node:path';
 import type {
   AddonRecord,
@@ -64,7 +65,7 @@ export async function bootstrapAddonHost(): Promise<AddonHostBootstrapResult> {
       }
     }
   }
-  if (changed) await writeRegistryAtomic(registryPath, state);
+  if (changed) await writeJsonAtomic(registryPath, state);
   return { nestModules, moduleAddonIds };
 }
 
@@ -119,7 +120,7 @@ export async function quarantineAddonHostModules(
       quarantineActive(record);
     }
   }
-  if (changed) await writeRegistryAtomic(registryPath, state);
+  if (changed) await writeJsonAtomic(registryPath, state);
   return { nestModules, moduleAddonIds };
 }
 
@@ -217,22 +218,6 @@ async function readRegistry(path: string): Promise<AddonRegistryState | null> {
     if (isObject(error) && error.code === 'ENOENT') return null;
     throw error;
   }
-}
-
-async function writeRegistryAtomic(
-  path: string,
-  state: AddonRegistryState,
-): Promise<void> {
-  await mkdir(resolve(path, '..'), { recursive: true });
-  const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`;
-  const handle = await open(tempPath, 'wx', 0o600);
-  try {
-    await handle.writeFile(`${JSON.stringify(state, null, 2)}\n`, 'utf8');
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-  await rename(tempPath, path);
 }
 
 function assertInside(root: string, candidate: string): void {

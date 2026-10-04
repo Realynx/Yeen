@@ -1,11 +1,12 @@
+import { writeJsonAtomic } from '../../core/infrastructure/shared/atomic-json-file';
 import {
   Injectable,
   InternalServerErrorException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { mkdir, open, readFile, rename } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { mkdir, readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import type {
   AddonRecord,
   AddonRegistryState,
@@ -185,16 +186,7 @@ export class AddonRegistryStore implements OnModuleInit {
   }
 
   private async writeAtomic(state: AddonRegistryState): Promise<void> {
-    await mkdir(dirname(this.registryPath), { recursive: true });
-    const tempPath = `${this.registryPath}.${process.pid}.${Date.now()}.tmp`;
-    const handle = await open(tempPath, 'wx', 0o600);
-    try {
-      await handle.writeFile(`${JSON.stringify(state, null, 2)}\n`, 'utf8');
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    await rename(tempPath, this.registryPath);
+    await writeJsonAtomic(this.registryPath, state);
   }
 }
 

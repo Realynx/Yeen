@@ -7,10 +7,17 @@ services:
       - ${YEEN_ENV_FILE:-.env}
     environment:
       YEEN_DEPLOYMENT_MODE: docker
+      PORT: "4000"
     ports:
       - "${YEEN_HTTP_PORT:-4000}:4000"
     volumes:
       - yeen-shared:/opt/yeen/shared
+      - type: bind
+        source: ${YEEN_MEDIA_PATH:-/srv/media}
+        target: /media
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test:
         [

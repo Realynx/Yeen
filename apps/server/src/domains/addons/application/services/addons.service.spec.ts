@@ -162,7 +162,7 @@ function createAddonZip(signingKey: KeyObject | null, version: string): Buffer {
   const manifest = Buffer.from(
     JSON.stringify({
       schemaVersion: 1,
-      id: 'com.yeen.downloader',
+      id: 'com.example.catalog',
       name: 'Downloader Add-on',
       version,
       addonApiVersion: 1,

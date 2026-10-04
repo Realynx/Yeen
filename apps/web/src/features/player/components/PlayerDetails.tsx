@@ -1,12 +1,9 @@
+import { BroadcastViewerList } from "./BroadcastViewerList";
 import type {
   BroadcastViewerStatus,
   MediaItem,
 } from "../../shared/services/types";
-import {
-  formatClock,
-  formatDurationLabel,
-  toResolutionBadge,
-} from "../services/playerUtils";
+import { PlayerMetadataBadges } from "./PlayerMetadataBadges";
 
 interface PlayerDetailsProps {
   media: MediaItem | null;
@@ -16,40 +13,6 @@ interface PlayerDetailsProps {
   onOpenDetails?: () => void;
   broadcastEnabled?: boolean;
   broadcastViewers?: BroadcastViewerStatus[];
-}
-
-function formatNetworkSpeed(bytesPerSecond: number | null): string {
-  if (!bytesPerSecond || bytesPerSecond <= 0) {
-    return "Measuring…";
-  }
-
-  const megabitsPerSecond = (bytesPerSecond * 8) / 1_000_000;
-  if (megabitsPerSecond >= 1) {
-    return `${megabitsPerSecond.toFixed(megabitsPerSecond >= 10 ? 0 : 1)} Mbps`;
-  }
-
-  return `${Math.max(1, Math.round(bytesPerSecond / 1000))} KB/s`;
-}
-
-function formatViewerLocation(viewer: BroadcastViewerStatus): string {
-  if (viewer.ipLocationStatus === "private") return "Local or private network";
-  if (viewer.ipLocationStatus === "pending") return "Locating IP…";
-  if (viewer.ipLocationStatus === "unavailable" || !viewer.ipLocation) {
-    return "Approximate location unavailable";
-  }
-
-  const location = [
-    viewer.ipLocation.city,
-    viewer.ipLocation.region,
-    viewer.ipLocation.country,
-  ].filter((part, index, all): part is string =>
-    Boolean(part && all.indexOf(part) === index),
-  );
-  const locationLabel =
-    location.join(", ") || "Approximate location unavailable";
-  return viewer.ipLocation.organization
-    ? `${locationLabel} · ${viewer.ipLocation.organization}`
-    : locationLabel;
 }
 
 export function PlayerDetails({
@@ -89,19 +52,7 @@ export function PlayerDetails({
           ) : null}
         </div>
 
-        <div className="player-details-badges">
-          <span>
-            {toResolutionBadge(media.width ?? null, media.height ?? null)}
-          </span>
-          <span>
-            {(media.extension ?? "").replace(".", "").toUpperCase() ||
-              "Unknown"}
-          </span>
-          <span>{formatDurationLabel(totalDuration)}</span>
-          <span>
-            {formatClock(Math.max(totalDuration - currentTime, 0))} left
-          </span>
-        </div>
+        <PlayerMetadataBadges media={media} totalDuration={totalDuration} currentTime={currentTime} />
 
         <p className="player-details-description">
           {description
@@ -110,37 +61,7 @@ export function PlayerDetails({
         </p>
 
         {broadcastEnabled ? (
-          <section
-            className="player-broadcast-viewers"
-            aria-label="Broadcast viewers"
-          >
-            <div className="player-broadcast-viewers-heading">
-              <h3>Broadcast viewers</h3>
-              <span>{broadcastViewers.length} active</span>
-            </div>
-            {broadcastViewers.length > 0 ? (
-              <ul>
-                {broadcastViewers.map((viewer) => (
-                  <li key={`${viewer.clientType}:${viewer.ipAddress}`}>
-                    <span className="player-broadcast-viewer-ip">
-                      {viewer.ipAddress}
-                    </span>
-                    <span className="player-broadcast-viewer-client">
-                      {viewer.clientType === "vlc" ? "VLC / HLS" : "Web"}
-                    </span>
-                    <span className="player-broadcast-viewer-speed">
-                      {formatNetworkSpeed(viewer.networkSpeedBytesPerSecond)}
-                    </span>
-                    <span className="player-broadcast-viewer-location">
-                      {formatViewerLocation(viewer)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No active viewers yet.</p>
-            )}
-          </section>
+          <BroadcastViewerList viewers={broadcastViewers} />
         ) : null}
       </div>
 

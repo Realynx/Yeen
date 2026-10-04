@@ -293,14 +293,7 @@ export function MediaDetailsPage({
     error: remoteSeriesCatalogError,
   } = useRemoteSeriesEpisodeCatalog({ token, current });
 
-  const requestedSeason = Number.parseInt(searchParams.get("season") ?? "", 10);
-  const requestedEpisode = Number.parseInt(searchParams.get("episode") ?? "", 10);
-  const focusedSeason = Number.isInteger(requestedSeason) && requestedSeason > 0
-    ? requestedSeason
-    : null;
-  const focusedEpisode = Number.isInteger(requestedEpisode) && requestedEpisode > 0
-    ? requestedEpisode
-    : null;
+  const { focusedSeason, focusedEpisode } = readEpisodeFocus(searchParams);
   const remoteActiveSeason = resolveRemoteActiveSeason(
     focusedSeason,
     selectedSeason,
@@ -397,23 +390,12 @@ export function MediaDetailsPage({
     );
   }
 
-  const heroBackdropImageUrl = backdropImageUrl(current);
-  const isRemoteItem = Boolean(current.isRemote);
-  const isAdmin = isAdminRole(user.role);
-  const canEditMetadata = isAdmin && !isRemoteItem;
-  const detailsPageClassName = hideTopNav
-    ? "media-details-page details-page-v2 phone-details-page"
-    : "media-details-page details-page-v2";
+  const { heroBackdropImageUrl, isRemoteItem, isAdmin, canEditMetadata, detailsPageClassName, backdropStyle } =
+    detailsPresentation(current, user, hideTopNav);
   return (
     <main
       className={detailsPageClassName}
-      style={
-        heroBackdropImageUrl
-          ? {
-              ["--details-backdrop" as string]: `url("${heroBackdropImageUrl}")`,
-            }
-          : undefined
-      }
+      style={backdropStyle}
     >
       <div className="details-backdrop" aria-hidden="true" />
 
@@ -534,4 +516,28 @@ export function MediaDetailsPage({
       />
     </main>
   );
+}
+
+function readEpisodeFocus(searchParams: URLSearchParams) {
+  const positiveInteger = (key: string): number | null => {
+    const value = Number.parseInt(searchParams.get(key) ?? '', 10);
+    return Number.isInteger(value) && value > 0 ? value : null;
+  };
+  return { focusedSeason: positiveInteger('season'), focusedEpisode: positiveInteger('episode') };
+}
+
+function detailsPresentation(current: MediaItem, user: User, hideTopNav: boolean) {
+  const heroBackdropImageUrl = backdropImageUrl(current);
+  const isRemoteItem = Boolean(current.isRemote);
+  const isAdmin = isAdminRole(user.role);
+  return {
+    heroBackdropImageUrl, isRemoteItem, isAdmin,
+    canEditMetadata: isAdmin && !isRemoteItem,
+    detailsPageClassName: hideTopNav
+      ? 'media-details-page details-page-v2 phone-details-page'
+      : 'media-details-page details-page-v2',
+    backdropStyle: heroBackdropImageUrl
+      ? { ['--details-backdrop' as string]: `url("${heroBackdropImageUrl}")` }
+      : undefined,
+  };
 }

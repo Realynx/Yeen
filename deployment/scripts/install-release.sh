@@ -23,8 +23,6 @@ ORIGINAL_UPDATE_UNIT_BACKUP=""
 ORIGINAL_UPDATE_UNIT_EXISTED=0
 ORIGINAL_UPDATE_SUDOERS_BACKUP=""
 ORIGINAL_UPDATE_SUDOERS_EXISTED=0
-ORIGINAL_ENV_BACKUP=""
-BUNDLED_ADDON=0
 CUTOVER_STARTED=0
 DEPLOYMENT_SUCCEEDED=0
 DATA_BACKUP_COMPLETED=0
@@ -41,8 +39,6 @@ rendered_update_unit=""
 rendered_update_sudoers=""
 rendered_updater_dir=""
 validation_update_unit=""
-bundled_addon_archive=""
-bundled_addon_metadata=""
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=deployment/scripts/install-lib.sh
@@ -110,10 +106,6 @@ service_health() {
     curl --insecure --fail --silent --show-error --max-time 5 \
       "https://127.0.0.1:$port/" >/dev/null || return 1
   fi
-  if [[ "$BUNDLED_ADDON" -eq 1 ]]; then
-    "$NODE_BINARY" "$release/deployment/scripts/addon-deploy.mjs" verify \
-      "$bundled_addon_metadata" "$addons_real" >/dev/null || return 1
-  fi
 }
 
 runtime_data_exists() {
@@ -139,11 +131,6 @@ restore_previous_release() {
       log "ERROR: add-on restore failed; the old service will remain stopped."
       rollback_ok=0
     fi
-  fi
-  if [[ -n "$ORIGINAL_ENV_BACKUP" && -f "$ORIGINAL_ENV_BACKUP" ]]; then
-    cp "$ORIGINAL_ENV_BACKUP" "$ROOT/shared/yeen.env" || rollback_ok=0
-    chown root:"$SERVICE_GROUP" "$ROOT/shared/yeen.env" || rollback_ok=0
-    chmod 0640 "$ROOT/shared/yeen.env" || rollback_ok=0
   fi
   if [[ "$rollback_ok" -eq 1 ]]; then
     chown -R "$SERVICE_USER:$SERVICE_GROUP" "$data_real" "$addons_real" || rollback_ok=0
@@ -286,7 +273,7 @@ while IFS= read -r entry; do
   [[ "$entry" != /* && "$entry" != *'..'* && "$entry" != *'\\'* ]] \
     || fail "Unsafe archive entry: $entry"
   case "$entry" in
-    data|data/*|apps/server/data|apps/server/data/*|.env|*/.env|*.sqlite|*.sqlite-wal|*.sqlite-shm)
+    private/*|.private/*|deployment/addons/*|*.yeen-addon.zip|data|data/*|apps/server/data|apps/server/data/*|.env|*/.env|*.sqlite|*.sqlite-wal|*.sqlite-shm)
       fail "Archive contains forbidden runtime state: $entry" ;;
   esac
 done <<<"$archive_entries"
@@ -342,15 +329,6 @@ partial=""
 PARTIAL_CREATED=0
 RELEASE_CREATED=1
 
-bundled_addon_archive="$release/deployment/addons/downloader.yeen-addon.zip"
-bundled_addon_metadata="$release/deployment/addons/downloader-deploy.json"
-if [[ -f "$bundled_addon_archive" && -f "$bundled_addon_metadata" ]]; then
-  [[ -f "$release/deployment/scripts/addon-deploy.mjs" ]] \
-    || fail "Bundled add-on deployment helper is missing."
-  BUNDLED_ADDON=1
-elif [[ -e "$bundled_addon_archive" || -e "$bundled_addon_metadata" ]]; then
-  fail "Bundled add-on archive and metadata must be present together."
-fi
 
 if [[ -L "$ROOT/current" ]]; then
   old_target="$(readlink -f "$ROOT/current")"
@@ -363,13 +341,6 @@ backup_dir="$ROOT/shared/backups/${attempt_id}"
 ORIGINAL_UNIT_BACKUP="$ROOT/shared/backups/${attempt_id}.previous-unit"
 ORIGINAL_UPDATE_UNIT_BACKUP="$ROOT/shared/backups/${attempt_id}.previous-update-unit"
 ORIGINAL_UPDATE_SUDOERS_BACKUP="$ROOT/shared/backups/${attempt_id}.previous-update-sudoers"
-if [[ "$BUNDLED_ADDON" -eq 1 ]]; then
-  mkdir -p "$backup_dir"
-  chmod 0700 "$backup_dir"
-  ORIGINAL_ENV_BACKUP="$ROOT/shared/backups/${attempt_id}.previous-env"
-  cp "$ROOT/shared/yeen.env" "$ORIGINAL_ENV_BACKUP"
-  chmod 0600 "$ORIGINAL_ENV_BACKUP"
-fi
 if [[ -f "$UNIT_PATH" ]]; then
   cp "$UNIT_PATH" "$ORIGINAL_UNIT_BACKUP"
   chmod 0600 "$ORIGINAL_UNIT_BACKUP"
@@ -423,14 +394,6 @@ if [[ "$has_runtime_data" -eq 1 ]]; then
 fi
 yeen_backup_directory_snapshot "$addons_real" "$backup_dir/addons"
 ADDON_BACKUP_COMPLETED=1
-if [[ "$BUNDLED_ADDON" -eq 1 ]]; then
-  log "Staging the bundled Downloader Add-on for the coordinated restart."
-  "$NODE_BINARY" "$release/deployment/scripts/addon-deploy.mjs" stage \
-    "$release" "$bundled_addon_archive" "$bundled_addon_metadata" \
-    "$addons_real" "$ROOT/shared/yeen.env"
-  chown -R "$SERVICE_USER:$SERVICE_GROUP" "$addons_real"
-  chmod 0750 "$addons_real"
-fi
 
 if [[ -n "$old_target" ]]; then
   atomic_link "$old_target" "$ROOT/previous"

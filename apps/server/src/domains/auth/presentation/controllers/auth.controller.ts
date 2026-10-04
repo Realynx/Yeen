@@ -17,11 +17,9 @@ import { AuthService } from '../../application/services/auth.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { ChangePasswordDto } from '../../application/dto/change-password.dto';
 import { ClaimTvPairingCodeDto } from '../../application/dto/claim-tv-pairing-code.dto';
-import { ConfirmPasswordResetDto } from '../../application/dto/confirm-password-reset.dto';
 import { CreateAdminAccountDto } from '../../application/dto/create-admin-account.dto';
 import { LoginDto } from '../../application/dto/login.dto';
 import { PollTvPairingDto } from '../../application/dto/poll-tv-pairing.dto';
-import { RequestPasswordResetDto } from '../../application/dto/request-password-reset.dto';
 import { RequestTvPairingDto } from '../../application/dto/request-tv-pairing.dto';
 import { ResetAccountPasswordDto } from '../../application/dto/reset-account-password.dto';
 import { RegisterDto } from '../../application/dto/register.dto';
@@ -51,13 +49,13 @@ export class AuthController {
   }
 
   @Post('password-reset/request')
-  requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
-    return this.authPasswordResetService.requestPasswordReset(dto);
+  requestPasswordReset() {
+    return this.authPasswordResetService.requestPasswordReset();
   }
 
   @Post('password-reset/confirm')
-  confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
-    return this.authPasswordResetService.confirmPasswordReset(dto);
+  confirmPasswordReset() {
+    return this.authPasswordResetService.confirmPasswordReset();
   }
 
   @Post('tv/pairings')
