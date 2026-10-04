@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 import {
   assertReleaseSigningEnvironment,
@@ -111,28 +112,62 @@ test('audit rejects Android TV detection after the Capacitor WebView starts', ()
   assert.match(issues.join('\n'), /before Capacitor starts loading/);
 });
 
-test('release signing requires every credential and a readable keystore', async () => {
+const signingEnvironment = {
+  YEEN_ANDROID_KEYSTORE_PATH: path.resolve('fixtures', 'release.jks'),
+  YEEN_ANDROID_KEYSTORE_PASSWORD: 'store-secret',
+  YEEN_ANDROID_KEY_ALIAS: 'yeen',
+  YEEN_ANDROID_KEY_PASSWORD: 'key-secret',
+};
+
+test('release signing requires every credential', async () => {
   await assert.rejects(
     assertReleaseSigningEnvironment({}, async () => {}),
     /YEEN_ANDROID_KEYSTORE_PATH.*YEEN_ANDROID_KEY_PASSWORD/,
   );
+});
 
+test('release signing rejects relative paths before checking the filesystem', async () => {
+  let accessAttempted = false;
   await assert.rejects(
     assertReleaseSigningEnvironment({
-      YEEN_ANDROID_KEYSTORE_PATH: 'C:/missing.jks',
-      YEEN_ANDROID_KEYSTORE_PASSWORD: 'store-secret',
-      YEEN_ANDROID_KEY_ALIAS: 'yeen',
-      YEEN_ANDROID_KEY_PASSWORD: 'key-secret',
+      ...signingEnvironment,
+      YEEN_ANDROID_KEYSTORE_PATH: path.join('fixtures', 'release.jks'),
     }, async () => {
+      accessAttempted = true;
+    }),
+    /must be an absolute path/,
+  );
+  assert.equal(accessAttempted, false);
+});
+
+test('release signing requires a readable keystore at an absolute path', async () => {
+  let checkedPath;
+  await assert.rejects(
+    assertReleaseSigningEnvironment(signingEnvironment, async (candidate) => {
+      checkedPath = candidate;
       throw new Error('missing');
     }),
     /does not exist or is unreadable/,
   );
+  assert.equal(checkedPath, signingEnvironment.YEEN_ANDROID_KEYSTORE_PATH);
+});
+
+test('release signing accepts complete credentials and a readable keystore', async () => {
+  const result = await assertReleaseSigningEnvironment(signingEnvironment, async (candidate) => {
+    assert.equal(candidate, signingEnvironment.YEEN_ANDROID_KEYSTORE_PATH);
+  });
+  assert.deepEqual(result, {
+    keystorePath: signingEnvironment.YEEN_ANDROID_KEYSTORE_PATH,
+    keystorePassword: signingEnvironment.YEEN_ANDROID_KEYSTORE_PASSWORD,
+    keyAlias: signingEnvironment.YEEN_ANDROID_KEY_ALIAS,
+    keyPassword: signingEnvironment.YEEN_ANDROID_KEY_PASSWORD,
+  });
 });
 
 test('APK publication never falls back between debug and release outputs', async () => {
   const seen = [];
-  const debugPath = await findBuiltApk('C:/repo', 'debug', async (candidate) => {
+  const repoRoot = path.resolve('fixtures', 'repo');
+  const debugPath = await findBuiltApk(repoRoot, 'debug', async (candidate) => {
     seen.push(candidate);
   });
 
@@ -140,7 +175,7 @@ test('APK publication never falls back between debug and release outputs', async
   assert.equal(seen.length, 1);
 
   await assert.rejects(
-    findBuiltApk('C:/repo', 'release', async (candidate) => {
+    findBuiltApk(repoRoot, 'release', async (candidate) => {
       assert.match(candidate, /release[\\/]app-release\.apk$/);
       throw new Error('only unsigned output exists');
     }),
