@@ -1,3 +1,4 @@
+import { assertPublicDirectory } from './release/public-policy.mjs';
 import { access, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -67,6 +68,8 @@ const copyTasks = [
     path.resolve('docs/github-releases.md'),
     path.join(deployDir, 'docs/github-releases.md'),
   ),
+  cp(path.resolve('docs/installation-linux.md'), path.join(deployDir, 'docs/installation-linux.md')),
+  cp(path.resolve('docs/android.md'), path.join(deployDir, 'docs/android.md')),
   writeFile(
     path.join(deployDir, 'package.json'),
     `${JSON.stringify(deployPackageJson, null, 2)}\n`,
@@ -108,28 +111,6 @@ if (await pathExists(tvArtifactsSourcePath)) {
 
 await Promise.all(copyTasks);
 
-const bundledAddonArchive = process.env.YEEN_BUNDLED_ADDON_ARCHIVE?.trim();
-const bundledAddonMetadata = process.env.YEEN_BUNDLED_ADDON_METADATA?.trim();
-if (Boolean(bundledAddonArchive) !== Boolean(bundledAddonMetadata)) {
-  throw new Error(
-    'Bundled add-on archive and metadata must be provided together.',
-  );
-}
-if (bundledAddonArchive && bundledAddonMetadata) {
-  const bundledAddonDirectory = path.join(deployDir, 'deployment', 'addons');
-  await mkdir(bundledAddonDirectory, { recursive: true });
-  await Promise.all([
-    cp(
-      path.resolve(bundledAddonArchive),
-      path.join(bundledAddonDirectory, 'downloader.yeen-addon.zip'),
-    ),
-    cp(
-      path.resolve(bundledAddonMetadata),
-      path.join(bundledAddonDirectory, 'downloader-deploy.json'),
-    ),
-  ]);
-}
-
 const npmCommand = process.platform === 'win32' ? process.env.ComSpec ?? 'cmd.exe' : 'npm';
 const npmPrefixArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm'] : [];
 await execFileAsync(
@@ -148,26 +129,5 @@ await execFileAsync(
   { windowsHide: true },
 );
 
-const forbiddenEntries = [
-  path.join(deployDir, 'data'),
-  path.join(deployDir, 'apps/server/data'),
-  path.join(deployDir, '.env'),
-  path.join(deployDir, 'deployment/docker/.env'),
-  path.join(deployDir, 'apps/server/dist/domains/downloader-builtin'),
-  path.join(deployDir, 'apps/server/dist/domains/torrent'),
-  path.join(
-    deployDir,
-    'apps/server/dist/domains/media/application/services/torrent-search',
-  ),
-  path.join(
-    deployDir,
-    'apps/server/dist/domains/media/application/services/torrent-intake',
-  ),
-];
-for (const forbiddenPath of forbiddenEntries) {
-  if (await pathExists(forbiddenPath)) {
-    throw new Error(`Deployment artifact contains forbidden state: ${forbiddenPath}`);
-  }
-}
-
+await assertPublicDirectory(deployDir);
 console.log(`Prepared ${deployDir}`);

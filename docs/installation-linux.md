@@ -7,6 +7,19 @@ same release archive and install native npm dependencies on the host.
 
 ## Fresh install
 
+The default installation path downloads and verifies the latest GitHub Release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-github-release.sh | sudo bash
+```
+
+Requires curl, sudo, and systemd. The bootstrap installs unzip if missing;
+the verified installer provisions Node.js 22 and available FFmpeg packages.
+Prompts read from the terminal even when the script arrives through a pipe.
+No Docker or source checkout is needed.
+
+### Install a previously downloaded archive
+
 Download a release ZIP and its SHA-256 file, then run the packaged installer as
 root:
 
@@ -59,14 +72,6 @@ backed up. Code, the systemd unit, and updater integration files are rolled back
 if the new release fails health checks. Existing accounts, passwords, settings,
 watch progress, media metadata, add-ons, trust policy, and environment values
 are never replaced by an upgrade.
-
-A release produced by the private Proxmox deployment wrapper may contain a
-signed Downloader Add-on bundle. The installer snapshots add-on state and the
-production environment before staging that package, adds only its public
-publisher key, and requires its exact digest to be active during the same
-health check. Failure restores Core, add-on state, and the environment as one
-rollback unit. Ordinary public release archives contain no private add-on and
-retain the existing add-on state unchanged.
 
 Persistent paths:
 

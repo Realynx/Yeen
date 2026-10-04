@@ -6,16 +6,16 @@ runs package-manager scripts.
 ## 1. Generate an offline signing key
 
 ```sh
-npm run addon:keygen -- --out ../yeen-private-keys/downloader
+npm run addon:keygen -- --out ../yeen-private-keys/example-addon
 ```
 
-Keep `downloader.private.pem` private and offline. Add
-`downloader.public.pem` to Core Yeen's trusted publisher keys.
+Keep `example-addon.private.pem` private and offline. Add
+`example-addon.public.pem` to Core Yeen's trusted publisher keys.
 
 Format the public key for the server environment:
 
 ```sh
-npm run addon:trust-key -- --key ../yeen-private-keys/downloader.public.pem
+npm run addon:trust-key -- --key ../yeen-private-keys/example-addon.public.pem
 ```
 
 Copy the printed `YEEN_ADDON_TRUSTED_KEYS=...` line into Yeen's private
@@ -30,8 +30,8 @@ prebuilt entrypoint:
 ```json
 {
   "schemaVersion": 1,
-  "id": "com.example.yeen.downloader",
-  "name": "Downloader Add-on",
+  "id": "com.example.yeen.example-addon",
+  "name": "Example Add-on",
   "version": "1.0.0",
   "addonApiVersion": 1,
   "core": {
@@ -53,9 +53,9 @@ Bundle all non-host JavaScript dependencies into the entrypoints. Do not put a
 
 ```sh
 npm run addon:pack -- \
-  --source ../yeen-downloader-addon/prebuilt \
-  --key ../yeen-private-keys/downloader.private.pem \
-  --out ../yeen-downloader-addon/releases/downloader-1.0.0.yeen-addon.zip
+  --source ../yeen-example-addon-addon/prebuilt \
+  --key ../yeen-private-keys/example-addon.private.pem \
+  --out ../yeen-example-addon-addon/releases/example-addon-1.0.0.yeen-addon.zip
 ```
 
 The key ID defaults to the Ed25519 public-key fingerprint. Use `--key-id` only
@@ -65,9 +65,9 @@ when Core Yeen's trusted-key configuration assigns a different stable ID.
 
 ```sh
 npm run addon:pack -- \
-  --source ../yeen-downloader-addon/prebuilt \
+  --source ../yeen-example-addon-addon/prebuilt \
   --unsigned \
-  --out ../yeen-downloader-addon/releases/downloader-unsigned.yeen-addon.zip
+  --out ../yeen-example-addon-addon/releases/example-addon-unsigned.yeen-addon.zip
 ```
 
 Unsigned mode must be requested explicitly and cannot be combined with a key.

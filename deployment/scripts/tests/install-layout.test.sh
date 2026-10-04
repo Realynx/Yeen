@@ -28,7 +28,7 @@ yeen_validate_install_root /opt/yeen || fail_test 'standard deploy root was reje
 yeen_validate_install_root /var/www/yeen || fail_test 'standard legacy root was rejected'
 pass 'broad, relative, traversal, and non-canonical install roots are rejected'
 
-yeen_validate_tls_hostname yeen.fox || fail_test 'valid TLS hostname was rejected'
+yeen_validate_tls_hostname media.example.com || fail_test 'valid TLS hostname was rejected'
 if yeen_validate_tls_hostname 'bad/name'; then
   fail_test 'TLS hostname with a path separator was accepted'
 fi
@@ -149,14 +149,14 @@ pass 'fresh persistent layout is created without placeholder runtime state'
 
 tls_root="$TEST_ROOT/tls/root"
 mkdir -p "$tls_root/shared"
-yeen_ensure_self_signed_tls "$tls_root" "$(id -gn)" 'yeen.fox' \
+yeen_ensure_self_signed_tls "$tls_root" "$(id -gn)" 'media.example.com' \
   || fail_test 'self-signed TLS provisioning failed'
 [[ -f "$tls_root/shared/tls/yeen.crt" && -f "$tls_root/shared/tls/yeen.key" ]] \
   || fail_test 'self-signed TLS files were not persisted'
 openssl x509 -in "$tls_root/shared/tls/yeen.crt" -noout -ext subjectAltName \
-  | grep -q 'DNS:yeen.fox' || fail_test 'certificate SAN omitted the configured hostname'
+  | grep -q 'DNS:media.example.com' || fail_test 'certificate SAN omitted the configured hostname'
 tls_before="$(sha256sum "$tls_root/shared/tls/yeen.crt" "$tls_root/shared/tls/yeen.key")"
-yeen_ensure_self_signed_tls "$tls_root" "$(id -gn)" 'yeen.fox' \
+yeen_ensure_self_signed_tls "$tls_root" "$(id -gn)" 'media.example.com' \
   || fail_test 'idempotent TLS provisioning failed'
 [[ "$tls_before" == "$(sha256sum "$tls_root/shared/tls/yeen.crt" "$tls_root/shared/tls/yeen.key")" ]] \
   || fail_test 'existing TLS identity was unexpectedly rotated'

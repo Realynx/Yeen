@@ -178,6 +178,19 @@ extract_verified_installer() {
 main() {
   parse_arguments "$@"
   validate_inputs
+  # A minimal host may have curl but no unzip yet. The packaged installer
+  # installs the full runtime after the bootstrap verifies its archive.
+  if ! command -v unzip >/dev/null; then
+    [[ "${EUID:-$(id -u)}" -eq 0 ]] || fail 'Install unzip or run the bootstrap with sudo.'
+    if command -v apt-get >/dev/null; then
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates unzip
+    elif command -v dnf >/dev/null; then
+      dnf install -y ca-certificates unzip
+    else
+      fail 'Install unzip before running the bootstrap.'
+    fi
+  fi
   for command_name in curl sha256sum unzip sed awk; do
     command -v "$command_name" >/dev/null || fail "Missing required command: $command_name"
   done
@@ -221,6 +234,6 @@ main() {
   fi
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]:-}" == "$0" ]]; then
   main "$@"
 fi

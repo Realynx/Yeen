@@ -329,7 +329,7 @@ _Avoid_: TV Breakpoint
 > **Dev:** "Does a Track in Discover mean Yeen can play it?"
 > **Domain expert:** "No. It is a **Remote Track** until a local audio file backs it. **Music Discovery** does not acquire audio."
 >
-> **Dev:** "Should Spotify-to-YouTube matching live in Core Yeen?"
+> **Dev:** "Should source-specific acquisition live in Core Yeen?"
 > **Domain expert:** "No. Source matching and **Music Acquisition** belong to the **Downloader Add-on**; Core owns only provider-neutral discovery and add-on seams."
 >
 > **Dev:** "Can I install the Downloader Add-on by copying its files into Core Yeen?"

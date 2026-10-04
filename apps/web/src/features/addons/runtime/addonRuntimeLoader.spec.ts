@@ -24,14 +24,14 @@ describe('authenticated add-on entry URL', () => {
 
   it('resolves host-provided paths through a separately configured API origin', () => {
     const url = authenticatedAddonEntryUrl(
-      '/api/addons/runtime/com.yeen.downloader/digest/assets/web/index.js',
+      '/api/addons/runtime/com.example.catalog/digest/assets/web/index.js',
       'secret token',
       'http://localhost:5173/library',
       'http://localhost:4000/api',
     );
 
     expect(url).toBe(
-      'http://localhost:4000/api/addons/runtime/com.yeen.downloader/digest/assets/web/index.js?access_token=secret+token',
+      'http://localhost:4000/api/addons/runtime/com.example.catalog/digest/assets/web/index.js?access_token=secret+token',
     );
   });
 });

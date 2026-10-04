@@ -17,7 +17,7 @@ The first capability is useful to every Yeen installation. It supplies metadata,
 
 Core Yeen owns provider-neutral remote music contracts, remote search aggregation, local-library matching, discovery feeds, metadata-provider configuration, caching, and rate limiting. TheAudioDB is an optional Core remote metadata provider. Core supports TheAudioDB's documented default free API key and an Administrator-configured premium key.
 
-The Downloader Add-on owns music acquisition. This includes yt-dlp execution, YouTube and SoundCloud source search, Spotify metadata lookup and Spotify-to-YouTube candidate matching, download jobs, staging, cleanup, destination selection, and import into a configured Music Location. Spotify is a metadata and matching source; the add-on must identify the actual acquisition source rather than representing the operation as a Spotify download.
+The Downloader Add-on owns music acquisition. Source-specific integrations and operational workflows are maintained in the private implementation. Core does not document or orchestrate them.
 
 Core exposes only generic add-on seams:
 
@@ -31,7 +31,7 @@ Remote discovery never starts acquisition automatically. An authorized Account e
 ## Consequences
 
 - Music search and Discover remain useful when the Downloader Add-on is absent.
-- Core-only verification can omit every yt-dlp, Spotify, YouTube, and SoundCloud acquisition implementation.
+- Core-only verification can omit every acquisition implementation.
 - Additional metadata providers and acquisition add-ons can reuse the same provider-neutral contracts.
 - The UI can show local matches and source provenance before an Account chooses an add-on action.
 - The private add-on bears the operational and policy burden of external acquisition tools without coupling Core releases to them.

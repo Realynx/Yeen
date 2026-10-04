@@ -18,6 +18,16 @@ interface IpWhoResponse {
   connection?: unknown;
 }
 
+const PRIVATE_IPV4_RANGES = [
+  [0, 0, 255],
+  [10, 0, 255],
+  [127, 0, 255],
+  [169, 254, 254],
+  [172, 16, 31],
+  [192, 168, 168],
+  [100, 64, 127],
+] as const;
+
 @Injectable()
 export class BroadcastIpLocationService {
   private static readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -38,14 +48,9 @@ export class BroadcastIpLocationService {
 
     if (isIP(normalized) === 4) {
       const octets = normalized.split('.').map(Number);
-      return (
-        octets[0] === 10 ||
-        octets[0] === 127 ||
-        (octets[0] === 169 && octets[1] === 254) ||
-        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-        (octets[0] === 192 && octets[1] === 168) ||
-        (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127) ||
-        octets[0] === 0
+      return PRIVATE_IPV4_RANGES.some(
+        ([first, minimum, maximum]) =>
+          octets[0] === first && octets[1] >= minimum && octets[1] <= maximum,
       );
     }
 

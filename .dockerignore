@@ -1,0 +1,5 @@
+*
+!deployment/
+!deployment/docker/
+!deployment/docker/Dockerfile
+# Build images from the verified deploy/ packet, not a source checkout.

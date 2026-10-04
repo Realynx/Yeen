@@ -2,8 +2,7 @@ import { useCallback, useMemo, type ComponentProps } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { PlayerPanelContainer } from "../components/PlayerPanelContainer";
 import { PlayerPlaybackLayout } from "../components/PlayerPlaybackLayout";
-import type { SubtitleTrack } from "../../shared/services/types";
-import type { BroadcastViewerStatus } from "../../shared/services/types";
+import type { SubtitleTrack, BroadcastViewerStatus } from "../../shared/services/types";
 
 type PanelProps = ComponentProps<typeof PlayerPanelContainer>;
 type EpisodeNavigationProps = ComponentProps<

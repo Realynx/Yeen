@@ -207,30 +207,7 @@ export function buildPublicDirectRootManifest(
       continue;
     }
 
-    if (trimmed.startsWith('#EXT-X-MEDIA:') && trimmed.includes('URI="')) {
-      output.push(
-        line.replace(/URI="([^"\r\n]+)"/g, (_match, uri: string) => {
-          const resolved = toManifestUri(
-            `${directLiveBase}/${encodeURIComponent(uri)}`,
-            requestBaseUrl,
-          );
-          return `URI="${resolved ?? uri}"`;
-        }),
-      );
-      continue;
-    }
-
-    if (trimmed && !trimmed.startsWith('#')) {
-      output.push(
-        toManifestUri(
-          `${directLiveBase}/${encodeURIComponent(trimmed)}`,
-          requestBaseUrl,
-        ) ?? line,
-      );
-      continue;
-    }
-
-    output.push(line);
+    output.push(rewriteDirectManifestUri(line, directLiveBase, requestBaseUrl));
   }
 
   while (output.length > 0 && output.at(-1) === '') {
@@ -238,6 +215,23 @@ export function buildPublicDirectRootManifest(
   }
   output.push('');
   return output.join('\n');
+}
+
+function rewriteDirectManifestUri(
+  line: string,
+  base: string,
+  requestBaseUrl: string,
+): string {
+  const trimmed = line.trim();
+  const resolveUri = (uri: string) =>
+    toManifestUri(`${base}/${encodeURIComponent(uri)}`, requestBaseUrl) ?? uri;
+  if (trimmed.startsWith('#EXT-X-MEDIA:')) {
+    return line.replace(
+      /URI="([^"\r\n]+)"/g,
+      (_match, uri: string) => `URI="${resolveUri(uri)}"`,
+    );
+  }
+  return trimmed && !trimmed.startsWith('#') ? resolveUri(trimmed) : line;
 }
 
 function removeManifestAttribute(line: string, attribute: string): string {

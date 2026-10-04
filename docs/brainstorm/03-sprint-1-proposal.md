@@ -86,7 +86,7 @@
 ## Success Criteria
 
 - [ ] Password reset flow works E2E: user requests reset via email, receives token, sets new password, can log in
-- [ ] All protected API endpoints have appropriate guards (`JwtAuthGuard`, `AdminGuard`, `TorrentAccessGuard`)
+- [ ] All protected API endpoints have appropriate guards (`JwtAuthGuard`, `AdminGuard`)
 - [ ] Server fails to start if `JWT_SECRET` is default value or `CORS_ORIGIN` is `*` in production mode
 - [ ] All API endpoints return structured `ApiErrorResponse` with `statusCode`, `message`, `error`, `path`
 - [ ] React error boundaries catch component crashes and show fallback UI

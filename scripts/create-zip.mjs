@@ -1,3 +1,4 @@
+import { assertPublicDirectory } from './release/public-policy.mjs';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -8,6 +9,8 @@ const sourcePackageJson = JSON.parse(
 );
 const artifactsDir = path.resolve('artifacts');
 const zipPath = path.join(artifactsDir, `${sourcePackageJson.name}-deploy.zip`);
+
+await assertPublicDirectory(path.resolve('deploy'));
 
 await mkdir(artifactsDir, { recursive: true });
 

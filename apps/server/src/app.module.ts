@@ -17,8 +17,6 @@ import { DashboardModule } from './domains/dashboard/dashboard.module';
 import { AddonsModule } from './domains/addons/addons.module';
 import { LifecycleModule } from './domains/lifecycle/lifecycle.module';
 import { OptionalIntegrationsModule } from './domains/core/optional-integrations.module';
-// CORE_ONLY_VERIFICATION:BEGIN downloader-builtin import
-// CORE_ONLY_VERIFICATION:END downloader-builtin import
 import { LocalMediaIntegrationModule } from './domains/media/local-media-integration.module';
 import { UpdatesModule } from './domains/updates/updates.module';
 import { setWebStaticCacheHeaders } from './domains/core/infrastructure/http/web-static-cache-headers';
@@ -46,8 +44,6 @@ import { setWebStaticCacheHeaders } from './domains/core/infrastructure/http/web
     OptionalIntegrationsModule,
     LocalMediaIntegrationModule,
     LifecycleModule,
-    // CORE_ONLY_VERIFICATION:BEGIN downloader-builtin registration
-    // CORE_ONLY_VERIFICATION:END downloader-builtin registration
     AddonsModule,
     UpdatesModule,
   ],

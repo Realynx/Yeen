@@ -16,8 +16,6 @@ export default defineConfig([
     'artifacts/**',
     'deploy/**',
     'node_modules/**',
-    'private/**/node_modules/**',
-    'private/**/prebuilt/**',
     '**/coverage/**',
     '**/dist/**',
   ]),
@@ -26,7 +24,6 @@ export default defineConfig([
       'eslint.config.mjs',
       'scripts/**/*.{js,mjs,cjs}',
       'deployment/**/*.{js,mjs,cjs}',
-      'private/yeen-downloader-addon/scripts/**/*.{js,mjs,cjs}',
     ],
     extends: [eslint.configs.recommended],
     languageOptions: {
@@ -40,7 +37,6 @@ export default defineConfig([
   {
     files: [
       'packages/**/*.{ts,tsx}',
-      'private/yeen-downloader-addon/src/**/*.{ts,tsx}',
     ],
     extends: [
       eslint.configs.recommended,
