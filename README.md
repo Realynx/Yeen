@@ -8,7 +8,7 @@ serves the web app and API, with desktop, phone, TV, and Android clients.
 On a systemd Linux host with `curl` and `sudo`, copy and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-github-release.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-github-release.sh | sudo bash
 ```
 
 The installer downloads the latest published release, verifies its SHA-256,
@@ -20,7 +20,7 @@ unattended setup, upgrades, and rollback. A published GitHub Release is required
 To choose a media drive, forward installer options after `--`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-github-release.sh | sudo bash -s -- -- --media-library /mnt/media
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-github-release.sh | sudo bash -s -- -- --media-library /mnt/media
 ```
 
 Open the browser URL you entered (normally `http://<server-address>:4000`), sign
@@ -40,13 +40,13 @@ Install your container engine and its Compose provider first. Replace `/mnt/medi
 with an existing media drive or directory, then run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-compose.sh | bash -s -- --engine docker --media /mnt/media
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-compose.sh | bash -s -- --engine docker --media /mnt/media
 ```
 
 For Podman, use the same Compose file and installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-compose.sh | bash -s -- --engine podman --media /mnt/media
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-compose.sh | bash -s -- --engine podman --media /mnt/media
 ```
 
 The script creates `~/yeen/compose.yml` and a restricted `~/yeen/.env`, generates

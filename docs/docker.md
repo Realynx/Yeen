@@ -12,7 +12,7 @@ add-ons, `.env`, JWT secret, or administrator password.
 ## Quick install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-compose.sh | bash -s -- --engine docker --media /mnt/media
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-compose.sh | bash -s -- --engine docker --media /mnt/media
 ```
 
 Use `--engine podman` for Podman. Both engines use the same Compose specification;

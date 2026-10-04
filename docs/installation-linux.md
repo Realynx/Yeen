@@ -10,7 +10,7 @@ same release archive and install native npm dependencies on the host.
 The default installation path downloads and verifies the latest GitHub Release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-github-release.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-github-release.sh | sudo bash
 ```
 
 Requires curl, sudo, and systemd. The bootstrap installs unzip if missing;

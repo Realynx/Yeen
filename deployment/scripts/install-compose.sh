@@ -5,7 +5,7 @@ ENGINE=docker
 MEDIA_PATH=/srv/media
 INSTALL_DIRECTORY="$HOME/yeen"
 REPOSITORY=Realynx/Yeen
-REF="${YEEN_COMPOSE_REF:-main}"
+REF="${YEEN_COMPOSE_REF:-master}"
 
 fail() { printf '[yeen-compose] %s\n' "$*" >&2; exit 1; }
 

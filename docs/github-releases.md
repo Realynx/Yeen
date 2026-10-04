@@ -45,7 +45,7 @@ To follow the newest published release, use the bootstrap from the default
 branch and omit `--version`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/main/deployment/scripts/install-github-release.sh \
+curl -fsSL https://raw.githubusercontent.com/Realynx/Yeen/master/deployment/scripts/install-github-release.sh \
   | sudo bash -s -- --repo Realynx/Yeen
 ```
 
